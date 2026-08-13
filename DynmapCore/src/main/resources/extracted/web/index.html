@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+	<title>AirMap</title>
+
+	<meta charset="utf-8" />
+	<meta name="keywords" content="minecraft, map, dynamic" />
+	<meta name="description" content="AirMap - based on Dynmap®" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+	<!-- These 2 lines make us fullscreen on apple mobile products - remove if you don't like that -->
+	<!--<meta name="apple-mobile-web-app-capable" content="yes" /> <- deprecated-->
+	<meta name="mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+	<link rel="apple-touch-icon" sizes="180x180" href="images/icons/apple-touch-icon.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="images/icons/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="images/icons/favicon-16x16.png">
+	<link rel="manifest" href="images/icons/site.webmanifest">
+	<link rel="mask-icon" href="images/icons/safari-pinned-tab.svg" color="#000000">
+	<link rel="shortcut icon" href="images/icons/favicon.ico">
+	<meta name="msapplication-TileColor" content="#000000">
+	<meta name="msapplication-config" content="images/icons/browserconfig.xml">
+	<meta name="theme-color" content="#000000">
+
+	<script defer type="application/javascript" src="js/jquery-4.0.0.js?_=${airmapversion}-${buildnumber}"></script>
+	<!-- not in use ? test it <script type="text/javascript" src="js/jquery-migrate-4.0.2.js?_=${airmapversion}-${buildnumber}"></script>-->
+	<link rel="preload stylesheet" type="text/css" href="css/leaflet.css?_=${airmapversion}-${buildnumber}" as="style" crossorigin="anonymous"/>
+	<script defer type="application/javascript" src="js/leaflet.js?_=${airmapversion}-${buildnumber}" rel="preload" as="script" crossorigin="anonymous"></script>
+	<!-- FOr source debug on leaflet 	<script type="text/javascript" src="js/leaflet-src.js?_=${airmapversion}-${buildnumber}"></script> -->
+	<!--<link rel="stylesheet" type="text/css" href="css/embedded.css" media="screen" />-->
+	<link rel="stylesheet" type="text/css" href="css/standalone.css?_=${airmapversion}-${buildnumber}" media="screen" />
+	<link rel="stylesheet" type="text/css" href="css/dynmap_style.css?_=${airmapversion}-${buildnumber}" media="screen" />
+	<!-- <link rel="stylesheet" type="text/css" href="css/override.css" media="screen" /> -->
+
+	<script defer type="application/javascript" src="js/custommarker.js?_=${airmapversion}-${buildnumber}"></script>
+
+	<script defer type="application/javascript" src="js/dynmaputils.js?_=${airmapversion}-${buildnumber}"></script>
+	<script defer type="application/javascript" src="js/sidebarutils.js?_=${airmapversion}-${buildnumber}"></script>
+
+	<script defer type="application/javascript" src="version.js?_=${airmapversion}-${buildnumber}"></script>
+	<script defer type="application/javascript" src="js/jquery.json.js?_=${airmapversion}-${buildnumber}"></script>
+	<script defer type="application/javascript" src="js/jquery.mousewheel.js?_=${airmapversion}-${buildnumber}"></script>
+	<script defer type="application/javascript" src="js/minecraft.js?_=${airmapversion}-${buildnumber}"></script>
+	<script defer type="application/javascript" src="js/map.js?_=${airmapversion}-${buildnumber}"></script>
+	<script defer type="application/javascript" src="js/hdmap.js?_=${airmapversion}-${buildnumber}"></script>
+	<script defer type="application/javascript" src="standalone/config.js?_=${airmapversion}-${buildnumber}"></script>
+
+	<script type="application/javascript">
+		window.addEventListener('DOMContentLoaded', function() {
+			window.dynmap = new DynMap(jQuery.extend({
+				container: jQuery('#mcmap')
+			}, config));
+		});
+	</script>
+
+</head>
+<body>
+<noscript>
+ For full functionality of this site it is necessary to enable JavaScript.
+ Here are the <a href="http://www.enable-javascript.com/" target="_blank">
+ instructions how to enable JavaScript in your web browser</a>.
+</noscript>
+
+	<div id="airmap-product"><strong>AirMap</strong><span>based on Dynmap®</span></div>
+	<div id="mcmap"></div>
+</body>
+</html>

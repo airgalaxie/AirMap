@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "org.dynmap.fabric_26_1_2.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "BiomeEffectsAccessor",
+    "MinecraftServerMixin",
+    "ProtoChunkMixin",
+    "ServerPlayerEntityMixin",
+    "WorldChunkMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

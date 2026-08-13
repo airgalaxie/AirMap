@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "airmap",
+  "provides": [
+    "dynmap"
+  ],
+  "version": "${version}",
+  "name": "AirMap",
+  "description": "AirMap - an independent project based on Dynmap®",
+  "authors": [
+    "mikeprimm",
+    "LolHens",
+    "i509VCB"
+  ],
+  "license": "Apache-2.0",
+  "icon": "assets/dynmap/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "org.dynmap.fabric_26_1_2.DynmapMod"
+    ]
+  },
+  "mixins": [
+    "dynmap.mixins.json"
+  ],
+  "accessWidener" : "dynmap.accesswidener",
+
+  "depends": {
+    "fabricloader": ">=${fabricLoaderVersion}",
+    "fabric-api": ">=${fabricApiVersion}",
+    "minecraft": "${minecraftVersion}"
+  }
+}
