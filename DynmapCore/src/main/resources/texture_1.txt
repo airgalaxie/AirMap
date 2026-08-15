@@ -4764,6 +4764,10 @@ block:id=%melon_stem,patch0=0:melon_stem,blockcolor=foliagebiome,transparency=TR
 [1.21-]block:id=%waxed_oxidized_copper_bulb,state=powered:true/lit:false,patch0=0:oxidized_copper_bulb_powered,patch1=0:oxidized_copper_bulb_powered,patch2=0:oxidized_copper_bulb_powered,patch3=0:oxidized_copper_bulb_powered,patch4=0:oxidized_copper_bulb_powered,patch5=0:oxidized_copper_bulb_powered,stdrot=true
 [1.21-]block:id=%waxed_oxidized_copper_bulb,state=powered:false/lit:false,patch0=0:oxidized_copper_bulb,patch1=0:oxidized_copper_bulb,patch2=0:oxidized_copper_bulb,patch3=0:oxidized_copper_bulb,patch4=0:oxidized_copper_bulb,patch5=0:oxidized_copper_bulb,stdrot=true
 
+# ----------------------------------------------------------------------
+# Minecraft 1.21.4
+# ----------------------------------------------------------------------
+
 #Pale moss
 [1.21.4-]texture:id=pale_moss_block
 [1.21.4-]block:id=pale_moss_block,allfaces=0:pale_moss_block,stdrot=true
@@ -5186,6 +5190,140 @@ block:id=%melon_stem,patch0=0:melon_stem,blockcolor=foliagebiome,transparency=TR
 [1.21.4-]texture:id=closed_eyeblossom,filename=assets/minecraft/textures/block/closed_eyeblossom.png,xcount=1,ycount=1
 [1.21.4-]block:id=%closed_eyeblossom,patch0=0:closed_eyeblossom,transparency=TRANSPARENT,stdrot=true
 [1.21.4-]block:id=%potted_closed_eyeblossom,patch0=0:flower_pot,patch1=0:dirt,patch2=0:closed_eyeblossom,transparency=TRANSPARENT,stdrot=true
+
+# Resin Clump
+[1.21.4-]texture:id=resin_clump,filename=assets/minecraft/textures/block/resin_clump.png,xcount=1,ycount=1
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
+
+# ----------------------------------------------------------------------
+# Minecraft 1.21.5
+# ----------------------------------------------------------------------
+
+# Leaf litter
+[1.21.5-]texture:id=leaf_litter,filename=assets/minecraft/textures/block/leaf_litter.png,xcount=1,ycount=1
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:1/facing:north,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:2/facing:north,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:3/facing:north,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:4/facing:north,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:1/facing:south,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:2/facing:south,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:3/facing:south,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:4/facing:south,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:1/facing:west,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:2/facing:west,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:3/facing:west,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:4/facing:west,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:1/facing:east,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:2/facing:east,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:3/facing:east,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%leaf_litter,state=segment_amount:4/facing:east,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
+
+# Firefly bush
+[1.21.5-]texture:id=firefly_bush,filename=assets/minecraft/textures/block/firefly_bush.png,xcount=1,ycount=1
+[1.21.5-]texture:id=firefly_bush_emissive,filename=assets/minecraft/textures/block/firefly_bush_emissive.png,xcount=1,ycount=1
+[1.21.5-]block:id=%firefly_bush,patch0=0:firefly_bush,patch1=0:firefly_bush_emissive,transparency=TRANSPARENT,stdrot=true
+
+# Cactus Flower
+[1.21.5-]texture:id=cactus_flower,filename=assets/minecraft/textures/block/cactus_flower.png,xcount=1,ycount=1
+[1.21.5-]block:id=%cactus_flower,patch0=0:cactus_flower,transparency=TRANSPARENT,stdrot=true
+
+# Dry grass
+[1.21.5-]texture:id=short_dry_grass,filename=assets/minecraft/textures/block/short_dry_grass.png,xcount=1,ycount=1
+[1.21.5-]texture:id=tall_dry_grass,filename=assets/minecraft/textures/block/tall_dry_grass.png,xcount=1,ycount=1
+[1.21.5-]block:id=%short_dry_grass,patch0=0:short_dry_grass,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%tall_dry_grass,patch0=0:tall_dry_grass,transparency=TRANSPARENT,stdrot=true
+
+# Wildflowers
+[1.21.5-]texture:id=wildflowers,filename=assets/minecraft/textures/block/wildflowers.png,xcount=1,ycount=1
+[1.21.5-]texture:id=wildflowers_stem,filename=assets/minecraft/textures/block/wildflowers_stem.png,xcount=1,ycount=1
+[1.21.5-]block:id=%wildflowers,state=facing:north/flower_amount:1,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:north/flower_amount:2,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:north/flower_amount:3,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:north/flower_amount:4,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:south/flower_amount:1,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:south/flower_amount:2,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:south/flower_amount:3,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:south/flower_amount:4,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:west/flower_amount:1,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:west/flower_amount:2,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:west/flower_amount:3,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:west/flower_amount:4,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:east/flower_amount:1,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:east/flower_amount:2,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:east/flower_amount:3,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+[1.21.5-]block:id=%wildflowers,state=facing:east/flower_amount:4,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
+
+# Bush
+[1.21.5-]texture:id=bush,filename=assets/minecraft/textures/block/bush.png,xcount=1,ycount=1
+[1.21.5-]block:id=%bush,patch0=2000:bush,transparency=TRANSPARENT,stdrot=true
+
+# ----------------------------------------------------------------------
+# Minecraft 1.21.6
+# ----------------------------------------------------------------------
+
 #Dried Ghast
 [1.21.6-]texture:id=dried_ghast_hydration_0_bottom,filename=assets/minecraft/textures/block/dried_ghast_hydration_0_bottom.png,xcount=1,ycount=1
 [1.21.6-]texture:id=dried_ghast_hydration_0_east,filename=assets/minecraft/textures/block/dried_ghast_hydration_0_east.png,xcount=1,ycount=1
@@ -5231,6 +5369,10 @@ block:id=%melon_stem,patch0=0:melon_stem,blockcolor=foliagebiome,transparency=TR
 [1.21.6-]block:id=%dried_ghast,state=hydration:1/facing:east,patch0=0:dried_ghast_hydration_1_top,patch1=0:dried_ghast_hydration_1_bottom,patch2=0:dried_ghast_hydration_1_east,patch3=0:dried_ghast_hydration_1_south,patch4=0:dried_ghast_hydration_1_west,patch5=0:dried_ghast_hydration_1_north,patch6=0:dried_ghast_hydration_1_tentacles,transparency=SEMITRANSPARENT,stdrot=true
 [1.21.6-]block:id=%dried_ghast,state=hydration:2/facing:east,patch0=0:dried_ghast_hydration_2_top,patch1=0:dried_ghast_hydration_2_bottom,patch2=0:dried_ghast_hydration_2_east,patch3=0:dried_ghast_hydration_2_south,patch4=0:dried_ghast_hydration_2_west,patch5=0:dried_ghast_hydration_2_north,patch6=0:dried_ghast_hydration_2_tentacles,transparency=SEMITRANSPARENT,stdrot=true
 [1.21.6-]block:id=%dried_ghast,state=hydration:3/facing:east,patch0=0:dried_ghast_hydration_3_top,patch1=0:dried_ghast_hydration_3_bottom,patch2=0:dried_ghast_hydration_3_east,patch3=0:dried_ghast_hydration_3_south,patch4=0:dried_ghast_hydration_3_west,patch5=0:dried_ghast_hydration_3_north,patch6=0:dried_ghast_hydration_3_tentacles,transparency=SEMITRANSPARENT,stdrot=true
+
+# ----------------------------------------------------------------------
+# Minecraft 1.21.9
+# ----------------------------------------------------------------------
 
 # Shelfs
 [1.21.9-]texture:id=acacia_shelf,filename=assets/minecraft/textures/block/acacia_shelf.png,xcount=1,ycount=1
@@ -5933,131 +6075,6 @@ block:id=%melon_stem,patch0=0:melon_stem,blockcolor=foliagebiome,transparency=TR
 [1.21.9-]block:id=%iron_chain,state=axis:y,patch0=0:iron_chain,transparency=TRANSPARENT,stdrot=true
 [1.21.9-]block:id=%iron_chain,state=axis:z,patch0=0:iron_chain,transparency=TRANSPARENT,stdrot=true
 
-# Resin Clump
-[1.21.4-]texture:id=resin_clump,filename=assets/minecraft/textures/block/resin_clump.png,xcount=1,ycount=1
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:true/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:true/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:true/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:true/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:true/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:true/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:true/up:false/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:true/up:false/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:false/south:true/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:false/south:false/north:true,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:false/south:true/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:true/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:true/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:true/east:false/up:false/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-[1.21.4-]block:id=%resin_clump,state=west:false/east:false/up:false/down:false/south:false/north:false,patch0=0:resin_clump,transparency=SEMITRANSPARENT,stdrot=true
-
-# Leaf litter
-[1.21.5-]texture:id=leaf_litter,filename=assets/minecraft/textures/block/leaf_litter.png,xcount=1,ycount=1
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:1/facing:north,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:2/facing:north,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:3/facing:north,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:4/facing:north,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:1/facing:south,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:2/facing:south,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:3/facing:south,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:4/facing:south,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:1/facing:west,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:2/facing:west,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:3/facing:west,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:4/facing:west,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:1/facing:east,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:2/facing:east,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:3/facing:east,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%leaf_litter,state=segment_amount:4/facing:east,patch0=1000:leaf_litter,transparency=TRANSPARENT,stdrot=true
-
-# Firefly bush
-[1.21.5-]texture:id=firefly_bush,filename=assets/minecraft/textures/block/firefly_bush.png,xcount=1,ycount=1
-[1.21.5-]texture:id=firefly_bush_emissive,filename=assets/minecraft/textures/block/firefly_bush_emissive.png,xcount=1,ycount=1
-[1.21.5-]block:id=%firefly_bush,patch0=0:firefly_bush,patch1=0:firefly_bush_emissive,transparency=TRANSPARENT,stdrot=true
-
-# Cactus Flower
-[1.21.5-]texture:id=cactus_flower,filename=assets/minecraft/textures/block/cactus_flower.png,xcount=1,ycount=1
-[1.21.5-]block:id=%cactus_flower,patch0=0:cactus_flower,transparency=TRANSPARENT,stdrot=true
-
-# Dry grass
-[1.21.5-]texture:id=short_dry_grass,filename=assets/minecraft/textures/block/short_dry_grass.png,xcount=1,ycount=1
-[1.21.5-]texture:id=tall_dry_grass,filename=assets/minecraft/textures/block/tall_dry_grass.png,xcount=1,ycount=1
-[1.21.5-]block:id=%short_dry_grass,patch0=0:short_dry_grass,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%tall_dry_grass,patch0=0:tall_dry_grass,transparency=TRANSPARENT,stdrot=true
-
-# Wildflowers
-[1.21.5-]texture:id=wildflowers,filename=assets/minecraft/textures/block/wildflowers.png,xcount=1,ycount=1
-[1.21.5-]texture:id=wildflowers_stem,filename=assets/minecraft/textures/block/wildflowers_stem.png,xcount=1,ycount=1
-[1.21.5-]block:id=%wildflowers,state=facing:north/flower_amount:1,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:north/flower_amount:2,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:north/flower_amount:3,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:north/flower_amount:4,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:south/flower_amount:1,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:south/flower_amount:2,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:south/flower_amount:3,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:south/flower_amount:4,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:west/flower_amount:1,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:west/flower_amount:2,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:west/flower_amount:3,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:west/flower_amount:4,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:east/flower_amount:1,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:east/flower_amount:2,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:east/flower_amount:3,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-[1.21.5-]block:id=%wildflowers,state=facing:east/flower_amount:4,patch0=0:wildflowers,patch1=2000:wildflowers_stem,transparency=TRANSPARENT,stdrot=true
-
-# Bush
-[1.21.5-]texture:id=bush,filename=assets/minecraft/textures/block/bush.png,xcount=1,ycount=1
-[1.21.5-]block:id=%bush,patch0=2000:bush,transparency=TRANSPARENT,stdrot=true
-
 # Copper chests
 [1.21.9-]texturefile:id=copper_chest,filename=assets/minecraft/textures/entity/chest/copper.png,format=CHEST
 [1.21.9-]texturefile:id=bigcopperchest,filename=assets/minecraft/textures/entity/chest/copper_double.png,format=BIGCHEST
@@ -6075,11 +6092,29 @@ block:id=%melon_stem,patch0=0:melon_stem,blockcolor=foliagebiome,transparency=TR
 [1.21.9-]texturefile:id=bigooxidizedcopperchest,filename=assets/minecraft/textures/entity/chest/copper_oxidized_double.png,format=BIGCHEST
 [1.21.9-]block:id=oxidized_copper_chest,id=waxed_oxidized_copper_chest,data=*,patch0=0:oxidized_copper_chest,patch1=1:oxidized_copper_chest,patch2=2:oxidized_copper_chest,patch3=3:oxidized_copper_chest,patch4=4:oxidized_copper_chest,patch5=5:oxidized_copper_chest,patch6=0:bigooxidizedcopperchest,patch7=1:bigooxidizedcopperchest,patch8=2:bigooxidizedcopperchest,patch9=3:bigooxidizedcopperchest,patch10=4:bigooxidizedcopperchest,patch11=5:bigooxidizedcopperchest,patch12=6:bigooxidizedcopperchest,patch13=7:bigooxidizedcopperchest,patch14=8:bigooxidizedcopperchest,patch15=9:bigooxidizedcopperchest
 
-# Tiny Takeover 26.1
+# Copper golem statues
+[1.21.9-]texturefile:id=copper_golem_statue,filename=assets/minecraft/textures/entity/copper_golem/copper_golem.png,xcount=4,ycount=4,format=CUSTOM,tile0=6:15/8:6,tile1=14:15/8:6,tile2=0:21/6:6,tile3=6:21/8:6,tile4=14:21/6:6,tile5=20:21/8:6,tile6=10:0/8:10,tile7=18:0/8:10,tile8=0:10/10:5,tile9=10:10/8:5,tile10=18:10/10:5,tile11=28:10/8:5,tile12=58:0/2:2,tile13=60:0/2:2,tile14=56:2/2:3,tile15=58:2/2:3,tile16=60:2/2:3,tile17=62:2/2:3,tile18=39:8/2:2,tile19=41:8/2:2,tile20=37:10/2:4,tile21=39:10/2:4,tile22=41:10/2:4,tile23=43:10/2:4,tile24=41:0/4:4,tile25=45:0/4:4,tile26=37:4/4:4,tile27=41:4/4:4,tile28=45:4/4:4,tile29=49:4/4:4,tile30=40:16/3:4,tile31=43:16/3:4,tile32=36:20/4:10,tile33=40:20/3:10,tile34=43:20/4:10,tile35=47:20/3:10,tile36=54:16/3:4,tile37=57:16/3:4,tile38=50:20/4:10,tile39=54:20/3:10,tile40=57:20/4:10,tile41=61:20/3:10,tile42=4:27/4:4,tile43=8:27/4:4,tile44=0:31/4:5,tile45=4:31/4:5,tile46=8:31/4:5,tile47=12:31/4:5,tile48=20:27/4:4,tile49=24:27/4:4,tile50=16:31/4:5,tile51=20:31/4:5,tile52=24:31/4:5,tile53=28:31/4:5,tile54=9:19/6:6,tile55=15:19/6:6,tile56=3:25/6:1,tile57=9:25/6:1,tile58=15:25/6:1,tile59=21:25/6:1,tile60=6:18/8:3,tile61=14:18/8:3,tile62=3:21/3:6,tile63=14:21/3:6,tile64=17:21/8:6
+[1.21.9-]texturefile:id=exposed_copper_golem_statue,filename=assets/minecraft/textures/entity/copper_golem/copper_golem_exposed.png,xcount=4,ycount=4,format=CUSTOM,tile0=6:15/8:6,tile1=14:15/8:6,tile2=0:21/6:6,tile3=6:21/8:6,tile4=14:21/6:6,tile5=20:21/8:6,tile6=10:0/8:10,tile7=18:0/8:10,tile8=0:10/10:5,tile9=10:10/8:5,tile10=18:10/10:5,tile11=28:10/8:5,tile12=58:0/2:2,tile13=60:0/2:2,tile14=56:2/2:3,tile15=58:2/2:3,tile16=60:2/2:3,tile17=62:2/2:3,tile18=39:8/2:2,tile19=41:8/2:2,tile20=37:10/2:4,tile21=39:10/2:4,tile22=41:10/2:4,tile23=43:10/2:4,tile24=41:0/4:4,tile25=45:0/4:4,tile26=37:4/4:4,tile27=41:4/4:4,tile28=45:4/4:4,tile29=49:4/4:4,tile30=40:16/3:4,tile31=43:16/3:4,tile32=36:20/4:10,tile33=40:20/3:10,tile34=43:20/4:10,tile35=47:20/3:10,tile36=54:16/3:4,tile37=57:16/3:4,tile38=50:20/4:10,tile39=54:20/3:10,tile40=57:20/4:10,tile41=61:20/3:10,tile42=4:27/4:4,tile43=8:27/4:4,tile44=0:31/4:5,tile45=4:31/4:5,tile46=8:31/4:5,tile47=12:31/4:5,tile48=20:27/4:4,tile49=24:27/4:4,tile50=16:31/4:5,tile51=20:31/4:5,tile52=24:31/4:5,tile53=28:31/4:5,tile54=9:19/6:6,tile55=15:19/6:6,tile56=3:25/6:1,tile57=9:25/6:1,tile58=15:25/6:1,tile59=21:25/6:1,tile60=6:18/8:3,tile61=14:18/8:3,tile62=3:21/3:6,tile63=14:21/3:6,tile64=17:21/8:6
+[1.21.9-]texturefile:id=weathered_copper_golem_statue,filename=assets/minecraft/textures/entity/copper_golem/copper_golem_weathered.png,xcount=4,ycount=4,format=CUSTOM,tile0=6:15/8:6,tile1=14:15/8:6,tile2=0:21/6:6,tile3=6:21/8:6,tile4=14:21/6:6,tile5=20:21/8:6,tile6=10:0/8:10,tile7=18:0/8:10,tile8=0:10/10:5,tile9=10:10/8:5,tile10=18:10/10:5,tile11=28:10/8:5,tile12=58:0/2:2,tile13=60:0/2:2,tile14=56:2/2:3,tile15=58:2/2:3,tile16=60:2/2:3,tile17=62:2/2:3,tile18=39:8/2:2,tile19=41:8/2:2,tile20=37:10/2:4,tile21=39:10/2:4,tile22=41:10/2:4,tile23=43:10/2:4,tile24=41:0/4:4,tile25=45:0/4:4,tile26=37:4/4:4,tile27=41:4/4:4,tile28=45:4/4:4,tile29=49:4/4:4,tile30=40:16/3:4,tile31=43:16/3:4,tile32=36:20/4:10,tile33=40:20/3:10,tile34=43:20/4:10,tile35=47:20/3:10,tile36=54:16/3:4,tile37=57:16/3:4,tile38=50:20/4:10,tile39=54:20/3:10,tile40=57:20/4:10,tile41=61:20/3:10,tile42=4:27/4:4,tile43=8:27/4:4,tile44=0:31/4:5,tile45=4:31/4:5,tile46=8:31/4:5,tile47=12:31/4:5,tile48=20:27/4:4,tile49=24:27/4:4,tile50=16:31/4:5,tile51=20:31/4:5,tile52=24:31/4:5,tile53=28:31/4:5,tile54=9:19/6:6,tile55=15:19/6:6,tile56=3:25/6:1,tile57=9:25/6:1,tile58=15:25/6:1,tile59=21:25/6:1,tile60=6:18/8:3,tile61=14:18/8:3,tile62=3:21/3:6,tile63=14:21/3:6,tile64=17:21/8:6
+[1.21.9-]texturefile:id=oxidized_copper_golem_statue,filename=assets/minecraft/textures/entity/copper_golem/copper_golem_oxidized.png,xcount=4,ycount=4,format=CUSTOM,tile0=6:15/8:6,tile1=14:15/8:6,tile2=0:21/6:6,tile3=6:21/8:6,tile4=14:21/6:6,tile5=20:21/8:6,tile6=10:0/8:10,tile7=18:0/8:10,tile8=0:10/10:5,tile9=10:10/8:5,tile10=18:10/10:5,tile11=28:10/8:5,tile12=58:0/2:2,tile13=60:0/2:2,tile14=56:2/2:3,tile15=58:2/2:3,tile16=60:2/2:3,tile17=62:2/2:3,tile18=39:8/2:2,tile19=41:8/2:2,tile20=37:10/2:4,tile21=39:10/2:4,tile22=41:10/2:4,tile23=43:10/2:4,tile24=41:0/4:4,tile25=45:0/4:4,tile26=37:4/4:4,tile27=41:4/4:4,tile28=45:4/4:4,tile29=49:4/4:4,tile30=40:16/3:4,tile31=43:16/3:4,tile32=36:20/4:10,tile33=40:20/3:10,tile34=43:20/4:10,tile35=47:20/3:10,tile36=54:16/3:4,tile37=57:16/3:4,tile38=50:20/4:10,tile39=54:20/3:10,tile40=57:20/4:10,tile41=61:20/3:10,tile42=4:27/4:4,tile43=8:27/4:4,tile44=0:31/4:5,tile45=4:31/4:5,tile46=8:31/4:5,tile47=12:31/4:5,tile48=20:27/4:4,tile49=24:27/4:4,tile50=16:31/4:5,tile51=20:31/4:5,tile52=24:31/4:5,tile53=28:31/4:5,tile54=9:19/6:6,tile55=15:19/6:6,tile56=3:25/6:1,tile57=9:25/6:1,tile58=15:25/6:1,tile59=21:25/6:1,tile60=6:18/8:3,tile61=14:18/8:3,tile62=3:21/3:6,tile63=14:21/3:6,tile64=17:21/8:6
+[1.21.9-]block:id=%copper_golem_statue,id=%waxed_copper_golem_statue,patch0=0:copper_golem_statue,patch1=1:copper_golem_statue,patch2=2:copper_golem_statue,patch3=3:copper_golem_statue,patch4=4:copper_golem_statue,patch5=5:copper_golem_statue,patch6=6:copper_golem_statue,patch7=7:copper_golem_statue,patch8=8:copper_golem_statue,patch9=9:copper_golem_statue,patch10=10:copper_golem_statue,patch11=11:copper_golem_statue,patch12=12:copper_golem_statue,patch13=13:copper_golem_statue,patch14=14:copper_golem_statue,patch15=15:copper_golem_statue,patch16=16:copper_golem_statue,patch17=17:copper_golem_statue,patch18=18:copper_golem_statue,patch19=19:copper_golem_statue,patch20=20:copper_golem_statue,patch21=21:copper_golem_statue,patch22=22:copper_golem_statue,patch23=23:copper_golem_statue,patch24=24:copper_golem_statue,patch25=25:copper_golem_statue,patch26=26:copper_golem_statue,patch27=27:copper_golem_statue,patch28=28:copper_golem_statue,patch29=29:copper_golem_statue,patch30=30:copper_golem_statue,patch31=31:copper_golem_statue,patch32=32:copper_golem_statue,patch33=33:copper_golem_statue,patch34=34:copper_golem_statue,patch35=35:copper_golem_statue,patch36=36:copper_golem_statue,patch37=37:copper_golem_statue,patch38=38:copper_golem_statue,patch39=39:copper_golem_statue,patch40=40:copper_golem_statue,patch41=41:copper_golem_statue,patch42=42:copper_golem_statue,patch43=43:copper_golem_statue,patch44=44:copper_golem_statue,patch45=45:copper_golem_statue,patch46=46:copper_golem_statue,patch47=47:copper_golem_statue,patch48=48:copper_golem_statue,patch49=49:copper_golem_statue,patch50=50:copper_golem_statue,patch51=51:copper_golem_statue,patch52=52:copper_golem_statue,patch53=53:copper_golem_statue,patch54=54:copper_golem_statue,patch55=55:copper_golem_statue,patch56=56:copper_golem_statue,patch57=57:copper_golem_statue,patch58=58:copper_golem_statue,patch59=59:copper_golem_statue,patch60=60:copper_golem_statue,patch61=61:copper_golem_statue,patch62=62:copper_golem_statue,patch63=63:copper_golem_statue,patch64=64:copper_golem_statue,transparency=TRANSPARENT
+[1.21.9-]block:id=%exposed_copper_golem_statue,id=%waxed_exposed_copper_golem_statue,patch0=0:exposed_copper_golem_statue,patch1=1:exposed_copper_golem_statue,patch2=2:exposed_copper_golem_statue,patch3=3:exposed_copper_golem_statue,patch4=4:exposed_copper_golem_statue,patch5=5:exposed_copper_golem_statue,patch6=6:exposed_copper_golem_statue,patch7=7:exposed_copper_golem_statue,patch8=8:exposed_copper_golem_statue,patch9=9:exposed_copper_golem_statue,patch10=10:exposed_copper_golem_statue,patch11=11:exposed_copper_golem_statue,patch12=12:exposed_copper_golem_statue,patch13=13:exposed_copper_golem_statue,patch14=14:exposed_copper_golem_statue,patch15=15:exposed_copper_golem_statue,patch16=16:exposed_copper_golem_statue,patch17=17:exposed_copper_golem_statue,patch18=18:exposed_copper_golem_statue,patch19=19:exposed_copper_golem_statue,patch20=20:exposed_copper_golem_statue,patch21=21:exposed_copper_golem_statue,patch22=22:exposed_copper_golem_statue,patch23=23:exposed_copper_golem_statue,patch24=24:exposed_copper_golem_statue,patch25=25:exposed_copper_golem_statue,patch26=26:exposed_copper_golem_statue,patch27=27:exposed_copper_golem_statue,patch28=28:exposed_copper_golem_statue,patch29=29:exposed_copper_golem_statue,patch30=30:exposed_copper_golem_statue,patch31=31:exposed_copper_golem_statue,patch32=32:exposed_copper_golem_statue,patch33=33:exposed_copper_golem_statue,patch34=34:exposed_copper_golem_statue,patch35=35:exposed_copper_golem_statue,patch36=36:exposed_copper_golem_statue,patch37=37:exposed_copper_golem_statue,patch38=38:exposed_copper_golem_statue,patch39=39:exposed_copper_golem_statue,patch40=40:exposed_copper_golem_statue,patch41=41:exposed_copper_golem_statue,patch42=42:exposed_copper_golem_statue,patch43=43:exposed_copper_golem_statue,patch44=44:exposed_copper_golem_statue,patch45=45:exposed_copper_golem_statue,patch46=46:exposed_copper_golem_statue,patch47=47:exposed_copper_golem_statue,patch48=48:exposed_copper_golem_statue,patch49=49:exposed_copper_golem_statue,patch50=50:exposed_copper_golem_statue,patch51=51:exposed_copper_golem_statue,patch52=52:exposed_copper_golem_statue,patch53=53:exposed_copper_golem_statue,patch54=54:exposed_copper_golem_statue,patch55=55:exposed_copper_golem_statue,patch56=56:exposed_copper_golem_statue,patch57=57:exposed_copper_golem_statue,patch58=58:exposed_copper_golem_statue,patch59=59:exposed_copper_golem_statue,patch60=60:exposed_copper_golem_statue,patch61=61:exposed_copper_golem_statue,patch62=62:exposed_copper_golem_statue,patch63=63:exposed_copper_golem_statue,patch64=64:exposed_copper_golem_statue,transparency=TRANSPARENT
+[1.21.9-]block:id=%weathered_copper_golem_statue,id=%waxed_weathered_copper_golem_statue,patch0=0:weathered_copper_golem_statue,patch1=1:weathered_copper_golem_statue,patch2=2:weathered_copper_golem_statue,patch3=3:weathered_copper_golem_statue,patch4=4:weathered_copper_golem_statue,patch5=5:weathered_copper_golem_statue,patch6=6:weathered_copper_golem_statue,patch7=7:weathered_copper_golem_statue,patch8=8:weathered_copper_golem_statue,patch9=9:weathered_copper_golem_statue,patch10=10:weathered_copper_golem_statue,patch11=11:weathered_copper_golem_statue,patch12=12:weathered_copper_golem_statue,patch13=13:weathered_copper_golem_statue,patch14=14:weathered_copper_golem_statue,patch15=15:weathered_copper_golem_statue,patch16=16:weathered_copper_golem_statue,patch17=17:weathered_copper_golem_statue,patch18=18:weathered_copper_golem_statue,patch19=19:weathered_copper_golem_statue,patch20=20:weathered_copper_golem_statue,patch21=21:weathered_copper_golem_statue,patch22=22:weathered_copper_golem_statue,patch23=23:weathered_copper_golem_statue,patch24=24:weathered_copper_golem_statue,patch25=25:weathered_copper_golem_statue,patch26=26:weathered_copper_golem_statue,patch27=27:weathered_copper_golem_statue,patch28=28:weathered_copper_golem_statue,patch29=29:weathered_copper_golem_statue,patch30=30:weathered_copper_golem_statue,patch31=31:weathered_copper_golem_statue,patch32=32:weathered_copper_golem_statue,patch33=33:weathered_copper_golem_statue,patch34=34:weathered_copper_golem_statue,patch35=35:weathered_copper_golem_statue,patch36=36:weathered_copper_golem_statue,patch37=37:weathered_copper_golem_statue,patch38=38:weathered_copper_golem_statue,patch39=39:weathered_copper_golem_statue,patch40=40:weathered_copper_golem_statue,patch41=41:weathered_copper_golem_statue,patch42=42:weathered_copper_golem_statue,patch43=43:weathered_copper_golem_statue,patch44=44:weathered_copper_golem_statue,patch45=45:weathered_copper_golem_statue,patch46=46:weathered_copper_golem_statue,patch47=47:weathered_copper_golem_statue,patch48=48:weathered_copper_golem_statue,patch49=49:weathered_copper_golem_statue,patch50=50:weathered_copper_golem_statue,patch51=51:weathered_copper_golem_statue,patch52=52:weathered_copper_golem_statue,patch53=53:weathered_copper_golem_statue,patch54=54:weathered_copper_golem_statue,patch55=55:weathered_copper_golem_statue,patch56=56:weathered_copper_golem_statue,patch57=57:weathered_copper_golem_statue,patch58=58:weathered_copper_golem_statue,patch59=59:weathered_copper_golem_statue,patch60=60:weathered_copper_golem_statue,patch61=61:weathered_copper_golem_statue,patch62=62:weathered_copper_golem_statue,patch63=63:weathered_copper_golem_statue,patch64=64:weathered_copper_golem_statue,transparency=TRANSPARENT
+[1.21.9-]block:id=%oxidized_copper_golem_statue,id=%waxed_oxidized_copper_golem_statue,patch0=0:oxidized_copper_golem_statue,patch1=1:oxidized_copper_golem_statue,patch2=2:oxidized_copper_golem_statue,patch3=3:oxidized_copper_golem_statue,patch4=4:oxidized_copper_golem_statue,patch5=5:oxidized_copper_golem_statue,patch6=6:oxidized_copper_golem_statue,patch7=7:oxidized_copper_golem_statue,patch8=8:oxidized_copper_golem_statue,patch9=9:oxidized_copper_golem_statue,patch10=10:oxidized_copper_golem_statue,patch11=11:oxidized_copper_golem_statue,patch12=12:oxidized_copper_golem_statue,patch13=13:oxidized_copper_golem_statue,patch14=14:oxidized_copper_golem_statue,patch15=15:oxidized_copper_golem_statue,patch16=16:oxidized_copper_golem_statue,patch17=17:oxidized_copper_golem_statue,patch18=18:oxidized_copper_golem_statue,patch19=19:oxidized_copper_golem_statue,patch20=20:oxidized_copper_golem_statue,patch21=21:oxidized_copper_golem_statue,patch22=22:oxidized_copper_golem_statue,patch23=23:oxidized_copper_golem_statue,patch24=24:oxidized_copper_golem_statue,patch25=25:oxidized_copper_golem_statue,patch26=26:oxidized_copper_golem_statue,patch27=27:oxidized_copper_golem_statue,patch28=28:oxidized_copper_golem_statue,patch29=29:oxidized_copper_golem_statue,patch30=30:oxidized_copper_golem_statue,patch31=31:oxidized_copper_golem_statue,patch32=32:oxidized_copper_golem_statue,patch33=33:oxidized_copper_golem_statue,patch34=34:oxidized_copper_golem_statue,patch35=35:oxidized_copper_golem_statue,patch36=36:oxidized_copper_golem_statue,patch37=37:oxidized_copper_golem_statue,patch38=38:oxidized_copper_golem_statue,patch39=39:oxidized_copper_golem_statue,patch40=40:oxidized_copper_golem_statue,patch41=41:oxidized_copper_golem_statue,patch42=42:oxidized_copper_golem_statue,patch43=43:oxidized_copper_golem_statue,patch44=44:oxidized_copper_golem_statue,patch45=45:oxidized_copper_golem_statue,patch46=46:oxidized_copper_golem_statue,patch47=47:oxidized_copper_golem_statue,patch48=48:oxidized_copper_golem_statue,patch49=49:oxidized_copper_golem_statue,patch50=50:oxidized_copper_golem_statue,patch51=51:oxidized_copper_golem_statue,patch52=52:oxidized_copper_golem_statue,patch53=53:oxidized_copper_golem_statue,patch54=54:oxidized_copper_golem_statue,patch55=55:oxidized_copper_golem_statue,patch56=56:oxidized_copper_golem_statue,patch57=57:oxidized_copper_golem_statue,patch58=58:oxidized_copper_golem_statue,patch59=59:oxidized_copper_golem_statue,patch60=60:oxidized_copper_golem_statue,patch61=61:oxidized_copper_golem_statue,patch62=62:oxidized_copper_golem_statue,patch63=63:oxidized_copper_golem_statue,patch64=64:oxidized_copper_golem_statue,transparency=TRANSPARENT
+
+# ----------------------------------------------------------------------
+# Minecraft 26.1
+# ----------------------------------------------------------------------
+
+# Tiny Takeover
 [26.1-]block:id=golden_dandelion,patch0-1=0:dandelion,transparency=TRANSPARENT
 [26.1-]block:id=potted_golden_dandelion,patch0-5=0:flower_pot,patch6=0:dirt,patch7-8=0:dandelion,transparency=TRANSPARENT
 
-# Chaos Cubed 26.2
+# ----------------------------------------------------------------------
+# Minecraft 26.2
+# ----------------------------------------------------------------------
+
+# Chaos Cubed
 [26.2-]texture:id=quartz_pillar,filename=assets/minecraft/textures/block/quartz_pillar_side.png
 [26.2-]texture:id=purpur_pillar,filename=assets/minecraft/textures/block/purpur_pillar_side.png
 
@@ -6153,7 +6188,11 @@ block:id=%melon_stem,patch0=0:melon_stem,blockcolor=foliagebiome,transparency=TR
 [26.2-]block:id=sulfur_spike,state=vertical_direction:up/thickness:base,patch0-1=0:sulfur_spike_up_base,transparency=TRANSPARENT
 [26.2-]block:id=sulfur_spike,state=vertical_direction:down/thickness:base,patch0-1=0:sulfur_spike_down_base,transparency=TRANSPARENT
 
-# The Expedition 26.3
+# ----------------------------------------------------------------------
+# Minecraft 26.3
+# ----------------------------------------------------------------------
+
+# The Expedition
 [26.3-]texture:id=red_poplar_leaves,filename=assets/minecraft/textures/block/red_poplar_leaves.png,xcount=1,ycount=1
 [26.3-]texture:id=orange_poplar_leaves,filename=assets/minecraft/textures/block/orange_poplar_leaves.png,xcount=1,ycount=1
 [26.3-]texture:id=yellow_poplar_leaves,filename=assets/minecraft/textures/block/yellow_poplar_leaves.png,xcount=1,ycount=1
