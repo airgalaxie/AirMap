@@ -89,7 +89,7 @@ storage:
   #prefix: ""
   #flags: "?allowReconnect=true"
   ### Optional MariaDB JDBC driver loading.
-  #driver-jar: "drivers/mariadb-java-client-3.5.9.jar"
+  #driver-jar: "drivers/mariadb-java-client-3.5.10.jar"
   #driver-class: "org.mariadb.jdbc.Driver"
 
 ### ---------------------------------------------------------------------------

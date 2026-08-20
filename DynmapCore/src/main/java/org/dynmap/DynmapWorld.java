@@ -69,7 +69,7 @@ public abstract class DynmapWorld {
     protected DynmapWorld(String wname, int worldheight, int sealevel, int miny) {
         this.raw_wname = WorldIdentifier.canonicalId(wname);
         this.wname = this.raw_wname;
-        this.storageId = WorldIdentifier.storageId(this.wname);
+        this.storageId = this.wname;
         this.hashcode = this.wname.hashCode();
         this.title = wname;
         this.worldheight = worldheight;
