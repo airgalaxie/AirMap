@@ -65,7 +65,7 @@ componentconstructors['timeofdayclock'] = function(dynmap, configuration) {
 			}
 		};
 		
-		$(dynmap).bind('worldupdated', function(event, update) {
+		$(dynmap).on('worldupdated', function(event, update) {
 			setTime(update.servertime);
 		});
 	}
@@ -88,11 +88,11 @@ componentconstructors['timeofdayclock'] = function(dynmap, configuration) {
 				.addClass(cls + daynight);
 		};
 		
-		$(dynmap).bind('worldupdated', function(event, update) {
+		$(dynmap).on('worldupdated', function(event, update) {
 			setWeather(update.hasStorm, update.isThundering, update.servertime);
 		});
 	}
-	$(dynmap).bind('worldupdated', function(event, update) {
+	$(dynmap).on('worldupdated', function(event, update) {
 		var sunangle;
 		var time = update.servertime;
 		

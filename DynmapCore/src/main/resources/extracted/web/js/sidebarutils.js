@@ -11,7 +11,7 @@ var SidebarUtils = {
 			.append(
 				content
 					.addClass('content')
-					.bind('mousewheel', function(event, delta){
+					.on('mousewheel', function(event, delta){
 						this.scrollTop -= (delta * 10);
 						event.preventDefault();
 					})
@@ -38,7 +38,7 @@ var SidebarUtils = {
 		
 		return $('<div/>')
 			.addClass(cls)
-			.bind('mousedown mouseup touchstart touchend', function (event) {
+			.on('mousedown mouseup touchstart touchend', function (event) {
 		    	if (event.type == 'mousedown' || event.type == 'touchstart') {
 					target.animate({"scrollTop": amount}, 3000, 'linear');
 		    	} else {

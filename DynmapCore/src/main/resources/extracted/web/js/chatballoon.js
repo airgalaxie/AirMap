@@ -5,19 +5,19 @@ componentconstructors['chatballoon'] = function(dynmap, configuration) {
 		return;
 	
 	me.chatpopups = {};
-	$(dynmap).bind('playerupdated', function(event, player) {
+	$(dynmap).on('playerupdated', function(event, player) {
 		var popup = me.chatpopups[player.account];
 		if (popup) {
 			var markerPosition = dynmap.getProjection().fromLocationToLatLng(player.location);
 			popup.layer.setLatLng(markerPosition);
 		}
 	});
-	$(dynmap).bind('worldchanged', function() {
+	$(dynmap).on('worldchanged', function() {
 		$.each(me.chatpopups, function(name, popup) {
 			popup.close();
 		});
 	});
-	$(dynmap).bind('chat', function(event, message) {
+	$(dynmap).on('chat', function(event, message) {
 		if (message.source != 'player') {
 			return;
 		}

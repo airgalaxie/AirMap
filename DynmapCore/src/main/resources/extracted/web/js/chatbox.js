@@ -34,7 +34,7 @@ componentconstructors['chatbox'] = function(dynmap, configuration) {
 		messagelist.scrollTop(messagelist.scrollHeight());
 	};
 	
-	$(dynmap).bind('playerjoin', function(event, playername) {
+	$(dynmap).on('playerjoin', function(event, playername) {
 		if ((dynmap.options.joinmessage.length > 0) && (playername.length > 0)) {
 			addrow($('<div/>')
 				.addClass('messagerow')
@@ -49,7 +49,7 @@ componentconstructors['chatbox'] = function(dynmap, configuration) {
 		}
 	});
 	
-	$(dynmap).bind('playerquit', function(event, playername) {
+	$(dynmap).on('playerquit', function(event, playername) {
 		if ((dynmap.options.quitmessage.length > 0) && (playername.length > 0)) {
 			addrow($('<div/>')
 				.addClass('messagerow')
@@ -64,7 +64,7 @@ componentconstructors['chatbox'] = function(dynmap, configuration) {
 		}
 	});
 	
-	$(dynmap).bind('chat', function(event, message) {
+	$(dynmap).on('chat', function(event, message) {
 		var playerName = message.name;
 		var playerAccount = message.account;
 		var messageRow = $('<div/>')

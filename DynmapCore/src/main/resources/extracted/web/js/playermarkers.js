@@ -1,6 +1,6 @@
 componentconstructors['playermarkers'] = function(dynmap, configuration) {
 	var me = this;
-	$(dynmap).bind('playeradded', function(event, player) {
+	$(dynmap).on('playeradded', function(event, player) {
 		// Create the player-marker.
 		var markerPosition = dynmap.getProjection().fromLocationToLatLng(player.location);
 		player.marker = new L.CustomMarker(markerPosition, { elementCreator: function() {
@@ -90,11 +90,11 @@ componentconstructors['playermarkers'] = function(dynmap, configuration) {
 		if(dynmap.world === player.location.world)
 			dynmap.playermarkergroup.addLayer(player.marker);
 	});
-	$(dynmap).bind('playerremoved', function(event, player) {
+	$(dynmap).on('playerremoved', function(event, player) {
 		// Remove the marker.
 		dynmap.playermarkergroup.removeLayer(player.marker);
 	});
-	$(dynmap).bind('playerupdated', function(event, player) {
+	$(dynmap).on('playerupdated', function(event, player) {
 		if(dynmap.world === player.location.world) {
 			// Add if needed
 			dynmap.playermarkergroup.addLayer(player.marker);
@@ -119,7 +119,7 @@ componentconstructors['playermarkers'] = function(dynmap, configuration) {
 		}
 	});
     // Remove marker on start of map change
-	$(dynmap).bind('mapchanging', function(event) {
+	$(dynmap).on('mapchanging', function(event) {
 		var name;
 		for(name in dynmap.players) {
 			var player = dynmap.players[name];
@@ -128,7 +128,7 @@ componentconstructors['playermarkers'] = function(dynmap, configuration) {
 		}
 	});
     // Remove marker on start of map change
-	$(dynmap).bind('mapchanging', function(event) {
+	$(dynmap).on('mapchanging', function(event) {
 		var name;
 		for(name in dynmap.players) {
 			var player = dynmap.players[name];
@@ -136,7 +136,7 @@ componentconstructors['playermarkers'] = function(dynmap, configuration) {
 		}
 	});
     // Add markers back on end of map change
-	$(dynmap).bind('mapchanged', function(event) {
+	$(dynmap).on('mapchanged', function(event) {
 		var name;
 		for(name in dynmap.players) {
 			var player = dynmap.players[name];

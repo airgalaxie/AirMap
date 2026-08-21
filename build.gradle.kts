@@ -1,9 +1,4 @@
-val airMapBuildNumber = System.getenv("BUILD_NUMBER")
-    ?.trim()
-    ?.takeIf(String::isNotEmpty)
-    ?: "local"
-
-fun gitRevision(vararg command: String): String? = try {
+fun gitOutput(vararg command: String): String? = try {
     providers.exec {
         commandLine(*command)
         isIgnoreExitValue = true
@@ -12,14 +7,16 @@ fun gitRevision(vararg command: String): String? = try {
     null
 }
 
-val airMapRevision = System.getenv("GIT_COMMIT")
+val airMapRevision = gitOutput("git", "rev-parse", "--short", "HEAD")
+    ?: gitOutput("git", "--git-dir=${rootDir}/.airmap-local-git/.git", "rev-parse", "--short", "HEAD")
+    ?: System.getenv("GIT_COMMIT")
     ?.trim()
     ?.takeIf(String::isNotEmpty)
     ?.take(7)
-    ?: gitRevision("git", "--git-dir=${rootDir}/.airmap-local-git/.git", "rev-parse", "--short=7", "HEAD")
-    ?: gitRevision("git", "rev-parse", "--short=7", "HEAD")
     ?: "unknown"
+val airMapDirty = gitOutput("git", "status", "--porcelain", "--untracked-files=normal") != null
+val airMapBuildMetadata = airMapRevision + if (airMapDirty) "-dirty" else ""
 
 project.ext.set("airMapVersion", libs.versions.airmap.get())
-project.ext.set("buildNumber", airMapBuildNumber)
+project.ext.set("buildNumber", airMapBuildMetadata)
 project.ext.set("revision", airMapRevision)

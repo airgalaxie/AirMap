@@ -12,8 +12,8 @@ base {
 }
 
 val minecraftVersion = libs.versions.minecraft.get()
-val localBuildNumber = rootProject.ext.get("buildNumber").toString()
-val fabricJarName = "AirMap-${project.version}+build.$localBuildNumber-fabric.jar"
+val buildMetadata = rootProject.ext.get("buildNumber").toString()
+val fabricJarName = "AirMap-${project.version}+$buildMetadata-fabric.jar"
 
 dependencies {
     // Minecraft-Skelett laden

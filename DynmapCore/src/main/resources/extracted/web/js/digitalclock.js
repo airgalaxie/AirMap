@@ -43,7 +43,7 @@ componentconstructors['digitalclock'] = function(dynmap, configuration) {
 		}
 	};
 
-	$(dynmap).bind('worldupdated', function(event, update) {
+	$(dynmap).on('worldupdated', function(event, update) {
 		setTime(update.servertime);
 	});
 };

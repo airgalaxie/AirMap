@@ -3316,6 +3316,11 @@ public class MarkerAPIImpl implements MarkerAPI, Event.Listener<DynmapWorld> {
      * Write markers file for given world
      */
     private void writeMarkersFile(final String wname) {
+        DynmapWorld markerWorld = core.getWorld(wname);
+        if (markerWorld == null) {
+            Log.warning("Cannot write marker data for unknown world '" + wname + "'");
+            return;
+        }
         Map<String, Object> markerdata = new HashMap<String, Object>();
                 
         final Map<String, Object> worlddata = new HashMap<String, Object>();
@@ -3337,7 +3342,7 @@ public class MarkerAPIImpl implements MarkerAPI, Event.Listener<DynmapWorld> {
             }
             HashMap<String, Object> markers = new HashMap<String, Object>();
             for(Marker m : ms.getMarkers()) {
-                if(m.getWorld().equals(wname) == false) continue;
+                if(core.getWorld(m.getWorld()) != markerWorld) continue;
                 
                 HashMap<String, Object> mdata = new HashMap<String, Object>();
                 mdata.put("x", m.getX());
@@ -3365,7 +3370,7 @@ public class MarkerAPIImpl implements MarkerAPI, Event.Listener<DynmapWorld> {
 
             HashMap<String, Object> areas = new HashMap<String, Object>();
             for(AreaMarker m : ms.getAreaMarkers()) {
-                if(m.getWorld().equals(wname) == false) continue;
+                if(core.getWorld(m.getWorld()) != markerWorld) continue;
                 
                 HashMap<String, Object> mdata = new HashMap<String, Object>();
                 int cnt = m.getCornerCount();
@@ -3401,7 +3406,7 @@ public class MarkerAPIImpl implements MarkerAPI, Event.Listener<DynmapWorld> {
 
             HashMap<String, Object> lines = new HashMap<String, Object>();
             for(PolyLineMarker m : ms.getPolyLineMarkers()) {
-                if(m.getWorld().equals(wname) == false) continue;
+                if(core.getWorld(m.getWorld()) != markerWorld) continue;
                 
                 HashMap<String, Object> mdata = new HashMap<String, Object>();
                 int cnt = m.getCornerCount();
@@ -3436,7 +3441,7 @@ public class MarkerAPIImpl implements MarkerAPI, Event.Listener<DynmapWorld> {
 
             HashMap<String, Object> circles = new HashMap<String, Object>();
             for(CircleMarker m : ms.getCircleMarkers()) {
-                if(m.getWorld().equals(wname) == false) continue;
+                if(core.getWorld(m.getWorld()) != markerWorld) continue;
                 
                 HashMap<String, Object> mdata = new HashMap<String, Object>();
                 mdata.put("x", m.getCenterX());
@@ -3468,11 +3473,6 @@ public class MarkerAPIImpl implements MarkerAPI, Event.Listener<DynmapWorld> {
         }
         worlddata.put("sets", markerdata);
 
-        DynmapWorld markerWorld = core.getWorld(wname);
-        if (markerWorld == null) {
-            Log.warning("Cannot write marker data for unknown world '" + wname + "'");
-            return;
-        }
         String markerStorageId = markerWorld.getStorageId();
         MapManager.scheduleDelayedJob(new Runnable() {
             public void run() {

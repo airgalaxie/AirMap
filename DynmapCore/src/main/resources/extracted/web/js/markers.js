@@ -352,7 +352,7 @@ componentconstructors['markers'] = function(dynmap, configuration) {
 			return new L.Polygon(llist, style);
 	}
 	
-	$(dynmap).bind('component.markers', function(event, msg) {
+	$(dynmap).on('component.markers', function(event, msg) {
 		if(msg.msg == 'markerupdated') {
 			var set = dynmapmarkersets[msg.set];
 			if (!set) return;
@@ -454,7 +454,7 @@ componentconstructors['markers'] = function(dynmap, configuration) {
 	});
 	
     // Remove markers on start of map change
-	$(dynmap).bind('mapchanging', function(event) {
+	$(dynmap).on('mapchanging', function(event) {
 		$.each(dynmapmarkersets, function(setname, set) {
 			$.each(set.markers, function(mname, marker) {
 				deleteMarker(set, marker);
@@ -471,7 +471,7 @@ componentconstructors['markers'] = function(dynmap, configuration) {
 		});
 	});
     // Recreate markers after map change
-	$(dynmap).bind('mapchanged', function(event) {
+	$(dynmap).on('mapchanged', function(event) {
 		var zoom = dynmap.map.getZoom();
 		$.each(dynmapmarkersets, function(setname, set) {
 			$.each(set.markers, function(mname, marker) {
@@ -488,7 +488,7 @@ componentconstructors['markers'] = function(dynmap, configuration) {
 			});
 		});
 	});
-	$(dynmap).bind('zoomchanged', function(event) {
+	$(dynmap).on('zoomchanged', function(event) {
 		var zoom = dynmap.map.getZoom();
 		$.each(dynmapmarkersets, function(setname, set) {
 			$.each(set.markers, function(mname, marker) {
@@ -507,7 +507,7 @@ componentconstructors['markers'] = function(dynmap, configuration) {
 	});
 
 	// Load markers for new world
-	$(dynmap).bind('worldchanged', function(event) {
+	$(dynmap).on('worldchanged', function(event) {
 		loadmarkers(this.world.name);
 	});
 	

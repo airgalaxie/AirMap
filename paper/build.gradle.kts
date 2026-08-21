@@ -11,7 +11,7 @@ description = "dynmap"
 version = libs.versions.airmap.get()
 
 val minecraftVersion = libs.versions.minecraft.get()
-val localBuildNumber = rootProject.ext.get("buildNumber").toString()
+val buildMetadata = rootProject.ext.get("buildNumber").toString()
 
 val paperApiVersion = Regex("""^\d{1,2}\.[1-9][0-9]*(?:\.[1-9][0-9]*)?""")
     .find(libs.versions.paper.get())
@@ -33,7 +33,7 @@ tasks {
     processResources {
         filesMatching("paper-plugin.yml") {
             expand(
-                "buildnumber" to localBuildNumber,
+                "buildnumber" to buildMetadata,
                 "version" to project.version
             )
         }
@@ -51,7 +51,7 @@ tasks {
         }
 
         destinationDirectory = rootProject.layout.projectDirectory.dir("target")
-        archiveFileName = "AirMap-${project.version}+build.$localBuildNumber-paper.jar"
+        archiveFileName = "AirMap-${project.version}+$buildMetadata-paper.jar"
     }
 
     artifacts {

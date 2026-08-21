@@ -64,11 +64,11 @@ Changes include:
 The shared core and API modules are internal building blocks. End-user platform JARs are written to `target/` using version-derived names:
 
 ```text
-AirMap-<version>+build.<build-number>-paper.jar
-AirMap-<version>+build.<build-number>-fabric.jar
+AirMap-<version>+<rev>-paper.jar
+AirMap-<version>+<rev>-fabric.jar
 ```
 
-Without an externally supplied `BUILD_NUMBER`, local builds use `build.local`. Numbered build sequences are assigned externally and start with `BUILD_NUMBER=1`; Gradle does not update a counter in the source tree. The source revision is recorded separately from the build number using the actual Git commit when available.
+`<rev>` is Git's short form of the current commit. Builds with staged, unstaged, or untracked files append `-dirty` after the revision. The AirMap product version remains defined exclusively in `gradle/libs.versions.toml`.
 
 ## World identity and storage
 

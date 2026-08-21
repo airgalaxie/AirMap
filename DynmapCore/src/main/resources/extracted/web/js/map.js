@@ -7,17 +7,17 @@ var map = null;	// Leaflet assumes top-level 'map'...
 
 componentconstructors['testcomponent'] = function(dynmap, configuration) {
 	console.log('initialize');
-	$(dynmap).bind('worldchanged', function() { console.log('worldchanged'); });
-	$(dynmap).bind('mapchanging', function() { console.log('mapchanging'); });
-	$(dynmap).bind('mapchanged', function() { console.log('mapchanged'); });
-	$(dynmap).bind('zoomchanged', function() { console.log('zoomchanged'); });
-	$(dynmap).bind('worldupdating', function() { console.log('worldupdating'); });
-	$(dynmap).bind('worldupdate', function() { console.log('worldupdate'); });
-	$(dynmap).bind('worldupdated', function() { console.log('worldupdated'); });
-	$(dynmap).bind('worldupdatefailed', function() { console.log('worldupdatefailed'); });
-	$(dynmap).bind('playeradded', function() { console.log('playeradded'); });
-	$(dynmap).bind('playerremoved', function() { console.log('playerremoved'); });
-	$(dynmap).bind('playerupdated', function() { console.log('playerupdated'); });
+	$(dynmap).on('worldchanged', function() { console.log('worldchanged'); });
+	$(dynmap).on('mapchanging', function() { console.log('mapchanging'); });
+	$(dynmap).on('mapchanged', function() { console.log('mapchanged'); });
+	$(dynmap).on('zoomchanged', function() { console.log('zoomchanged'); });
+	$(dynmap).on('worldupdating', function() { console.log('worldupdating'); });
+	$(dynmap).on('worldupdate', function() { console.log('worldupdate'); });
+	$(dynmap).on('worldupdated', function() { console.log('worldupdated'); });
+	$(dynmap).on('worldupdatefailed', function() { console.log('worldupdatefailed'); });
+	$(dynmap).on('playeradded', function() { console.log('playeradded'); });
+	$(dynmap).on('playerremoved', function() { console.log('playerremoved'); });
+	$(dynmap).on('playerupdated', function() { console.log('playerupdated'); });
 };
 
 function DynMap(options) {
@@ -315,7 +315,7 @@ DynMap.prototype = {
 			me.updateSidebarHeight();
 		}
 		$(window).resize(upd);
-		$(dynmap).bind('playeradded playerremoved', upd);
+		$(dynmap).on('playeradded playerremoved', upd);
 		upd();
 		
 		// The Compass

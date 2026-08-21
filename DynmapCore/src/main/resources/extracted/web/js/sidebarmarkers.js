@@ -8,7 +8,7 @@ componentconstructors['sidebarmarkers'] = function(dynmap, configuration) {
 	
 	var me = this;
 	
-	$(dynmap).bind('markersupdated', function(event, markersets) {
+	$(dynmap).on('markersupdated', function(event, markersets) {
 		updateMarkers(markersets);
 	});
 	
