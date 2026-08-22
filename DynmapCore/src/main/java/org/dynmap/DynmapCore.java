@@ -43,7 +43,7 @@ import org.dynmap.hdmap.HDBlockStateTextureMap;
 import org.dynmap.hdmap.TexturePack;
 import org.dynmap.markers.MarkerAPI;
 import org.dynmap.markers.impl.MarkerAPIImpl;
-import org.dynmap.modsupport.ModSupportImpl;
+import org.dynmap.resources.MinecraftResourceProvider;
 import org.dynmap.renderer.DynmapBlockState;
 import org.dynmap.storage.MapStorage;
 import org.dynmap.storage.filetree.FileTreeMapStorage;
@@ -58,6 +58,13 @@ import org.dynmap.web.StaticFileWebServer;
 import org.yaml.snakeyaml.Yaml;
 
 public class DynmapCore implements DynmapCommonAPI {
+    private MinecraftResourceProvider minecraftResources;
+
+    public void setMinecraftResourceProvider(MinecraftResourceProvider provider) { minecraftResources = provider; }
+    public MinecraftResourceProvider getMinecraftResourceProvider() {
+        if (minecraftResources == null) throw new IllegalStateException("Minecraft resources were not provided by the platform");
+        return minecraftResources;
+    }
     private static final String MAIN_CONFIGURATION_FILE = "configuration.txt";
     private static final String MAIN_WEB_INDEX_FILE = "index.html";
     private static final String MAIN_WEB_INDEX_PATH = "web/" + MAIN_WEB_INDEX_FILE;
@@ -534,16 +541,11 @@ public class DynmapCore implements DynmapCommonAPI {
         blockmap = server.getBlockUniqueIDMap();
         itemmap = server.getItemUniqueIDMap();
        
-        /* Process mod support */
-        ModSupportImpl.complete(this.dataDirectory);
         // Finalize block state
         DynmapBlockState.finalizeBlockStates();
         /* Load block models */
         Log.verboseinfo("Loading models...");
         HDBlockModels.loadModels(this, configuration);
-        /* Load texture mappings */
-        Log.verboseinfo("Loading texture mappings...");
-        TexturePack.loadTextureMapping(this, configuration);
         
         /* Now, process worlds.txt - merge it in as an override of existing values (since it is only user supplied values) */
         File f = new File(dataDirectory, "worlds.txt");

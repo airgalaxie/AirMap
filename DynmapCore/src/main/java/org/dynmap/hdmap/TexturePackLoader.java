@@ -20,6 +20,7 @@ public class TexturePackLoader {
     private ZipFile zf;
     private File tpdir;
     private final DynmapServerInterface dsi;
+    private final DynmapCore core;
     private static final String RESOURCEPATH = "texturepacks/standard";
     
     private static class ModSource {
@@ -29,6 +30,7 @@ public class TexturePackLoader {
     private HashMap<String, ModSource> src_by_mod = new HashMap<>();
     
     public TexturePackLoader(File tp, DynmapCore core) {        
+        this.core = core;
         if (tp.isFile() && tp.canRead()) {
             try {
                 zf = new ZipFile(tp);
@@ -74,7 +76,12 @@ public class TexturePackLoader {
         } catch (IOException iox) {
         }
         // Fall through - load as resource from mod, if possible, or from jar
-        InputStream is = dsi.openResource(modname, rname);
+        InputStream is = null;
+        if (rname.startsWith("assets/")) {
+            String[] parts = rname.substring(7).split("/", 2);
+            if (parts.length == 2) try { is = core.getMinecraftResourceProvider().open(parts[0] + ":" + parts[1]); } catch (IOException ignored) { }
+        }
+        if (is == null) is = dsi.openResource(modname, rname);
         if (is != null) { 
             return new BufferedInputStream(is);
         }

@@ -3,7 +3,7 @@ package org.dynmap.modsupport;
 // Model for more direct translation of MC models
 //   All coordinates are 0-16 range per block, and 0-16 range for UV
 
-public interface ModelBlockModel extends BlockModel {
+public interface ModelBlockModel {
 	public enum SideRotation {
 		DEG0,	// zero degrees (default)
 		DEG90,	// 90 degrees

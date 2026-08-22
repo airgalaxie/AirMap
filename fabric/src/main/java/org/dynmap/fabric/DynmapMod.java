@@ -43,7 +43,6 @@ public class DynmapMod implements ModInitializer {
         ver = MOD_CONTAINER.getMetadata().getVersion().getFriendlyString();
 
         Log.setLogger(new FabricLogger());
-        org.dynmap.modsupport.ModSupportImpl.init();
         PlayerEvents.registerFabricEvents();
 
         plugin = new DynmapPlugin();
