@@ -213,6 +213,7 @@ public class TexturePack {
         CHEST,
         BIGCHEST,
         SIGN,
+        BLOCKSIGN,
         SKIN,
         SHULKER,
         CUSTOM,
@@ -988,6 +989,34 @@ public class TexturePack {
     }
 
     /**
+     * Make a sign face from the block texture layout introduced in Minecraft 26.3.
+     * Coordinates use the texture's nominal 16 by 16 UV space.
+     */
+    private void makeBlockSignImage(int img_id, int dest_idx, int src_x, int src_y, int width, int height) {
+        int mult = imgs[img_id].height / 16;
+        int[] tile = new int[12 * 12 * mult * mult];
+        copySubimageFromImage(img_id, src_x * mult, src_y * mult, 0, (12-height) * mult,
+                width * mult, height * mult, tile, 12 * mult);
+        int[] new_argb = new int[native_scale * native_scale];
+        scaleTerrainPNGSubImage(12 * mult, native_scale, tile, new_argb);
+        setTileARGB(dest_idx, new_argb);
+    }
+
+    private void patchBlockSignImages(int img, int sign_front, int sign_back, int sign_top, int sign_bottom,
+            int sign_left, int sign_right, int post_front, int post_back, int post_left, int post_right) {
+        makeBlockSignImage(img, sign_front, 0, 8, 12, 6);
+        makeBlockSignImage(img, sign_back, 0, 1, 12, 6);
+        makeBlockSignImage(img, sign_top, 0, 0, 12, 1);
+        makeBlockSignImage(img, sign_bottom, 0, 14, 12, 1);
+        makeBlockSignImage(img, sign_left, 12, 8, 1, 6);
+        makeBlockSignImage(img, sign_right, 12, 1, 1, 6);
+        makeBlockSignImage(img, post_front, 14, 8, 1, 7);
+        makeBlockSignImage(img, post_back, 14, 0, 1, 7);
+        makeBlockSignImage(img, post_left, 15, 8, 1, 7);
+        makeBlockSignImage(img, post_right, 15, 0, 1, 7);
+    }
+
+    /**
      * Make face image (based on skin layouts)
      * @param img_id - source image ID
      * @param dest_idx - destination tile index
@@ -1330,6 +1359,9 @@ public class TexturePack {
                 break;
             case SIGN:
                 patchSignImages(idx+IMG_CNT, dtf.tile_to_dyntile[TILEINDEX_SIGN_FRONT], dtf.tile_to_dyntile[TILEINDEX_SIGN_BACK], dtf.tile_to_dyntile[TILEINDEX_SIGN_TOP], dtf.tile_to_dyntile[TILEINDEX_SIGN_BOTTOM], dtf.tile_to_dyntile[TILEINDEX_SIGN_LEFTSIDE], dtf.tile_to_dyntile[TILEINDEX_SIGN_RIGHTSIDE], dtf.tile_to_dyntile[TILEINDEX_SIGN_POSTFRONT], dtf.tile_to_dyntile[TILEINDEX_SIGN_POSTBACK], dtf.tile_to_dyntile[TILEINDEX_SIGN_POSTLEFT], dtf.tile_to_dyntile[TILEINDEX_SIGN_POSTRIGHT]);
+                break;
+            case BLOCKSIGN:
+                patchBlockSignImages(idx+IMG_CNT, dtf.tile_to_dyntile[TILEINDEX_SIGN_FRONT], dtf.tile_to_dyntile[TILEINDEX_SIGN_BACK], dtf.tile_to_dyntile[TILEINDEX_SIGN_TOP], dtf.tile_to_dyntile[TILEINDEX_SIGN_BOTTOM], dtf.tile_to_dyntile[TILEINDEX_SIGN_LEFTSIDE], dtf.tile_to_dyntile[TILEINDEX_SIGN_RIGHTSIDE], dtf.tile_to_dyntile[TILEINDEX_SIGN_POSTFRONT], dtf.tile_to_dyntile[TILEINDEX_SIGN_POSTBACK], dtf.tile_to_dyntile[TILEINDEX_SIGN_POSTLEFT], dtf.tile_to_dyntile[TILEINDEX_SIGN_POSTRIGHT]);
                 break;
             case SKIN:
                 patchSkinImages(idx+IMG_CNT, dtf.tile_to_dyntile[TILEINDEX_SKIN_FACEFRONT], dtf.tile_to_dyntile[TILEINDEX_SKIN_FACELEFT], dtf.tile_to_dyntile[TILEINDEX_SKIN_FACERIGHT], dtf.tile_to_dyntile[TILEINDEX_SKIN_FACEBACK], dtf.tile_to_dyntile[TILEINDEX_SKIN_FACETOP], dtf.tile_to_dyntile[TILEINDEX_SKIN_FACEBOTTOM]);
@@ -2993,6 +3025,7 @@ public class TexturePack {
                 f.tile_to_dyntile = new int[TILEINDEX_BIGCHEST_COUNT]; /* 10 images for chest tile */
                 break;
             case SIGN:
+            case BLOCKSIGN:
                 f.tile_to_dyntile = new int[TILEINDEX_SIGN_COUNT]; /* 10 images for sign tile */
                 break;
             case SHULKER:
