@@ -9,13 +9,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
-import net.minecraft.server.MinecraftServer;
 import org.dynmap.resources.MinecraftResourceProvider;
 
-/** Exposes Minecraft's effective resource stack without interpreting model data. */
+/** Exposes mod resources above the Core-managed vanilla Minecraft client. */
 final class FabricMinecraftResources implements MinecraftResourceProvider {
     private final List<ModContainer> containers;
-    FabricMinecraftResources(MinecraftServer server) { this.containers = List.copyOf(FabricLoader.getInstance().getAllMods()); }
+    FabricMinecraftResources() {
+        this.containers = FabricLoader.getInstance().getAllMods().stream()
+                .filter(container -> !container.getMetadata().getId().equals("minecraft"))
+                .toList();
+    }
 
     @Override public Set<String> list(String pathPrefix, String suffix) {
         Set<String> result = new LinkedHashSet<>();

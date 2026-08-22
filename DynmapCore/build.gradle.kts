@@ -26,6 +26,7 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    inputs.property("minecraftResourceTestCache", providers.environmentVariable("AIRMAP_MINECRAFT_TEST_CACHE").orElse(""))
 }
 
 tasks {
@@ -33,6 +34,7 @@ tasks {
         inputs.property("airMapVersion", project.parent!!.ext.get("airMapVersion").toString())
         inputs.property("buildNumber", project.parent!!.ext.get("buildNumber").toString())
         inputs.property("dynmapCompatibilityVersion", project.version.toString())
+        inputs.property("minecraftVersion", libs.versions.minecraft.get())
         inputs.property("revision", project.parent!!.ext.get("revision").toString())
 
         from(jdbcDrivers) {
@@ -43,6 +45,7 @@ tasks {
         filesMatching(
             listOf(
             "core.yml",
+            "airmap-minecraft-version.properties",
             "lightings.txt",
             "perspectives.txt",
             "shaders.txt",
@@ -53,6 +56,7 @@ tasks {
             expand(
                     "buildnumber" to project.parent!!.ext.get("buildNumber").toString(),
                     "airmapversion" to project.parent!!.ext.get("airMapVersion").toString(),
+                    "minecraftversion" to libs.versions.minecraft.get(),
                     "revision" to project.parent!!.ext.get("revision").toString(),
                     "version" to project.version
             )

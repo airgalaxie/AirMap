@@ -416,7 +416,7 @@ public class DynmapPlugin {
         core.setMinecraftVersion(mcver);
         core.setDataFolder(dataDirectory);
         core.setServer(fserver);
-        core.setMinecraftResourceProvider(new FabricMinecraftResources(server));
+        core.setMinecraftResourceProvider(new FabricMinecraftResources());
         core.setTriggerDefault(TRIGGER_DEFAULTS);
         core.setBiomeNames(getBiomeNames());
 

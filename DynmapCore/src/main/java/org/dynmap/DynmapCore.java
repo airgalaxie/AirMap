@@ -44,6 +44,8 @@ import org.dynmap.hdmap.TexturePack;
 import org.dynmap.markers.MarkerAPI;
 import org.dynmap.markers.impl.MarkerAPIImpl;
 import org.dynmap.resources.MinecraftResourceProvider;
+import org.dynmap.resources.LayeredMinecraftResourceProvider;
+import org.dynmap.resources.MinecraftClientResources;
 import org.dynmap.renderer.DynmapBlockState;
 import org.dynmap.storage.MapStorage;
 import org.dynmap.storage.filetree.FileTreeMapStorage;
@@ -58,12 +60,34 @@ import org.dynmap.web.StaticFileWebServer;
 import org.yaml.snakeyaml.Yaml;
 
 public class DynmapCore implements DynmapCommonAPI {
-    private MinecraftResourceProvider minecraftResources;
+    private MinecraftResourceProvider platformMinecraftResources;
+    private volatile MinecraftResourceProvider minecraftResources;
 
-    public void setMinecraftResourceProvider(MinecraftResourceProvider provider) { minecraftResources = provider; }
+    /** Adds an optional platform/resource-pack layer above the Core-managed vanilla client. */
+    public synchronized void setMinecraftResourceProvider(MinecraftResourceProvider provider) {
+        platformMinecraftResources = provider;
+        minecraftResources = null;
+    }
     public MinecraftResourceProvider getMinecraftResourceProvider() {
-        if (minecraftResources == null) throw new IllegalStateException("Minecraft resources were not provided by the platform");
-        return minecraftResources;
+        MinecraftResourceProvider current = minecraftResources;
+        if (current != null) return current;
+        synchronized (this) {
+            if (minecraftResources != null) return minecraftResources;
+            try {
+                String configuredVersion = MinecraftClientResources.configuredVersion();
+                if (platformVersion != null && !configuredVersion.equals(platformVersion)) {
+                    throw new IllegalStateException("AirMap targets Minecraft " + configuredVersion + " but the platform reports " + platformVersion);
+                }
+                MinecraftResourceProvider vanilla = MinecraftClientResources.provision(
+                        dataDirectory.toPath().resolve("minecraft-resources"), configuredVersion);
+                minecraftResources = platformMinecraftResources == null
+                        ? vanilla
+                        : new LayeredMinecraftResourceProvider(platformMinecraftResources, vanilla);
+                return minecraftResources;
+            } catch (IOException exception) {
+                throw new IllegalStateException("Cannot provide Minecraft client resources", exception);
+            }
+        }
     }
     private static final String MAIN_CONFIGURATION_FILE = "configuration.txt";
     private static final String MAIN_WEB_INDEX_FILE = "index.html";
