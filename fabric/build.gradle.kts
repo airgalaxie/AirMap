@@ -39,7 +39,7 @@ dependencies {
 }
 
 loom {
-    accessWidenerPath.set(layout.projectDirectory.file("src/main/resources/dynmap.accesswidener"))
+    accessWidenerPath.set(layout.projectDirectory.file("src/main/resources/airmap.accesswidener"))
 }
 
 tasks.processResources {

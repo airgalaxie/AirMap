@@ -108,7 +108,7 @@ public class StaticFileWebServer {
 
         int maxSessions = Math.max(1, configuration.getInteger("max-sessions", DEFAULT_MAX_SESSIONS));
         executor = Executors.newFixedThreadPool(maxSessions, r -> {
-            Thread thread = new Thread(r, "DynmapWebServer");
+            Thread thread = new Thread(r, "AirMapWebServer");
             thread.setDaemon(true);
             return thread;
         });

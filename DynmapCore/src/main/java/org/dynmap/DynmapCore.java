@@ -1017,7 +1017,7 @@ public class DynmapCore implements DynmapCommonAPI {
     };
     
     private static final CommandInfo[] commandinfo = {
-        new CommandInfo("dynmap", "", "Control execution of dynmap."),
+        new CommandInfo("dynmap", "", "Control execution of AirMap."),
         new CommandInfo("dynmap", "hide", "Hides the current player from the map."),
         new CommandInfo("dynmap", "hide", "<player>", "Hides <player> on the map."),
         new CommandInfo("dynmap", "show", "Shows the current player on the map."),
@@ -1050,7 +1050,7 @@ public class DynmapCore implements DynmapCommonAPI {
         new CommandInfo("dynmap", "quiet", "Stop output from active jobs."),
         new CommandInfo("dynmap", "version", "Return version information"),
         new CommandInfo("dynmap", "dumpmemory", "Return mempry use information"),
-        new CommandInfo("dynmap", "url", "Return confgured URL for Dynmap web"),
+        new CommandInfo("dynmap", "url", "Return configured URL for AirMap web"),
         new CommandInfo("dmarker", "", "Manipulate map markers."),
         new CommandInfo("dmarker", "add", "<label>", "Add new marker with label <label> at current location (use double-quotes if spaces needed)."),
         new CommandInfo("dmarker", "add", "id:<id> <label>", "Add new marker with ID <id> at current location (use double-quotes if spaces needed)."),
@@ -1098,7 +1098,7 @@ public class DynmapCore implements DynmapCommonAPI {
         new CommandInfo("dmarker", "listcircles", "List details of all circles."),
         new CommandInfo("dmarker", "updatecircle", "<label> <arg>:<value> ...", "Update attributes of circle with label of <label>."),
         new CommandInfo("dmarker", "updatecircle", "id:<id> <arg>:<value> ...", "Update attributes of circle with ID of <id>."),
-        new CommandInfo("dmap", "", "List and modify dynmap configuration."),
+        new CommandInfo("dmap", "", "List and modify AirMap configuration."),
         new CommandInfo("dmap", "worldlist", "List all worlds configured (enabled or disabled)."),
         new CommandInfo("dmap", "worldset", "<world> enabled:<true|false>", "Enable or disable world named <world>."),
         new CommandInfo("dmap", "worldset", "<world> center:<x/y/z|here|default>", "Set map center for world <world> to ccoordinates <x>,<y>,<z>."),
@@ -1318,7 +1318,7 @@ public class DynmapCore implements DynmapCommonAPI {
 
     public boolean processCommand(DynmapCommandSender sender, String cmd, String commandLabel, String[] args) {
         if (mapManager == null) { // Initialization faulure
-            sender.sendMessage("Dynmap failed to initialize properly: commands not available");
+            sender.sendMessage("AirMap failed to initialize properly: commands not available");
             return true;
         }
         if(cmd.equalsIgnoreCase("dmarker")) {
@@ -1464,24 +1464,24 @@ public class DynmapCore implements DynmapCommonAPI {
                 if (args.length == 1) {
                     if(player != null && checkPlayerPermission(sender,"hide.self")) {
                         playerList.setVisible(player.getName(),false);
-                        sender.sendMessage("You are now hidden on Dynmap.");
+                        sender.sendMessage("You are now hidden on AirMap.");
                     }
                 } else if (checkPlayerPermission(sender,"hide.others")) {
                     for (int i = 1; i < args.length; i++) {
                         playerList.setVisible(args[i],false);
-                        sender.sendMessage(args[i] + " is now hidden on Dynmap.");
+                        sender.sendMessage(args[i] + " is now hidden on AirMap.");
                     }
                 }
             } else if (c.equals("show")) {
                 if (args.length == 1) {
                     if(player != null && checkPlayerPermission(sender,"show.self")) {
                         playerList.setVisible(player.getName(),true);
-                        sender.sendMessage("You are now visible on Dynmap.");
+                        sender.sendMessage("You are now visible on AirMap.");
                     }
                 } else if (checkPlayerPermission(sender,"show.others")) {
                     for (int i = 1; i < args.length; i++) {
                         playerList.setVisible(args[i],true);
-                        sender.sendMessage(args[i] + " is now visible on Dynmap.");
+                        sender.sendMessage(args[i] + " is now visible on AirMap.");
                     }
                 }
             } else if (c.equals("fullrender") && checkPlayerPermission(sender,"fullrender")) {
@@ -1559,9 +1559,9 @@ public class DynmapCore implements DynmapCommonAPI {
                     sender.sendMessage("World name is required");
                 }
             } /*else if (c.equals("reload") && checkPlayerPermission(sender, "reload")) {
-                sender.sendMessage("Reloading Dynmap...");
+                sender.sendMessage("Reloading AirMap...");
                 getServer().reload();
-                sender.sendMessage("Dynmap reloaded");
+                sender.sendMessage("AirMap reloaded");
             } */else if (c.equals("stats") && checkPlayerPermission(sender, "stats")) {
                 if(args.length == 1)
                     mapManager.printStats(sender, null);
@@ -1633,12 +1633,12 @@ public class DynmapCore implements DynmapCommonAPI {
                 sender.sendMessage("Implementation versions: core=" + this.getDynmapCoreVersion() + ", plugin=" + this.getDynmapPluginVersion());
             }
             else if (c.equals("url")) {
-            	if (publicURL.length() > 0) {
-            		sender.sendMessage("Dynmap URL for this server is: " + publicURL);
-            	}
-            	else {
-            		sender.sendMessage("URL of Dynmap not configured");
-            	}
+	                if (publicURL.length() > 0) {
+	                    sender.sendMessage("AirMap URL for this server is: " + publicURL);
+	                }
+	                else {
+	                    sender.sendMessage("URL of AirMap not configured");
+	                }
             }
             return true;
         }

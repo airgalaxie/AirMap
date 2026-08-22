@@ -1,5 +1,5 @@
 [versions]
-airmap = "1.0.1-fabric-future"
+airmap = "1.0.9-fabric-future"
 dynmap = "3.8"
 minecraft = "26.3-snapshot-9"
 minecraftJarVersion = "26.3-alpha.9"

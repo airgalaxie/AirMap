@@ -1,0 +1,44 @@
+package org.dynmap.fabric.mixin;
+
+import net.minecraft.network.chat.PlayerChatMessage;
+import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.entity.SignTextSlot;
+
+import org.dynmap.fabric.event.BlockEvents;
+import org.dynmap.fabric.event.ServerChatEvents;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(ServerGamePacketListenerImpl.class)
+public abstract class ServerPlayNetworkHandlerMixin {
+    @Shadow
+    public ServerPlayer player;
+
+    @Inject(
+            method = "handleDecoratedMessage",
+            at = @At(
+                    value = "HEAD"
+            )
+    )
+    public void onGameMessage(PlayerChatMessage signedMessage, CallbackInfo ci) {
+        ServerChatEvents.EVENT.invoker().onChatMessage(player, signedMessage.signedContent());
+    }
+
+    @Inject(
+            method = "handleSignUpdate",
+            at = @At("HEAD")
+    )
+    public void onSignUpdate(ServerboundSignUpdatePacket packet, CallbackInfo ci) {
+        ServerLevel serverLevel = player.level();
+        BlockPos blockPos = packet.pos();
+        String[] rawTexts = packet.lines().toArray(String[]::new);
+        BlockEvents.SIGN_CHANGE_EVENT.invoker().onSignChange(serverLevel, blockPos, rawTexts, player, packet.slot() == SignTextSlot.FRONT);
+    }
+}

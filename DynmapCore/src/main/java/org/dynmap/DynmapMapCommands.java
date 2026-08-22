@@ -102,7 +102,7 @@ public class DynmapMapCommands {
 
     private boolean checkIfActive(DynmapCore core, DynmapCommandSender sender) {
         if ((!core.getPauseFullRadiusRenders()) || (!core.getPauseUpdateRenders())) {
-            sender.sendMessage("Cannot edit map data while rendering active - run '/dynmap pause all' to pause rendering");
+            sender.sendMessage("Cannot edit map data while rendering active - run '/airmap pause all' to pause rendering");
             return true;
         }
         return false;
@@ -167,7 +167,7 @@ public class DynmapMapCommands {
             rslt = handleMapSet(sender, args, core, true);
         }
         if (edit && rslt) {
-            sender.sendMessage("If you are done editing map data, run '/dynmap pause none' to resume rendering");
+            sender.sendMessage("If you are done editing map data, run '/airmap pause none' to resume rendering");
         }
         return rslt;
     }

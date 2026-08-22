@@ -242,7 +242,7 @@ public class MapManager {
             t.setDaemon(true);
             if(!mapman.usenormalpriority)
                 t.setPriority(Thread.MIN_PRIORITY);
-            t.setName("Dynmap Render Thread");
+            t.setName("AirMap Render Thread");
             return t;
         }
     }
