@@ -1,0 +1,39 @@
+[versions]
+airmap = "1.0.1-fabric-future"
+dynmap = "3.8"
+minecraft = "26.3-snapshot-9"
+minecraftJarVersion = "26.3-alpha.9"
+javaBuild = "26"
+javaTarget = "25"
+fabricLoader = "0.19.3"
+fabricApi = "0.158.0+26.3"
+fabricLoom = "1.17-SNAPSHOT"
+jsr305 = "3.0.2"
+fabricPermissionsApi = "0.7.0"
+snakeYaml = "2.6" # upgrade From 1.23
+owaspHtmlSanitizer = "20260313.1"
+gson = "2.14.0"
+shadow = "9.6.1"
+luckperms = "5.5"
+mariadbJavaClient = "3.5.10"
+junit = "5.13.4"
+
+[libraries]
+fabricLoader = { group = "net.fabricmc", name = "fabric-loader", version.ref = "fabricLoader" }
+fabricApi = { group = "net.fabricmc.fabric-api", name = "fabric-api", version.ref = "fabricApi" }
+jsr305 = { group = "com.google.code.findbugs", name = "jsr305", version.ref = "jsr305" }
+fabricPermissionsApi = { group = "me.lucko", name = "fabric-permissions-api", version.ref = "fabricPermissionsApi" }
+snakeYaml = { group = "org.yaml", name = "snakeyaml", version.ref="snakeYaml" }
+owaspHtmlSanitizer = { group = "com.googlecode.owasp-java-html-sanitizer", name = "owasp-java-html-sanitizer", version.ref="owaspHtmlSanitizer" }
+owaspJava8Shim = { group = "com.googlecode.owasp-java-html-sanitizer", name = "java8-shim", version.ref="owaspHtmlSanitizer" }
+owaspJava10Shim = { group = "com.googlecode.owasp-java-html-sanitizer", name = "java10-shim", version.ref="owaspHtmlSanitizer" }
+gson = { group = "com.google.code.gson", name = "gson", version.ref="gson" }
+luckpermsApi = { group = "net.luckperms", name = "api", version.ref="luckperms" }
+mariadbJavaClient = { group = "org.mariadb.jdbc", name = "mariadb-java-client", version.ref="mariadbJavaClient" }
+junitBom = { group = "org.junit", name = "junit-bom", version.ref = "junit" }
+junitJupiter = { group = "org.junit.jupiter", name = "junit-jupiter" }
+junitPlatformLauncher = { group = "org.junit.platform", name = "junit-platform-launcher" }
+
+[plugins]
+fabricLoom = { id = "net.fabricmc.fabric-loom", version.ref = "fabricLoom" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
