@@ -540,11 +540,15 @@ public class DynmapPlugin {
     }
 
     public void handleCommand(CommandSourceStack commandSource, String cmd, String[] args) throws CommandSyntaxException {
-        core.processCommand(getCommandSender(commandSource), cmd, cmd, args);
+        core.processCommand(getCommandSender(commandSource), coreCommandName(cmd), cmd, args);
     }
 
     public List<String> getTabCompletions(CommandSourceStack commandSource, String cmd, String[] args) {
-        return core.getTabCompletions(getCommandSender(commandSource), cmd, args);
+        return core.getTabCompletions(getCommandSender(commandSource), coreCommandName(cmd), args);
+    }
+
+    static String coreCommandName(String cmd) {
+        return "airmap".equalsIgnoreCase(cmd) ? "dynmap" : cmd;
     }
 
     public class PlayerTracker {
