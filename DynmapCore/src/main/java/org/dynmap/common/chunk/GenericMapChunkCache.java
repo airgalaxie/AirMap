@@ -1035,6 +1035,26 @@ public abstract class GenericMapChunkCache extends MapChunkCache {
 	}
 
 	private static final String litStates[] = { "light", "spawn", "heightmaps", "full" };
+
+	static DynmapBlockState getPaletteBlockState(GenericNBTCompound tc) {
+		String nameKey = tc.contains("id") ? "id" : "Name";
+		String propertiesKey = tc.contains("properties") ? "properties" : "Properties";
+		String pname = tc.getString(nameKey);
+		DynmapBlockState state = null;
+		if (tc.contains(propertiesKey)) {
+			StringBuilder statestr = new StringBuilder();
+			GenericNBTCompound prop = tc.getCompound(propertiesKey);
+			for (String pid : prop.getAllKeys()) {
+				if (statestr.length() > 0) statestr.append(',');
+				statestr.append(pid).append('=').append(prop.getAsString(pid));
+			}
+			state = DynmapBlockState.getStateByNameAndState(pname, statestr.toString());
+		}
+		if (state == null) {
+			state = DynmapBlockState.getBaseStateByName(pname);
+		}
+		return (state != null) ? state : DynmapBlockState.AIR;
+	}
 	
 	public GenericChunk parseChunkFromNBT(GenericNBTCompound orignbt) {
 		GenericNBTCompound nbt = orignbt;
@@ -1109,22 +1129,7 @@ public abstract class GenericMapChunkCache extends MapChunkCache {
                 palette = new DynmapBlockState[plist.size()];
                 for (int pi = 0; pi < plist.size(); pi++) {
                     GenericNBTCompound tc = plist.getCompound(pi);
-                    String pname = tc.getString("Name");
-                    if (tc.contains("Properties")) {
-                        StringBuilder statestr = new StringBuilder();
-                        GenericNBTCompound prop = tc.getCompound("Properties");
-                        for (String pid : prop.getAllKeys()) {
-                            if (statestr.length() > 0) statestr.append(',');
-                            statestr.append(pid).append('=').append(prop.getAsString(pid));
-                        }
-                        palette[pi] = DynmapBlockState.getStateByNameAndState(pname, statestr.toString());
-                    }
-                    if (palette[pi] == null) {
-                        palette[pi] = DynmapBlockState.getBaseStateByName(pname);
-                    }
-                    if (palette[pi] == null) {
-                        palette[pi] = DynmapBlockState.AIR;
-                    }
+                    palette[pi] = getPaletteBlockState(tc);
                 }
             	int recsperblock = (4096 + statelist.length - 1) / statelist.length;
             	int bitsperblock = 64 / recsperblock;
@@ -1186,26 +1191,11 @@ public abstract class GenericMapChunkCache extends MapChunkCache {
             	if (block_states.contains("palette", GenericNBTCompound.TAG_LIST)) {
             		long[] statelist = block_states.contains("data", GenericNBTCompound.TAG_LONG_ARRAY) ? block_states.getLongArray("data") : new long[4096 / 64]; // Handle zero bit palette (all same)
             		GenericNBTList plist = block_states.getList("palette", GenericNBTCompound.TAG_COMPOUND);
-            		palette = new DynmapBlockState[plist.size()];
-            		for (int pi = 0; pi < plist.size(); pi++) {
-            			GenericNBTCompound tc = plist.getCompound(pi);
-            			String pname = tc.getString("Name");
-            			if (tc.contains("Properties")) {
-            				StringBuilder statestr = new StringBuilder();
-            				GenericNBTCompound prop = tc.getCompound("Properties");
-            				for (String pid : prop.getAllKeys()) {
-            					if (statestr.length() > 0) statestr.append(',');
-            					statestr.append(pid).append('=').append(prop.getAsString(pid));
-            				}
-            				palette[pi] = DynmapBlockState.getStateByNameAndState(pname, statestr.toString());
-            			}
-            			if (palette[pi] == null) {
-            				palette[pi] = DynmapBlockState.getBaseStateByName(pname);
-            			}
-            			if (palette[pi] == null) {
-            				palette[pi] = DynmapBlockState.AIR;
-            			}
-            		}
+				palette = new DynmapBlockState[plist.size()];
+				for (int pi = 0; pi < plist.size(); pi++) {
+					GenericNBTCompound tc = plist.getCompound(pi);
+					palette[pi] = getPaletteBlockState(tc);
+				}
         			GenericBitStorage db = null;
         			DataBitsPacked dbp = null;
 
