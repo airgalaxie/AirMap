@@ -204,7 +204,7 @@ public class TexturePackHDShader implements HDShader {
                 /* Scale brightness depending upon face */
             	if (ps.getShade()) {
 	            	if (this.lightingTable != null) {	
-	            		switch (ps.getLastBlockStep()) {
+                        switch (ps.getShadeStep()) {
 	                        case X_MINUS:
 	                        case X_PLUS:
 	                            /* 60% brightness */
@@ -229,7 +229,7 @@ public class TexturePackHDShader implements HDShader {
 	                	}
 	                }
 	                else {
-	                    switch (ps.getLastBlockStep()) {
+                    switch (ps.getShadeStep()) {
 	                        case X_MINUS:
 	                        case X_PLUS:
 	                            /* 60% brightness */

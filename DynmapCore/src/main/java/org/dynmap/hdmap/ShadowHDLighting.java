@@ -52,7 +52,7 @@ public class ShadowHDLighting extends DefaultHDLighting {
         BlockStep s1, s2;
         int w1, w2;
         /* Figure out which two neighbor directions to sample */
-        switch(ps.getLastBlockStep()) {
+        switch(ps.getShadeStep()) {
         case X_MINUS:
         case X_PLUS:
             s1 = (xyz[1] < mid) ? BlockStep.Y_MINUS : BlockStep.Y_PLUS;

@@ -29,6 +29,12 @@ public interface HDPerspectiveState {
      */
     BlockStep getLastBlockStep();
     /**
+     * Get direction used for directional shading. This is normally the last block step,
+     * but model patches may override it.
+     * @return shading direction
+     */
+    BlockStep getShadeStep();
+    /**
      * Get perspective scale
      * @return scale
      */

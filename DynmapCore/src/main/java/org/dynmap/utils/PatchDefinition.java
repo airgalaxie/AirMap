@@ -30,6 +30,7 @@ public class PatchDefinition implements RenderPatch {
     public int textureindex;
     public BlockStep step; /* Best approximation of orientation of surface, from top (positive determinent) */
     public boolean shade;	// If false, patch is not shaded
+    public BlockStep shadeStep; // Optional direction used for directional shading
     private int hc;
     /* Offset vector of middle of block */
     private static final Vector3D offsetCenter = new Vector3D(0.5,0.5,0.5);
@@ -47,6 +48,7 @@ public class PatchDefinition implements RenderPatch {
         sidevis = SideVisible.BOTH;
         textureindex = 0;
         shade = true;
+        shadeStep = null;
         update();
     }
     PatchDefinition(PatchDefinition pd) {
@@ -71,6 +73,7 @@ public class PatchDefinition implements RenderPatch {
         this.textureindex = pd.textureindex;
         this.step = pd.step;
         this.shade = pd.shade;
+        this.shadeStep = pd.shadeStep;
         this.hc = pd.hc;
     }
     /**
@@ -119,6 +122,7 @@ public class PatchDefinition implements RenderPatch {
         vminatumax = orig.vminatumax;
         sidevis = orig.sidevis;
         shade = orig.shade;
+        shadeStep = rotateStep(orig.shadeStep, sinX, cosX, sinY, cosY, sinZ, cosZ);
         this.textureindex = (textureindex < 0) ? orig.textureindex : textureindex;
         u = new Vector3D();
         v = new Vector3D();
@@ -150,10 +154,30 @@ public class PatchDefinition implements RenderPatch {
         }
         vec.add(origin);
     }
+
+    private static BlockStep rotateStep(BlockStep step,
+            double sinX, double cosX, double sinY, double cosY, double sinZ, double cosZ) {
+        if (step == null) return null;
+        Vector3D vec = new Vector3D(step.xoff, step.yoff, step.zoff);
+        rotatePrecomputed(vec, sinX, cosX, sinY, cosY, sinZ, cosZ, new Vector3D());
+        double ax = Math.abs(vec.x);
+        double ay = Math.abs(vec.y);
+        double az = Math.abs(vec.z);
+        if ((ax >= ay) && (ax >= az)) return (vec.x >= 0) ? BlockStep.X_PLUS : BlockStep.X_MINUS;
+        if (ay >= az) return (vec.y >= 0) ? BlockStep.Y_PLUS : BlockStep.Y_MINUS;
+        return (vec.z >= 0) ? BlockStep.Z_PLUS : BlockStep.Z_MINUS;
+    }
     public void update(double x0, double y0, double z0, double xu,
             double yu, double zu, double xv, double yv, double zv, double umin,
             double umax, double vmin, double vmax, SideVisible sidevis,
             int textureids, double vminatumax, double vmaxatumax, boolean shade) {
+        update(x0, y0, z0, xu, yu, zu, xv, yv, zv, umin, umax, vmin, vmax, sidevis,
+                textureids, vminatumax, vmaxatumax, shade, null);
+    }
+    public void update(double x0, double y0, double z0, double xu,
+            double yu, double zu, double xv, double yv, double zv, double umin,
+            double umax, double vmin, double vmax, SideVisible sidevis,
+            int textureids, double vminatumax, double vmaxatumax, boolean shade, BlockStep shadeStep) {
         this.x0 = x0;
         this.y0 = y0;
         this.z0 = z0;
@@ -172,6 +196,7 @@ public class PatchDefinition implements RenderPatch {
         this.sidevis = sidevis;
         this.textureindex = textureids;
         this.shade = shade;
+        this.shadeStep = shadeStep;
         update();
     }
     public void update() {
@@ -182,7 +207,7 @@ public class PatchDefinition implements RenderPatch {
                 (Double.doubleToLongBits(y0 + yu + yv) >> 34) ^
                 (Double.doubleToLongBits(z0 + zu + zv) >> 36) ^
                 (Double.doubleToLongBits(umin + umax + vmin + vmax + vmaxatumax) >> 38)) ^
-                (sidevis.ordinal() << 8) ^ textureindex;
+                (sidevis.ordinal() << 8) ^ textureindex ^ ((shadeStep == null) ? 0 : (shadeStep.ordinal() << 16));
         /* Now compute normal of surface - U cross V */
         double crossx = (u.y*v.z) - (u.z*v.y);
         double crossy = (u.z*v.x) - (u.x*v.z);
@@ -274,7 +299,7 @@ public class PatchDefinition implements RenderPatch {
                     (vmin == p.vmin) && (vmax == p.vmax) &&
                     (vmaxatumax == p.vmaxatumax) && 
                     (vminatumax == p.vminatumax) && (sidevis == p.sidevis) &&
-                    (shade == p.shade)) {
+                    (shade == p.shade) && (shadeStep == p.shadeStep)) {
                 return true;
             }
         }
@@ -290,8 +315,8 @@ public class PatchDefinition implements RenderPatch {
     }
     @Override
     public String toString() {
-    	return String.format("xyz0=%f/%f/%f,xyzU=%f/%f/%f,xyzV=%f/%f/%f,minU=%f,maxU=%f,vMin=%f/%f,vmax=%f/%f,side=%s,txtidx=%d,shade=%b",
-    			x0, y0, z0, xu, yu, zu, xv, yv, zv, umin, umax, vmin, vminatumax, vmax, vmaxatumax, sidevis, textureindex, shade);
+        return String.format("xyz0=%f/%f/%f,xyzU=%f/%f/%f,xyzV=%f/%f/%f,minU=%f,maxU=%f,vMin=%f/%f,vmax=%f/%f,side=%s,txtidx=%d,shade=%b,shadeStep=%s",
+                x0, y0, z0, xu, yu, zu, xv, yv, zv, umin, umax, vmin, vminatumax, vmax, vmaxatumax, sidevis, textureindex, shade, shadeStep);
     }
     
     //
@@ -310,6 +335,11 @@ public class PatchDefinition implements RenderPatch {
     // @param shade - if false, no shadows on patch
     // @param textureid - texture ID
     public void updateModelFace(double[] from, double[] to, BlockSide face, double[] uv, ModelBlockModel.SideRotation rot, boolean shade, int textureid) {
+        updateModelFace(from, to, face, uv, rot, shade, null, textureid);
+    }
+
+    public void updateModelFace(double[] from, double[] to, BlockSide face, double[] uv, ModelBlockModel.SideRotation rot,
+            boolean shade, BlockStep shadeStep, int textureid) {
     	if (rot == null) rot = ModelBlockModel.SideRotation.DEG0;
     	// Compute corners of the face
     	Vector3D lowleft;
@@ -462,6 +492,6 @@ public class PatchDefinition implements RenderPatch {
     	}
     	update(txtorig.x, txtorig.y, txtorig.z, txtU.x, txtU.y, txtU.z, txtV.x, txtV.y, txtV.z,
     		patchuv[0], patchuv[2], patchuv[1], patchuv[3], flipU ? (flipV ? SideVisible.TOPFLIPHV : SideVisible.TOPFLIP) : (flipV ? SideVisible.TOPFLIPV : SideVisible.TOP), textureid,
-			patchuv[1], patchuv[3], shade);
+			patchuv[1], patchuv[3], shade, shadeStep);
     }
 }

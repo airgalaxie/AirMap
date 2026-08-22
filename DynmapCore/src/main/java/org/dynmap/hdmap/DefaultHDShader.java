@@ -168,7 +168,7 @@ public class DefaultHDShader implements HDShader {
                 int seq;
                 int subalpha = ps.getSubmodelAlpha();
                 /* Figure out which color to use */
-                switch(ps.getLastBlockStep()) {
+                switch(ps.getShadeStep()) {
                     case X_PLUS:
                     case X_MINUS:
                         seq = 2;

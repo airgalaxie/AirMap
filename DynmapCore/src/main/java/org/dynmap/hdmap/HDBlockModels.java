@@ -30,6 +30,7 @@ import org.dynmap.renderer.DynmapBlockState;
 import org.dynmap.renderer.RenderPatch;
 import org.dynmap.renderer.RenderPatchFactory.SideVisible;
 import org.dynmap.utils.BlockStateParser;
+import org.dynmap.utils.BlockStep;
 import org.dynmap.utils.ForgeConfigFile;
 import org.dynmap.utils.PatchDefinition;
 import org.dynmap.utils.PatchDefinitionFactory;
@@ -316,10 +317,12 @@ public class HDBlockModels {
         double xrotorig = 8, yrotorig = 8, zrotorig = 8;
         int modrotx = 0, modroty = 0, modrotz = 0;	// Model level rotation
         boolean shade = true;
+        BlockStep shadeStep = null;
         ArrayList<ModelBoxSide> sides = new ArrayList<>();
     };
 
     private static final HashMap<String, BlockSide> toBlockSide = new HashMap<>();
+    private static final HashMap<String, BlockStep> toShadeStep = new HashMap<>();
     static {
         toBlockSide.put("u", BlockSide.TOP);
         toBlockSide.put("d", BlockSide.BOTTOM);
@@ -327,6 +330,13 @@ public class HDBlockModels {
         toBlockSide.put("s", BlockSide.SOUTH);
         toBlockSide.put("w", BlockSide.WEST);
         toBlockSide.put("e", BlockSide.EAST);
+        // BlockStep identifies the ray direction entering the named Minecraft face.
+        toShadeStep.put("down", BlockStep.Y_PLUS);
+        toShadeStep.put("up", BlockStep.Y_MINUS);
+        toShadeStep.put("north", BlockStep.Z_PLUS);
+        toShadeStep.put("south", BlockStep.Z_MINUS);
+        toShadeStep.put("west", BlockStep.X_PLUS);
+        toShadeStep.put("east", BlockStep.X_MINUS);
     };
 
     /**
@@ -929,7 +939,7 @@ public class HDBlockModels {
                         String[] av = a.split("=");
                         if(av.length < 2) continue;
                         if (av[0].equals("box")) {
-                            // box=from-x/y/z:to-x/y/z/rotx/roty/rotz:<side - upnsew>/<txtidx>/umin/vmin/umax/vmax>:...
+                            // box=from-x/y/z[/shade-direction|false]:to-x/y/z/rotx/roty/rotz:<side - upnsew>/<txtidx>/umin/vmin/umax/vmax>:...
                             String[] prms = av[1].split(":");
 
                             ModelBox box = new ModelBox();
@@ -939,8 +949,16 @@ public class HDBlockModels {
                                     box.from[0] = Double.parseDouble(xyz[0]);
                                     box.from[1] = Double.parseDouble(xyz[1]);
                                     box.from[2] = Double.parseDouble(xyz[2]);
-                                    if ((xyz.length >= 4) && (xyz[3].equals("false"))) {
-                                        box.shade = false;
+                                    if (xyz.length >= 4) {
+                                        if (xyz[3].equals("false")) {
+                                            box.shade = false;
+                                        }
+                                        else if (!xyz[3].equals("true")) {
+                                            box.shadeStep = toShadeStep.get(xyz[3]);
+                                            if (box.shadeStep == null) {
+                                                Log.severe("Invalid modellist shade direction (" + xyz[3] + ") at line " + lineNum + " of file: " + fname);
+                                            }
+                                        }
                                     }
                                 }
                                 else {
@@ -1032,7 +1050,8 @@ public class HDBlockModels {
                         for (ModelBox bl : boxes) {
                             // Loop through faces
                             for (ModelBoxSide side : bl.sides) {
-                                PatchDefinition patch = pdf.getModelFace(bl.from, bl.to, side.side, side.uv, side.rot, bl.shade, side.textureid);
+                                PatchDefinition patch = pdf.getModelFace(bl.from, bl.to, side.side, side.uv, side.rot,
+                                        bl.shade, bl.shadeStep, side.textureid);
                                 if (patch != null) {
                                     // If any rotations, apply them here
                                     if ((bl.xrot != 0) || (bl.yrot != 0) || (bl.zrot != 0)) {

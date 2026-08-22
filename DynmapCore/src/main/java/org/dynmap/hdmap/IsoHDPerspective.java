@@ -127,12 +127,14 @@ public class IsoHDPerspective implements HDPerspective {
         double patch_v[] = new double[2*HDBlockModels.getMaxPatchCount()];
         boolean patch_shade[] = new boolean[2*HDBlockModels.getMaxPatchCount()];
         BlockStep patch_step[] = new BlockStep[2*HDBlockModels.getMaxPatchCount()];
+        BlockStep patch_shade_step[] = new BlockStep[2*HDBlockModels.getMaxPatchCount()];
         int patch_id[] = new int[2*HDBlockModels.getMaxPatchCount()];
         int cur_patch = -1;
         double cur_patch_u;
         double cur_patch_v;
         double cur_patch_t;
         boolean cur_shade;
+        BlockStep cur_shade_step;
         
         int[] subblock_xyz = new int[3];
         final MapIterator mapiter;
@@ -235,6 +237,8 @@ public class IsoHDPerspective implements HDPerspective {
          */
         @Override
         public final BlockStep getLastBlockStep() { return laststep; }
+        @Override
+        public final BlockStep getShadeStep() { return (cur_shade_step != null) ? cur_shade_step : laststep; }
         /**
          * Get perspective scale
          */
@@ -458,6 +462,7 @@ public class IsoHDPerspective implements HDPerspective {
                 patch_u[hitcnt] = u;
                 patch_v[hitcnt] = v;
                 patch_shade[hitcnt] = pd.shade;
+                patch_shade_step[hitcnt] = pd.shadeStep;
                 patch_id[hitcnt] = pd.textureindex;
                 if(det > 0) {
                     patch_step[hitcnt] = pd.step.opposite();
@@ -531,6 +536,7 @@ public class IsoHDPerspective implements HDPerspective {
                 cur_patch_u = patch_u[best_patch];
                 cur_patch_v = patch_v[best_patch];
                 cur_shade = patch_shade[best_patch];
+                cur_shade_step = patch_shade_step[best_patch];
                 laststep = patch_step[best_patch];
                 cur_patch_t = best_t;
                 // If the water patch, switch to water state and patch index
@@ -549,6 +555,7 @@ public class IsoHDPerspective implements HDPerspective {
                     blocktype = cur_bt;
                 }
                 cur_patch = -1;
+                cur_shade_step = null;
                 /* If all are done, we're out */
                 if(done) {
                     laststep = old_laststep;
