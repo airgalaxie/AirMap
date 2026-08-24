@@ -370,12 +370,6 @@ public class DynmapPlugin {
                 fx.grassColorOverride().ifPresent(bmap::setGrassColorOverride);
                 fx.foliageColorOverride().ifPresent(bmap::setFoliageColorOverride);
                 bmap.setGrassColorModifier(fx.grassColorModifier().getSerializedName());
-                Log.info(String.format("Biome %s: tmp=%.2f rain=%.2f water=%06X grassOv=%s folOv=%s mod=%s map=%s%s",
-                        rl, tmp, hum, watermult,
-                        fx.grassColorOverride().map(Integer::toHexString).orElse("-"),
-                        fx.foliageColorOverride().map(Integer::toHexString).orElse("-"),
-                        fx.grassColorModifier().getSerializedName(),
-                        bmap.toString(), bmap.isDefault() ? "[default]" : "[custom]"));
                 bmap.setBiomeObject(bb);
             }
         }
