@@ -830,16 +830,36 @@ public class CTMTexturePack {
             }
             return true;
         }
-        private void registerTiles(String deftxtpath, String propname) {
+        private void registerTiles(TexturePackLoader loader, String deftxtpath, String propname) {
             String proppath = propname.substring(0, propname.lastIndexOf('/'));
             if (this.matchTiles != null) {  // If any matching tiles, register them
-                this.matchTileIcons = registerTiles(this.matchTiles, deftxtpath, proppath);
+                this.matchTileIcons = registerTiles(loader, this.matchTiles, deftxtpath, proppath);
             }
             if (this.tiles != null) { // If any result tiles, register them (relative to prop location)
-                this.tileIcons = registerTiles(this.tiles, proppath, proppath);
+                this.tileIcons = registerTiles(loader, this.tiles, proppath, proppath);
             }
         }
-        private int[] registerTiles(String[] tilenames, String deftxtpath, String proppath) {
+        /**
+         * Resolve a bare CTM tile name against the vanilla texture layout.
+         * Modern resource packs use the singular "block" directory; legacy
+         * packs (and older Dynmap fallbacks) used the plural "blocks" path.
+         * The first candidate that actually resolves wins; modern first.
+         */
+        private String resolveVanillaTilePath(TexturePackLoader loader, String tileName, String modname, String deftxtpath) {
+            String modern = deftxtpath.replace("textures/blocks/", "textures/block/");
+            String[] candidates = { String.format(modern, modname, tileName),
+                                    String.format(deftxtpath, modname, tileName) };
+            for (String candidate : candidates) {
+                String withExt = candidate.endsWith(".png") ? candidate : candidate + ".png";
+                InputStream is = loader.openTPResource(withExt);
+                if (is != null) {
+                    loader.closeResource(is);
+                    return candidate;
+                }
+            }
+            return candidates[0];
+        }
+        private int[] registerTiles(TexturePackLoader loader, String[] tilenames, String deftxtpath, String proppath) {
             if (tilenames == null) return null;
             int[] rslt = new int[tilenames.length];
             for (int i = 0; i < tilenames.length; i++) {
@@ -860,7 +880,7 @@ public class CTMTexturePack {
                     ftn = String.format("assets/%s/textures/%s", modname, ftn);
                 }
                 else { // no path (base tile)
-                    ftn = String.format(deftxtpath, modname, ftn);
+                    ftn = resolveVanillaTilePath(loader, tn, modname, deftxtpath);
                 }
                 if (!ftn.endsWith(".png")) {
                     ftn = ftn + ".png"; // Add .png if needed
@@ -999,7 +1019,7 @@ public class CTMTexturePack {
                     
                     CTMProps ctmp = new CTMProps(p, f, this);
                     if(ctmp.isValid(f)) {
-                        ctmp.registerTiles(this.vanillatextures, f);
+                        ctmp.registerTiles(this.tpl, this.vanillatextures, f);
                         bytilelist = addToList(bytilelist, mappedtiles, ctmp.matchTileIcons, ctmp);
                         bybaseblockstatelist = addToList(bybaseblockstatelist, mappedblocks, ctmp.matchBlocks, ctmp);
                     }
