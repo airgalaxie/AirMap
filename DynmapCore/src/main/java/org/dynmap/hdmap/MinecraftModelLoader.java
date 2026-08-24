@@ -47,7 +47,11 @@ final class MinecraftModelLoader {
 
     /** Fluids ship no element geometry in vanilla models - give them an explicit textured cube. */
     private void registerFluids() {
-        registerFluidCube("minecraft:water", "minecraft:block/water_still", false, TexturePack.COLORMOD_WATERTONED);
+        // CLEARINSIDE op: internal fluid-fluid faces are culled (matchingBaseState /
+        // waterFilled+onFace) and surviving faces fall through to COLORMOD_WATERTONED
+        // inside readColor - this is what keeps water see-through to the floor.
+        registerFluidCube("minecraft:water", "minecraft:block/water_still", false, TexturePack.COLORMOD_CLEARINSIDE);
+        registerFluidCube("minecraft:flowing_water", "minecraft:block/water_still", false, TexturePack.COLORMOD_CLEARINSIDE);
         registerFluidCube("minecraft:lava", "minecraft:block/lava_still", true, -1);
     }
 

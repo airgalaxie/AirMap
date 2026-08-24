@@ -34,6 +34,8 @@ class MinecraftModelTintRegistrationTest {
                 .setAttenuatesLight(15).build();
         DynmapBlockState water = new DynmapBlockState.Builder().setBlockName("minecraft:water")
                 .setStateName("level=0").build();
+        DynmapBlockState flowingWater = new DynmapBlockState.Builder().setBlockName("minecraft:flowing_water")
+                .setStateName("level=1").build();
         DynmapBlockState lava = new DynmapBlockState.Builder().setBlockName("minecraft:lava")
                 .setStateName("level=0").build();
 
@@ -60,13 +62,22 @@ class MinecraftModelTintRegistrationTest {
         assertNotNull(waterMap.faces, "water cube must have faces");
         assertEquals(TexturePack.BlockTransparency.SEMITRANSPARENT, waterMap.trans, "water must stay semitransparent");
         int waterTile = waterMap.faces[0];
-        assertEquals(TexturePack.COLORMOD_WATERTONED, waterTile / TexturePack.COLORMOD_MULT_INTERNAL,
-                "water_still.png is grayscale in modern MC and must be biome-toned");
+        // CLEARINSIDE op: readColor culls internal water-water faces and falls through to
+        // COLORMOD_WATERTONED for surviving faces - without it water stacks up fully opaque.
+        assertEquals(TexturePack.COLORMOD_CLEARINSIDE, waterTile / TexturePack.COLORMOD_MULT_INTERNAL,
+                "water_still.png is grayscale in modern MC; CLEARINSIDE gives biome tone + face culling");
         assertTrue(waterTile % TexturePack.COLORMOD_MULT_INTERNAL > 267,
                 "water must resolve to a real dynamic tile, got " + waterTile);
         for (int i = 0; i < waterMap.faces.length; i++) {
             assertEquals(waterTile, waterMap.faces[i], "water face " + i + " must use the same still-water tile");
         }
+
+        HDBlockStateTextureMap flowingMap = HDBlockStateTextureMap.getByBlockState(flowingWater);
+        assertNotNull(flowingMap, "flowing_water must get an explicit fluid cube");
+        assertEquals(TexturePack.BlockTransparency.SEMITRANSPARENT, flowingMap.trans,
+                "flowing_water must stay semitransparent");
+        assertEquals(TexturePack.COLORMOD_CLEARINSIDE, flowingMap.faces[0] / TexturePack.COLORMOD_MULT_INTERNAL,
+                "flowing_water needs the CLEARINSIDE cull too");
 
         HDBlockStateTextureMap lavaMap = HDBlockStateTextureMap.getByBlockState(lava);
         assertNotNull(lavaMap, "lava must get an explicit fluid cube");
