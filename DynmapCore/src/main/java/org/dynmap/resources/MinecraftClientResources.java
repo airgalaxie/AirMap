@@ -28,14 +28,29 @@ public final class MinecraftClientResources {
     private MinecraftClientResources() { }
 
     public static String configuredVersion() throws IOException {
+        Properties properties = loadProperties();
+        String version = properties.getProperty("minecraft.version", "").trim();
+        if (version.isEmpty() || version.contains("${")) throw new IOException("Invalid configured Minecraft version");
+        return version;
+    }
+
+    public static boolean isSupportedPlatform(String platformVersion) throws IOException {
+        if (platformVersion == null) return false;
+        Properties properties = loadProperties();
+        if (platformVersion.equals(properties.getProperty("minecraft.version", "").trim())) return true;
+        for (String compatible : properties.getProperty("minecraft.compatible", "").split(",")) {
+            if (platformVersion.equals(compatible.trim())) return true;
+        }
+        return false;
+    }
+
+    private static Properties loadProperties() throws IOException {
         Properties properties = new Properties();
         try (InputStream input = MinecraftClientResources.class.getResourceAsStream(VERSION_RESOURCE)) {
             if (input == null) throw new IOException("Missing " + VERSION_RESOURCE);
             properties.load(input);
         }
-        String version = properties.getProperty("minecraft.version", "").trim();
-        if (version.isEmpty() || version.contains("${")) throw new IOException("Invalid configured Minecraft version");
-        return version;
+        return properties;
     }
 
     public static MinecraftResourceProvider provision(Path cacheDirectory, String requiredVersion) throws IOException {

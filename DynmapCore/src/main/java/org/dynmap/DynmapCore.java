@@ -75,7 +75,7 @@ public class DynmapCore implements DynmapCommonAPI {
             if (minecraftResources != null) return minecraftResources;
             try {
                 String configuredVersion = MinecraftClientResources.configuredVersion();
-                if (platformVersion != null && !configuredVersion.equals(platformVersion)) {
+                if (platformVersion != null && !MinecraftClientResources.isSupportedPlatform(platformVersion)) {
                     throw new IllegalStateException("AirMap targets Minecraft " + configuredVersion + " but the platform reports " + platformVersion);
                 }
                 MinecraftResourceProvider vanilla = MinecraftClientResources.provision(

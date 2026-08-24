@@ -1,4 +1,7 @@
 accessWidener v1 official
 #accessible   class   net/minecraft/world/level/biome/Biome$Precipitation
 #accessible   field   net/minecraft/world/level/biome/Biome            precipitation     Lnet/minecraft/world/level/biome/Biome$Precipitation;
+accessible    class   net/minecraft/world/level/biome/Biome$ClimateSettings
+accessible    field   net/minecraft/world/level/biome/Biome            climateSettings   Lnet/minecraft/world/level/biome/Biome$ClimateSettings;
+accessible    method  net/minecraft/world/level/biome/Biome$ClimateSettings downfall ()F
 

@@ -11,7 +11,6 @@ base {
 }
 
 val minecraftVersion = libs.versions.minecraft.get()
-val minecraftJarVersion = libs.versions.minecraftJarVersion.get()
 val buildMetadata = rootProject.ext.get("buildNumber").toString()
 val fabricJarName = "AirMap-${project.version}+$buildMetadata-fabric.jar"
 
@@ -44,13 +43,13 @@ loom {
 
 tasks.processResources {
     inputs.property("version", project.version)
-    inputs.property("minecraftJarVersion", minecraftJarVersion)
+    inputs.property("minecraftRuntime", libs.versions.minecraftRuntime.get())
     inputs.property("fabricLoaderVersion", libs.versions.fabricLoader.get())
     inputs.property("fabricApiVersion", libs.versions.fabricApi.get())
     filesMatching("fabric.mod.json") {
         expand(
             "version" to project.version,
-            "minecraftJarVersion" to minecraftJarVersion,
+            "minecraftRuntime" to libs.versions.minecraftRuntime.get(),
             "fabricLoaderVersion" to libs.versions.fabricLoader.get(),
             "fabricApiVersion" to libs.versions.fabricApi.get()
         )

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -26,6 +27,9 @@ final class MinecraftModelLoader {
     private static final Map<String, BlockSide> SIDES = Map.of(
             "down", BlockSide.BOTTOM, "up", BlockSide.TOP, "north", BlockSide.NORTH,
             "south", BlockSide.SOUTH, "west", BlockSide.WEST, "east", BlockSide.EAST);
+    private static final BlockSide[] CUBE_SIDES = {
+            BlockSide.BOTTOM, BlockSide.TOP, BlockSide.NORTH,
+            BlockSide.SOUTH, BlockSide.WEST, BlockSide.EAST };
     private final MinecraftResourceProvider resources;
     private final PatchDefinitionFactory patches;
     private final Map<String, JsonObject> rawModels = new HashMap<>();
@@ -38,6 +42,40 @@ final class MinecraftModelLoader {
 
     void load() throws IOException {
         for (String resource : resources.list("blockstates", ".json")) loadBlockstate(resource);
+        registerFluids();
+    }
+
+    /** Fluids ship no element geometry in vanilla models - give them an explicit textured cube. */
+    private void registerFluids() {
+        registerFluidCube("minecraft:water", "minecraft:block/water_still", false, TexturePack.COLORMOD_WATERTONED);
+        registerFluidCube("minecraft:lava", "minecraft:block/lava_still", true, -1);
+    }
+
+    private void registerFluidCube(String blockName, String textureId, boolean opaque, int colorModifier) {
+        DynmapBlockState base = DynmapBlockState.getBaseStateByName(blockName);
+        if (base == DynmapBlockState.AIR) return;
+        int tile = texture(textureId);
+        if (colorModifier > 0) {
+            tile += colorModifier * TexturePack.COLORMOD_MULT_INTERNAL;
+        }
+        PatchDefinition[] cube = new PatchDefinition[CUBE_SIDES.length];
+        for (int i = 0; i < cube.length; i++) {
+            PatchDefinition face = patches.getModelFace(new double[] {0, 0, 0}, new double[] {16, 16, 16},
+                    CUBE_SIDES[i], null, ModelBlockModel.SideRotation.DEG0, true, i);
+            if (face == null) return;
+            cube[i] = face;
+        }
+        int[] faces = new int[cube.length];
+        Arrays.fill(faces, tile);
+        for (int i = 0; i < base.getStateCount(); i++) {
+            DynmapBlockState state = base.getState(i);
+            if (HDBlockStateTextureMap.getByBlockState(state) != HDBlockStateTextureMap.BLANK) continue;
+            BitSet only = new BitSet(); only.set(state.stateIndex);
+            new HDBlockPatchModel(base, only, cube, "minecraft-json");
+            TexturePack.registerMinecraftState(state, faces,
+                    opaque ? TexturePack.BlockTransparency.OPAQUE
+                            : TexturePack.BlockTransparency.SEMITRANSPARENT);
+        }
     }
 
     private void loadBlockstate(String resource) {
@@ -46,15 +84,21 @@ final class MinecraftModelLoader {
         String blockName = namespace + ":" + path.substring("blockstates/".length(), path.length() - 5);
         DynmapBlockState base = DynmapBlockState.getBaseStateByName(blockName);
         if (base == DynmapBlockState.AIR) return;
+        JsonObject root;
         try {
-            JsonObject root = read(resource);
-            for (int i = 0; i < base.getStateCount(); i++) {
-                DynmapBlockState state = base.getState(i);
+            root = read(resource);
+        } catch (Exception e) {
+            Log.warning("Cannot read Minecraft blockstate " + resource + ": " + e.getMessage());
+            return;
+        }
+        for (int i = 0; i < base.getStateCount(); i++) {
+            DynmapBlockState state = base.getState(i);
+            try {
                 List<AppliedModel> selected = select(root, state.stateName, namespace);
                 if (!selected.isEmpty()) install(state, selected);
+            } catch (Exception e) {
+                Log.warning("Cannot load Minecraft blockstate " + resource + " [" + state.stateName + "]: " + e.getMessage());
             }
-        } catch (Exception e) {
-            Log.warning("Cannot load Minecraft blockstate " + resource + ": " + e.getMessage());
         }
     }
 
@@ -90,13 +134,15 @@ final class MinecraftModelLoader {
     private void install(DynmapBlockState state, List<AppliedModel> selected) throws IOException {
         List<PatchDefinition> result = new ArrayList<>();
         List<Integer> textures = new ArrayList<>();
-        boolean fullCube = selected.size() == 1;
+        boolean allElementsFullCubes = true;
         for (AppliedModel applied : selected) {
             JsonObject model = resolveModel(applied.id);
             JsonArray elements = model.getAsJsonArray("elements");
             if (elements == null) continue;
             Map<String, String> vars = textureVariables(model);
-            fullCube &= elements.size() == 1 && isFullCube(elements.get(0).getAsJsonObject());
+            for (JsonElement elementValue : elements) {
+                allElementsFullCubes &= isFullCube(elementValue.getAsJsonObject());
+            }
             for (JsonElement elementValue : elements) {
                 JsonObject element = elementValue.getAsJsonObject();
                 double[] from = vector(element, "from", new double[] {0, 0, 0});
@@ -116,25 +162,35 @@ final class MinecraftModelLoader {
                     int rotation = integer(face, "rotation", 0);
                     ModelBlockModel.SideRotation sideRotation = ModelBlockModel.SideRotation.valueOf("DEG" + rotation);
                     PatchDefinition patch = patches.getModelFace(from, to, side, uv, sideRotation, shade, textureIndex);
-                    if (patch != null) {
-                        if (element.has("rotation")) patch = rotateElement(patch, element.getAsJsonObject("rotation"));
-                        if (applied.x != 0 || applied.y != 0) patch = patches.getPatch(patch, applied.x, applied.y, 0, textureIndex);
-                        if (patch != null) result.add(patch);
-                    }
+                    if (patch == null) continue;
+                    if (element.has("rotation")) patch = rotateElement(patch, element.getAsJsonObject("rotation"));
+                    if (patch != null && (applied.x != 0 || applied.y != 0))
+                        patch = patches.getPatch(patch, applied.x, applied.y, 0, textureIndex);
+                    if (patch != null) result.add(patch);
                 }
             }
         }
         if (result.isEmpty()) return;
         BitSet only = new BitSet(); only.set(state.stateIndex);
         new HDBlockPatchModel(state.baseState, only, result.toArray(PatchDefinition[]::new), "minecraft-json");
-        TexturePack.registerMinecraftState(state, textures.stream().mapToInt(Integer::intValue).toArray(), fullCube);
+        TexturePack.BlockTransparency transparency = allElementsFullCubes && state.getLightAttenuation() >= 15 && !state.isWaterFilled()
+                ? TexturePack.BlockTransparency.OPAQUE : TexturePack.BlockTransparency.SEMITRANSPARENT;
+        TexturePack.registerMinecraftState(state, textures.stream().mapToInt(Integer::intValue).toArray(), transparency);
     }
 
     private PatchDefinition rotateElement(PatchDefinition patch, JsonObject rotation) {
-        String axis = rotation.get("axis").getAsString(); double angle = rotation.get("angle").getAsDouble();
         double[] origin = vector(rotation, "origin", new double[] {8,8,8});
-        return patches.getPatch(patch, axis.equals("x") ? angle : 0, axis.equals("y") ? angle : 0,
-                axis.equals("z") ? angle : 0, new org.dynmap.utils.Vector3D(origin[0]/16, origin[1]/16, origin[2]/16), patch.textureindex);
+        org.dynmap.utils.Vector3D center = new org.dynmap.utils.Vector3D(origin[0]/16, origin[1]/16, origin[2]/16);
+        if (rotation.has("axis")) {
+            String axis = rotation.get("axis").getAsString(); double angle = rotation.get("angle").getAsDouble();
+            return patches.getPatch(patch, axis.equals("x") ? angle : 0, axis.equals("y") ? angle : 0,
+                    axis.equals("z") ? angle : 0, center, patch.textureindex);
+        }
+        double rx = rotation.has("x") ? rotation.get("x").getAsDouble() : 0;
+        double ry = rotation.has("y") ? rotation.get("y").getAsDouble() : 0;
+        double rz = rotation.has("z") ? rotation.get("z").getAsDouble() : 0;
+        if (rx == 0 && ry == 0 && rz == 0) return patch;
+        return patches.getPatch(patch, rx, ry, rz, center, patch.textureindex);
     }
 
     private JsonObject resolveModel(String id) throws IOException {
@@ -155,7 +211,15 @@ final class MinecraftModelLoader {
     }
     private Map<String,String> textureVariables(JsonObject model) {
         Map<String,String> result = new HashMap<>(); JsonObject values = model.getAsJsonObject("textures");
-        if (values != null) values.entrySet().forEach(e -> result.put(e.getKey(), e.getValue().getAsString())); return result;
+        if (values != null) for (Map.Entry<String, JsonElement> e : values.entrySet()) result.put(e.getKey(), textureReference(e.getValue()));
+        return result;
+    }
+    private static String textureReference(JsonElement value) {
+        if (value.isJsonObject()) {
+            JsonObject texture = value.getAsJsonObject();
+            return texture.has("sprite") ? texture.get("sprite").getAsString() : "minecraft:block/missingno";
+        }
+        return value.getAsString();
     }
     private static String dereference(String value, Map<String,String> vars) {
         for (int i=0; value.startsWith("#") && i<32; i++) value = vars.getOrDefault(value.substring(1), "minecraft:block/missingno"); return value;

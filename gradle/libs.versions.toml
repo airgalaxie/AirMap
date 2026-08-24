@@ -2,7 +2,8 @@
 airmap = "1.0.9-fabric-future"
 dynmap = "3.8"
 minecraft = "26.3-snapshot-9"
-minecraftJarVersion = "26.3-alpha.9"
+# Versionskennung, die der Ziel-Server zur Laufzeit meldet (Fabric Loader); abweichend zur Build-Version erlaubt
+minecraftRuntime = "26.3-alpha.9"
 javaBuild = "26"
 javaTarget = "25"
 fabricLoader = "0.19.3"

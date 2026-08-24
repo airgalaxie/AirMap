@@ -57,6 +57,7 @@ tasks {
                     "buildnumber" to project.parent!!.ext.get("buildNumber").toString(),
                     "airmapversion" to project.parent!!.ext.get("airMapVersion").toString(),
                     "minecraftversion" to libs.versions.minecraft.get(),
+                    "minecraftcompatible" to libs.versions.minecraftRuntime.get(),
                     "revision" to project.parent!!.ext.get("revision").toString(),
                     "version" to project.version
             )

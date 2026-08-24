@@ -123,6 +123,16 @@ public class BiomeMap {
     private int grassmult;
     private int foliagemult;
     private Optional<?> biomeObj = Optional.empty();
+    /** Explicit grass/foliage colors from vanilla biome JSON (grass_color/foliage_color overrides). */
+    private int grassColorOverride = -1;
+    private int foliageColorOverride = -1;
+    /** Vanilla BiomeSpecialEffects.GrassColorModifier, replicated platform-independently. */
+    private GrassColorMode grassMode = GrassColorMode.NONE;
+
+    /** Vanilla's grass color modifiers - exact formulas ported from BiomeSpecialEffects$GrassColorModifier. */
+    public enum GrassColorMode {
+        NONE, DARK_FOREST, SWAMP
+    }
     private final String id;
     private final String resourcelocation;
     private final int index;
@@ -239,6 +249,66 @@ public class BiomeMap {
         if (grassmult == 0) return rawgrassmult;          // common case: no override
         if (grassmult < 0) return -grassmult;             // fixed color (pre-masked at set-time)
         return ((rawgrassmult & 0xfefefe) + grassmult) >> 1;  // blend
+    }
+
+    /** Explicit vanilla grass_color override, or -1 when the biome uses the colormap. */
+    public final int getGrassColorOverride() {
+        return grassColorOverride;
+    }
+
+    /** Explicit vanilla foliage_color override, or -1 when the biome uses the colormap. */
+    public final int getFoliageColorOverride() {
+        return foliageColorOverride;
+    }
+
+    public final void setGrassColorOverride(int color) {
+        this.grassColorOverride = color;
+    }
+
+    public final void setFoliageColorOverride(int color) {
+        this.foliageColorOverride = color;
+    }
+
+    /** Accepts vanilla's serialized modifier names: none, dark_forest, swamp. */
+    public final void setGrassColorModifier(String serialized) {
+        switch (serialized) {
+            case "dark_forest": this.grassMode = GrassColorMode.DARK_FOREST; break;
+            case "swamp":       this.grassMode = GrassColorMode.SWAMP; break;
+            default:            this.grassMode = GrassColorMode.NONE; break;
+        }
+    }
+
+    /**
+     * Applies vanilla's BiomeSpecialEffects.GrassColorModifier.modifyColor math.
+     * DARK_FOREST is exact bytecode; SWAMP approximates SimplexNoise(seed 2345) patchiness
+     * with deterministic value noise between the same two fixed colors.
+     */
+    public final int applyGrassColorModifier(double x, double z, int base) {
+        switch (grassMode) {
+            case DARK_FOREST:
+                return (((base & 0xFEFEFE) + 0x283A2A) >> 1) | 0xFF000000;
+            case SWAMP:
+                return swampPatchNoise(x, z) < -0.1 ? -11766212 : -9801671;
+            default:
+                return base;
+        }
+    }
+
+    /** Smooth deterministic noise in roughly simplex range [-1,1], wavelength ~44 blocks (vanilla scale). */
+    private static double swampPatchNoise(double x, double z) {
+        double sx = x * 0.0225, sz = z * 0.0225;
+        int xi = (int)Math.floor(sx), zi = (int)Math.floor(sz);
+        double fx = sx - xi, fz = sz - zi;
+        double u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
+        double n00 = hashCell(xi, zi),     n10 = hashCell(xi + 1, zi);
+        double n01 = hashCell(xi, zi + 1), n11 = hashCell(xi + 1, zi + 1);
+        return (n00 + (n10 - n00) * u) + ((n01 + (n11 - n01) * u) - (n00 + (n10 - n00) * u)) * v;
+    }
+
+    private static double hashCell(int x, int z) {
+        long h = x * 374761393L + z * 668265263L;
+        h = (h ^ (h >> 13)) * 1274126177L;
+        return ((h ^ (h >> 16)) & 0xFFFF) / 32767.5 - 1.0;
     }
 
     public final int getModifiedFoliageMultiplier(int rawfoliagemult) {

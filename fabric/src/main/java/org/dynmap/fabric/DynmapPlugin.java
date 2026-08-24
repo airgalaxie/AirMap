@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.SharedConstants;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.LiquidBlock;
@@ -27,6 +28,7 @@ import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.BiomeSpecialEffects;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import org.dynmap.*;
@@ -138,10 +140,19 @@ public class DynmapPlugin {
             if (!bn.equals(DynmapBlockState.AIR_BLOCK)) {
                 DynmapBlockState basebs = null;
                 int stateIndex = 0;
-                // StateDefinition preserves each property's declared value order.
-                // This is the semantic order expected by AirMap texture data
-                // (for example grass_block: snowy=true before snowy=false).
+                // Build the vanilla default state first so it becomes the
+                // DynmapBlockState base state. The 26.3 chunk palette format
+                // serializes default states without any property data, so the
+                // base state must match Block.defaultBlockState() (for example
+                // grass_block: snowy=false), not the first possible state.
+                List<BlockState> ordered = new ArrayList<>();
+                ordered.add(b.defaultBlockState());
                 for (BlockState bs : b.getStateDefinition().getPossibleStates()) {
+                    if (!ordered.contains(bs)) {
+                        ordered.add(bs);
+                    }
+                }
+                for (BlockState bs : ordered) {
                     int idx = bsids.getId(bs);
                     if (idx < 0) {
                         continue;
@@ -330,7 +341,7 @@ public class DynmapPlugin {
                 Identifier biomeId = biomeRegistry.getKey(bb);
                 String id = biomeId.getPath();
                 String rl = biomeId.toString();
-                float tmp = bb.getBaseTemperature(), hum = 0.5F;
+                float tmp = bb.climateSettings.temperature(), hum = bb.climateSettings.downfall();
                 int watermult = bb.getWaterColor();
                 Log.verboseinfo("biome[" + i + "]: hum=" + hum + ", tmp=" + tmp + ", mult=" + Integer.toHexString(watermult));
 
@@ -354,6 +365,17 @@ public class DynmapPlugin {
                     bmap.setWaterColorMultiplier(watermult);
                     Log.verboseinfo("Set watercolormult for " + bmap.toString() + " (" + i + ") to " + Integer.toHexString(watermult));
                 }
+                // Extract vanilla color effects into core data - render pipeline stays platform-independent
+                BiomeSpecialEffects fx = bb.getSpecialEffects();
+                fx.grassColorOverride().ifPresent(bmap::setGrassColorOverride);
+                fx.foliageColorOverride().ifPresent(bmap::setFoliageColorOverride);
+                bmap.setGrassColorModifier(fx.grassColorModifier().getSerializedName());
+                Log.info(String.format("Biome %s: tmp=%.2f rain=%.2f water=%06X grassOv=%s folOv=%s mod=%s map=%s%s",
+                        rl, tmp, hum, watermult,
+                        fx.grassColorOverride().map(Integer::toHexString).orElse("-"),
+                        fx.foliageColorOverride().map(Integer::toHexString).orElse("-"),
+                        fx.grassColorModifier().getSerializedName(),
+                        bmap.toString(), bmap.isDefault() ? "[default]" : "[custom]"));
                 bmap.setBiomeObject(bb);
             }
         }
@@ -376,7 +398,7 @@ public class DynmapPlugin {
 
     public void onEnable() {
         /* Get MC version */
-        String mcver = server.getServerVersion();
+        String mcver = SharedConstants.getCurrentVersion().id();
 
         /* Load extra biomes */
         loadExtraBiomes(mcver);

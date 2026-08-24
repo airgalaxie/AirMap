@@ -99,7 +99,7 @@ public class TexturePack {
     public static final int COLORMOD_FOLIAGEMULTTONED = 22; // FOLIAGETONED + colorMult or custColorMult
     
     private static final int COLORMOD_MULT_FILE = 1000;
-    private static final int COLORMOD_MULT_INTERNAL = 1000000;
+    public static final int COLORMOD_MULT_INTERNAL = 1000000;
     /* Special tile index values */
     public static final int TILEINDEX_BLANK = -1;
     private static final int TILEINDEX_GRASS = 0;
@@ -582,11 +582,19 @@ public class TexturePack {
                 loadBiomeShadingImage(is, IMG_GRASSCOLOR, GRASSCOLOR_RP_PNG, "minecraft");
                 tpl.closeResource(is);
             }
+            else {
+                Log.severe("Grass colormap not found (" + GRASSCOLOR_PNG + " nor " + GRASSCOLOR_RP_PNG
+                        + ") - grass will render untinted!");
+            }
             /* Try to find and load misc/foliagecolor.png */
             is = tpl.openTPResource(FOLIAGECOLOR_PNG, FOLIAGECOLOR_RP_PNG);
             if (is != null) {
                 loadBiomeShadingImage(is, IMG_FOLIAGECOLOR, FOLIAGECOLOR_RP_PNG, "minecraft");
                 tpl.closeResource(is);
+            }
+            else {
+                Log.severe("Foliage colormap not found (" + FOLIAGECOLOR_PNG + " nor " + FOLIAGECOLOR_RP_PNG
+                        + ") - leaves will render untinted!");
             }
             /* Try to find and load misc/swampgrasscolor.png */
             is = tpl.openTPResource(SWAMPGRASSCOLOR_PNG, SWAMPGRASSCOLOR_RP_PNG);
@@ -1606,7 +1614,7 @@ public class TexturePack {
         /* See if not basic block texture */
         int textop = textid / COLORMOD_MULT_INTERNAL;
         textid = textid % COLORMOD_MULT_INTERNAL;
-        
+
         /* If clear-inside op, get out early */
         if((textop == COLORMOD_CLEARINSIDE) || (textop == COLORMOD_MULTTONED_CLEARINSIDE)) {
         	DynmapBlockState lasthit = ss.getLastBlockHit(); // Last surface hit, vs last visited
@@ -2076,9 +2084,7 @@ public class TexturePack {
         return modifier == 0 || texture >= COLORMOD_MULT_INTERNAL ? texture : texture + modifier * COLORMOD_MULT_INTERNAL;
     }
 
-    static void registerMinecraftState(DynmapBlockState state, int[] textures, boolean fullCube) {
-        BlockTransparency transparency = fullCube && state.getLightAttenuation() >= 15
-                ? BlockTransparency.OPAQUE : BlockTransparency.SEMITRANSPARENT;
+    static void registerMinecraftState(DynmapBlockState state, int[] textures, BlockTransparency transparency) {
         HDBlockStateTextureMap map = new HDBlockStateTextureMap(textures, null, 0, null, "minecraft-json", true, null, transparency);
         HDBlockStateTextureMap.copyToStateIndex(state, map, transparency);
     }
