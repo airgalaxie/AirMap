@@ -2,7 +2,6 @@ package org.dynmap.hdmap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -31,9 +30,13 @@ class MinecraftStaticModelIntegrationTest {
                 .setStateName("facing=north,half=bottom,shape=straight,waterlogged=false").build();
         DynmapBlockState fence = state("minecraft:oak_fence",
                 "east=true,north=false,south=true,waterlogged=false,west=false", false);
+        DynmapBlockState chest = state("minecraft:chest", "facing=north,type=single,waterlogged=false", false);
+        DynmapBlockState copperChest = state("minecraft:copper_chest", "facing=north,type=single,waterlogged=false", false);
+        DynmapBlockState shulkerBox = state("minecraft:shulker_box", "facing=up", false);
         DynmapBlockState bell = state("minecraft:bell",
                 "attachment=floor,facing=east,powered=false", false);
-        DynmapBlockState statue = state("minecraft:copper_golem_statue", "", false);
+        DynmapBlockState statue = state("minecraft:copper_golem_statue",
+                "copper_golem_pose=standing,facing=north", false);
 
         HDBlockStateTextureMap.initializeTable();
         TexturePack.resetFiles();
@@ -45,10 +48,11 @@ class MinecraftStaticModelIntegrationTest {
         assertTrue(patches(stairsEast).length > 6, "oriented stair model");
         assertTrue(patches(stairsNorth).length > 6, "rotated stair model");
         assertTrue(patches(fence).length > 6, "multipart fence model");
-        assertEquals(16, patches(bell).length,
-                "Minecraft's static bell resource describes only the floor support");
-        assertNull(model(statue),
-                "particle-only Minecraft resource must not be replaced with invented static geometry");
+        assertEquals(18, patches(chest).length, "Minecraft chest model layer");
+        assertEquals(18, patches(copperChest).length, "Minecraft copper-chest model layer");
+        assertEquals(12, patches(shulkerBox).length, "Minecraft shulker-box model layer");
+        assertEquals(28, patches(bell).length, "static bell support plus Minecraft bell model layer");
+        assertEquals(54, patches(statue).length, "Minecraft copper-golem standing model layer");
     }
 
     private static DynmapBlockState state(String name, String properties, boolean opaque) {

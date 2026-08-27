@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -14,10 +15,12 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.dynmap.Log;
 import org.dynmap.modsupport.BlockSide;
 import org.dynmap.modsupport.ModelBlockModel;
 import org.dynmap.renderer.DynmapBlockState;
+import org.dynmap.renderer.RenderPatchFactory;
 import org.dynmap.resources.MinecraftResourceProvider;
 import org.dynmap.utils.BlockStep;
 import org.dynmap.utils.PatchDefinition;
@@ -40,6 +43,10 @@ final class MinecraftModelLoader {
     private final Map<String, JsonObject> rawModels = new HashMap<>();
     private final Map<String, JsonObject> models = new HashMap<>();
     private final Map<String, Integer> textureIds = new HashMap<>();
+    private final Map<String, JsonObject> itemModels = new HashMap<>();
+    private final Set<String> missingItemModels = new java.util.HashSet<>();
+    private final Map<String, JsonObject> modelLayers = new HashMap<>();
+    private final Set<String> missingModelLayers = new java.util.HashSet<>();
 
     MinecraftModelLoader(MinecraftResourceProvider resources, PatchDefinitionFactory patches) {
         this.resources = resources; this.patches = patches;
@@ -147,12 +154,11 @@ final class MinecraftModelLoader {
         for (AppliedModel applied : selected) {
             JsonObject model = resolveModel(applied.id);
             JsonArray elements = model.getAsJsonArray("elements");
-            if (elements == null) continue;
             Map<String, String> vars = textureVariables(model);
-            for (JsonElement elementValue : elements) {
+            if (elements != null) for (JsonElement elementValue : elements) {
                 allElementsFullCubes &= isFullCube(elementValue.getAsJsonObject());
             }
-            for (JsonElement elementValue : elements) {
+            if (elements != null) for (JsonElement elementValue : elements) {
                 JsonObject element = elementValue.getAsJsonObject();
                 double[] from = vector(element, "from", new double[] {0, 0, 0});
                 double[] to = vector(element, "to", new double[] {16, 16, 16});
@@ -181,6 +187,7 @@ final class MinecraftModelLoader {
                     if (patch != null) result.add(patch);
                 }
             }
+            if (installModelLayer(state, applied, result, textures)) allElementsFullCubes = false;
         }
         if (result.isEmpty()) return;
         BitSet only = new BitSet(); only.set(state.stateIndex);
@@ -188,6 +195,165 @@ final class MinecraftModelLoader {
         TexturePack.BlockTransparency transparency = allElementsFullCubes && state.getLightAttenuation() >= 15 && !state.isWaterFilled()
                 ? TexturePack.BlockTransparency.OPAQUE : TexturePack.BlockTransparency.SEMITRANSPARENT;
         TexturePack.registerMinecraftState(state, textures.stream().mapToInt(Integer::intValue).toArray(), transparency);
+    }
+
+    /** Adds Minecraft's baked model-layer faces for special/block-entity models. */
+    private boolean installModelLayer(DynmapBlockState state, AppliedModel applied,
+            List<PatchDefinition> result, List<Integer> textures) throws IOException {
+        JsonObject special = itemSpecialModel(state);
+        String layer = null;
+        String textureId = null;
+        if (special != null && special.has("type")) {
+            layer = path(special.get("type").getAsString());
+            if (layer.equals("copper_golem_statue")) {
+                layer += "_" + (special.has("pose") ? special.get("pose").getAsString() : "standing");
+            }
+            if (special.has("texture")) textureId = normalizeEntityTexture(special.get("texture").getAsString(), layer);
+        }
+        if (layer == null) layer = path(applied.id).substring(path(applied.id).lastIndexOf('/') + 1);
+        JsonObject geometry = readLayer(layer);
+        if (geometry == null) return false;
+        if ((textureId == null || textureId.isEmpty()) && geometry.has("texture")) textureId = geometry.get("texture").getAsString();
+        if (textureId == null || textureId.isEmpty()) return false;
+        int tile = texture(textureId);
+        JsonArray faces = geometry.getAsJsonArray("faces");
+        if (faces == null) return false;
+        String orientation = geometry.has("orientation") ? geometry.get("orientation").getAsString() : "model_rotation";
+        Map<String, String> values = properties(state.stateName);
+        for (JsonElement faceElement : faces) {
+            JsonArray vertices = faceElement.getAsJsonObject().getAsJsonArray("vertices");
+            PatchDefinition patch = modelLayerFace(vertices, textures.size());
+            if (patch == null) continue;
+            int[] rotation = layerRotation(orientation, values.get("facing"), applied);
+            if (rotation[0] != 0 || rotation[1] != 0 || rotation[2] != 0) {
+                patch = patches.getPatch(patch, rotation[0], rotation[1], rotation[2],
+                        new org.dynmap.utils.Vector3D(0.5, 0.5, 0.5), textures.size());
+            }
+            if (patch != null) {
+                textures.add(tile);
+                result.add(patch);
+            }
+        }
+        return true;
+    }
+
+    private PatchDefinition modelLayerFace(JsonArray vertices, int textureIndex) {
+        if (vertices.size() != 4) return null;
+        double[][] v = new double[4][];
+        for (int i = 0; i < 4; i++) v[i] = vector(vertices.get(i).getAsJsonArray());
+        int origin = 0, uEnd = 0, vEnd = 0;
+        double minU = Double.POSITIVE_INFINITY, maxU = Double.NEGATIVE_INFINITY;
+        double minV = Double.POSITIVE_INFINITY, maxV = Double.NEGATIVE_INFINITY;
+        for (double[] p : v) {
+            minU = Math.min(minU, p[3]); maxU = Math.max(maxU, p[3]);
+            double pv = 1.0 - p[4]; minV = Math.min(minV, pv); maxV = Math.max(maxV, pv);
+        }
+        double bestOrigin = Double.POSITIVE_INFINITY, bestU = Double.POSITIVE_INFINITY, bestV = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < 4; i++) {
+            double pv = 1.0 - v[i][4];
+            double d0 = Math.abs(v[i][3] - minU) + Math.abs(pv - minV);
+            double du = Math.abs(v[i][3] - maxU) + Math.abs(pv - minV);
+            double dv = Math.abs(v[i][3] - minU) + Math.abs(pv - maxV);
+            if (d0 < bestOrigin) { bestOrigin = d0; origin = i; }
+            if (du < bestU) { bestU = du; uEnd = i; }
+            if (dv < bestV) { bestV = dv; vEnd = i; }
+        }
+        double[] o = v[origin], u = v[uEnd], w = v[vEnd];
+        return patches.getPatch(o[0], o[1], o[2], u[0], u[1], u[2], w[0], w[1], w[2],
+                minU, maxU, minV, maxV, RenderPatchFactory.SideVisible.TOP, textureIndex,
+                minV, maxV, true);
+    }
+
+    private JsonObject itemSpecialModel(DynmapBlockState state) {
+        String id = state.blockName;
+        if (missingItemModels.contains(id)) return null;
+        try {
+            JsonObject item = itemModels.get(id);
+            if (item == null) {
+                item = read(namespace(id) + ":items/" + path(id) + ".json");
+                itemModels.put(id, item);
+            }
+            return selectSpecial(item.get("model"), properties(state.stateName));
+        } catch (Exception ignored) {
+            missingItemModels.add(id);
+            return null;
+        }
+    }
+
+    private JsonObject selectSpecial(JsonElement value, Map<String, String> state) {
+        if (value == null || !value.isJsonObject()) return null;
+        JsonObject node = value.getAsJsonObject();
+        String type = node.has("type") ? node.get("type").getAsString() : "";
+        if (type.endsWith(":special")) return node.getAsJsonObject("model");
+        if (type.endsWith(":select")) {
+            String property = node.has("block_state_property") ? node.get("block_state_property").getAsString() : null;
+            String selected = property == null ? null : state.get(property);
+            if (selected != null && node.has("cases")) for (JsonElement caseValue : node.getAsJsonArray("cases")) {
+                JsonObject candidate = caseValue.getAsJsonObject();
+                JsonElement when = candidate.get("when");
+                if (when != null && ((when.isJsonArray() && contains(when.getAsJsonArray(), selected))
+                        || (!when.isJsonArray() && selected.equals(when.getAsString())))) {
+                    return selectSpecial(candidate.get("model"), state);
+                }
+            }
+            return selectSpecial(node.get("fallback"), state);
+        }
+        return null;
+    }
+
+    private static boolean contains(JsonArray values, String selected) {
+        for (JsonElement value : values) if (selected.equals(value.getAsString())) return true;
+        return false;
+    }
+
+    private JsonObject readLayer(String layer) throws IOException {
+        JsonObject cached = modelLayers.get(layer);
+        if (cached != null) return cached;
+        if (missingModelLayers.contains(layer)) return null;
+        String resource = "/minecraft-model-layers/" + layer + ".json";
+        try (InputStream in = MinecraftModelLoader.class.getResourceAsStream(resource)) {
+            if (in == null) {
+                missingModelLayers.add(layer);
+                return null;
+            }
+            JsonObject value = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            modelLayers.put(layer, value);
+            return value;
+        }
+    }
+
+    private static String normalizeEntityTexture(String id, String layer) {
+        String namespace = namespace(id);
+        String value = path(id);
+        if (value.startsWith("textures/")) value = value.substring("textures/".length());
+        if (value.endsWith(".png")) value = value.substring(0, value.length() - 4);
+        if (!value.contains("/")) {
+            if (layer.startsWith("chest")) value = "entity/chest/" + value;
+            else if (layer.startsWith("shulker_box")) value = "entity/shulker/" + value;
+        }
+        return namespace + ":" + value;
+    }
+
+    private static int[] layerRotation(String orientation, String facing, AppliedModel applied) {
+        if (orientation.equals("model_rotation")) return new int[] {applied.x, applied.y, 0};
+        if (facing == null) return new int[] {0, 0, 0};
+        if (orientation.equals("horizontal_facing")) return new int[] {0, switch (facing) {
+            case "east" -> 90; case "south" -> 180; case "west" -> 270; default -> 0;
+        }, 0};
+        return switch (facing) {
+            case "down" -> new int[] {180, 0, 0};
+            case "north" -> new int[] {90, 0, 0};
+            case "south" -> new int[] {-90, 0, 0};
+            case "west" -> new int[] {0, 0, 90};
+            case "east" -> new int[] {0, 0, -90};
+            default -> new int[] {0, 0, 0};
+        };
+    }
+
+    private static double[] vector(JsonArray values) {
+        double[] result = new double[values.size()];
+        for (int i = 0; i < result.length; i++) result[i] = values.get(i).getAsDouble();
+        return result;
     }
 
     private PatchDefinition rotateElement(PatchDefinition patch, JsonObject rotation) {
