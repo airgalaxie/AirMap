@@ -9,6 +9,7 @@ import java.util.Arrays;
 import org.dynmap.DynmapCore;
 import org.dynmap.renderer.DynmapBlockState;
 import org.dynmap.resources.MinecraftClientResources;
+import org.dynmap.utils.BlockStep;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +51,12 @@ class MinecraftModelTintRegistrationTest {
                 "snowy grass must not use grass colormap");
         assertAllFacesCarry(leaves, TexturePack.COLORMOD_FOLIAGETONED, "untinted oak_leaves face");
         assertSomeFacesCarry(plant, TexturePack.COLORMOD_GRASSTONED, "untinted short_grass face");
+        HDBlockModel plantModel = HDBlockModels.models_by_id_data[plant.globalStateIndex];
+        assertTrue(plantModel instanceof HDBlockPatchModel, "short_grass must use its Minecraft patch model");
+        for (var patch : ((HDBlockPatchModel) plantModel).getPatches()) {
+            assertEquals(BlockStep.Y_MINUS, patch.shadeStep,
+                    "cross plants must preserve Minecraft's upward shade_direction_override");
+        }
         assertEquals(TexturePack.BlockTransparency.OPAQUE,
                 HDBlockStateTextureMap.getByBlockState(grassDefault).trans,
                 "solid grass_block must stay opaque despite multi-element model");

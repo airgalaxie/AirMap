@@ -1,13 +1,13 @@
 [versions]
-airmap = "1.0.9-fabric-future"
+airmap = "1.0.10-fabric-future"
 dynmap = "3.8"
-minecraft = "26.3-snapshot-9"
+minecraft = "26.3-snapshot-10"
 # Versionskennung, die der Ziel-Server zur Laufzeit meldet (Fabric Loader); abweichend zur Build-Version erlaubt
-minecraftRuntime = "26.3-alpha.9"
+minecraftRuntime = "26.3-alpha.10"
 javaBuild = "26"
 javaTarget = "25"
 fabricLoader = "0.19.3"
-fabricApi = "0.158.0+26.3"
+fabricApi = "0.158.2+26.3"
 fabricLoom = "1.17-SNAPSHOT"
 jsr305 = "3.0.2"
 fabricPermissionsApi = "0.7.0"

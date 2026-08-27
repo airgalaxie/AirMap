@@ -92,6 +92,18 @@ public class Color {
             |  mulDiv255( val        & 0xFF,  argb        & 0xFF);
     }
     /**
+     * Scale only the RGB channels by the corresponding component of argb, leaving alpha unchanged.
+     * Use this for directional shading on semi-transparent patches so that the opacity is not
+     * reduced by the face-darkening step.
+     * @param argb - ARGB multiplier (alpha component is ignored)
+     */
+    public final void blendRGB(int argb) {
+        val = (val & 0xFF000000)
+            | (mulDiv255((val >> 16) & 0xFF, (argb >> 16) & 0xFF) << 16)
+            | (mulDiv255((val >> 8)  & 0xFF, (argb >> 8)  & 0xFF) << 8)
+            |  mulDiv255( val        & 0xFF,  argb        & 0xFF);
+    }
+    /**
      * Scale each color component, based on the corresponding component
      * @param argb0 - first color
      * @param argb1 second color

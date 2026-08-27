@@ -202,29 +202,29 @@ public class TexturePackHDShader implements HDShader {
 
             if (c.getAlpha() > 0) {
                 /* Scale brightness depending upon face */
-            	if (ps.getShade()) {
-	            	if (this.lightingTable != null) {	
+                if (ps.getShade()) {
+                    if (this.lightingTable != null) {
                         switch (ps.getShadeStep()) {
 	                        case X_MINUS:
 	                        case X_PLUS:
 	                            /* 60% brightness */
-	                            c.blendColor(0xFF999999);
+	                            c.blendRGB(0xFF999999);
 	                            break;
 	                        case Y_MINUS:
 	                            // 95% for even
 	                            if((mapiter.getY() & 0x01) == 0) {
-	                                c.blendColor(0xFFF3F3F3);
+	                                c.blendRGB(0xFFF3F3F3);
 	                            }
 	                            break;
 	                        case Y_PLUS:
 	                            /* 50%*/
-	                            c.blendColor(0xFF808080);
+	                            c.blendRGB(0xFF808080);
 	                            break;
 	                        case Z_MINUS:
 	                        case Z_PLUS:
 	                        default:
 	                            /* 80%*/
-	                            c.blendColor(0xFFCDCDCD);
+	                            c.blendRGB(0xFFCDCDCD);
 	                            break;
 	                	}
 	                }
@@ -233,15 +233,15 @@ public class TexturePackHDShader implements HDShader {
 	                        case X_MINUS:
 	                        case X_PLUS:
 	                            /* 60% brightness */
-	                            c.blendColor(0xFFA0A0A0);
+	                            c.blendRGB(0xFFA0A0A0);
 	                            break;
 	                        case Y_MINUS:
 	                        case Y_PLUS:
 	                            /* 85% brightness for even, 90% for even*/
-	                            if((mapiter.getY() & 0x01) == 0) 
-	                                c.blendColor(0xFFD9D9D9);
+	                            if((mapiter.getY() & 0x01) == 0)
+	                                c.blendRGB(0xFFD9D9D9);
 	                            else
-	                                c.blendColor(0xFFE6E6E6);
+	                                c.blendRGB(0xFFE6E6E6);
 	                            break;
 	                        default:
 	                            break;

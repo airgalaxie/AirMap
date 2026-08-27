@@ -19,6 +19,7 @@ import org.dynmap.modsupport.BlockSide;
 import org.dynmap.modsupport.ModelBlockModel;
 import org.dynmap.renderer.DynmapBlockState;
 import org.dynmap.resources.MinecraftResourceProvider;
+import org.dynmap.utils.BlockStep;
 import org.dynmap.utils.PatchDefinition;
 import org.dynmap.utils.PatchDefinitionFactory;
 
@@ -30,6 +31,10 @@ final class MinecraftModelLoader {
     private static final BlockSide[] CUBE_SIDES = {
             BlockSide.BOTTOM, BlockSide.TOP, BlockSide.NORTH,
             BlockSide.SOUTH, BlockSide.WEST, BlockSide.EAST };
+    private static final Map<String, BlockStep> SHADE_DIRECTIONS = Map.of(
+            "down", BlockStep.Y_PLUS, "up", BlockStep.Y_MINUS,
+            "north", BlockStep.Z_PLUS, "south", BlockStep.Z_MINUS,
+            "west", BlockStep.X_PLUS, "east", BlockStep.X_MINUS);
     private final MinecraftResourceProvider resources;
     private final PatchDefinitionFactory patches;
     private final Map<String, JsonObject> rawModels = new HashMap<>();
@@ -152,6 +157,8 @@ final class MinecraftModelLoader {
                 double[] from = vector(element, "from", new double[] {0, 0, 0});
                 double[] to = vector(element, "to", new double[] {16, 16, 16});
                 boolean shade = !element.has("shade") || element.get("shade").getAsBoolean();
+                BlockStep shadeDirection = element.has("shade_direction_override")
+                        ? SHADE_DIRECTIONS.get(element.get("shade_direction_override").getAsString()) : null;
                 JsonObject faces = element.getAsJsonObject("faces");
                 if (faces == null) continue;
                 for (Map.Entry<String, JsonElement> faceEntry : faces.entrySet()) {
@@ -165,7 +172,8 @@ final class MinecraftModelLoader {
                     double[] uv = face.has("uv") ? vector(face, "uv", null) : null;
                     int rotation = integer(face, "rotation", 0);
                     ModelBlockModel.SideRotation sideRotation = ModelBlockModel.SideRotation.valueOf("DEG" + rotation);
-                    PatchDefinition patch = patches.getModelFace(from, to, side, uv, sideRotation, shade, textureIndex);
+                    PatchDefinition patch = patches.getModelFace(
+                            from, to, side, uv, sideRotation, shade, shadeDirection, textureIndex);
                     if (patch == null) continue;
                     if (element.has("rotation")) patch = rotateElement(patch, element.getAsJsonObject("rotation"));
                     if (patch != null && (applied.x != 0 || applied.y != 0))
@@ -225,8 +233,13 @@ final class MinecraftModelLoader {
         }
         return value.getAsString();
     }
-    private static String dereference(String value, Map<String,String> vars) {
-        for (int i=0; value.startsWith("#") && i<32; i++) value = vars.getOrDefault(value.substring(1), "minecraft:block/missingno"); return value;
+    static String dereference(String value, Map<String,String> vars) {
+        for (int i = 0; i < 32; i++) {
+            String key = value.startsWith("#") ? value.substring(1) : value;
+            if (!vars.containsKey(key)) return value;
+            value = vars.get(key);
+        }
+        return "minecraft:block/missingno";
     }
     private int texture(String id) { return textureIds.computeIfAbsent(id, TexturePack::registerMinecraftTexture); }
     private JsonObject read(String id) throws IOException { try (var in = resources.open(id); var reader = new InputStreamReader(in, StandardCharsets.UTF_8)) { return JsonParser.parseReader(reader).getAsJsonObject(); } }
