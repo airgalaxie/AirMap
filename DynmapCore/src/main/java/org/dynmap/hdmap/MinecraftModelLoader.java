@@ -259,7 +259,17 @@ final class MinecraftModelLoader {
             if (dv < bestV) { bestV = dv; vEnd = i; }
         }
         double[] o = v[origin], u = v[uEnd], w = v[vEnd];
-        return patches.getPatch(o[0], o[1], o[2], u[0], u[1], u[2], w[0], w[1], w[2],
+        double uSpan = maxU - minU, vSpan = maxV - minV;
+        if (uSpan <= 0 || vSpan <= 0) return null;
+        double[] uBasis = {(u[0] - o[0]) / uSpan, (u[1] - o[1]) / uSpan, (u[2] - o[2]) / uSpan};
+        double[] vBasis = {(w[0] - o[0]) / vSpan, (w[1] - o[1]) / vSpan, (w[2] - o[2]) / vSpan};
+        double[] atlasOrigin = {
+                o[0] - uBasis[0] * minU - vBasis[0] * minV,
+                o[1] - uBasis[1] * minU - vBasis[1] * minV,
+                o[2] - uBasis[2] * minU - vBasis[2] * minV};
+        return patches.getPatch(atlasOrigin[0], atlasOrigin[1], atlasOrigin[2],
+                atlasOrigin[0] + uBasis[0], atlasOrigin[1] + uBasis[1], atlasOrigin[2] + uBasis[2],
+                atlasOrigin[0] + vBasis[0], atlasOrigin[1] + vBasis[1], atlasOrigin[2] + vBasis[2],
                 minU, maxU, minV, maxV, RenderPatchFactory.SideVisible.TOP, textureIndex,
                 minV, maxV, true);
     }
