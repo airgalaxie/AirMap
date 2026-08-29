@@ -58,21 +58,6 @@ public class BukkitWorld extends DynmapWorld {
     private static List<String> getLegacyWorldNames(World world) {
         List<String> aliases = new ArrayList<String>();
         aliases.add(world.getName());
-        switch (world.getEnvironment()) {
-            case NORMAL:
-                aliases.add("world");
-                break;
-            case NETHER:
-                aliases.add("DIM-1");
-                aliases.add("nether");
-                break;
-            case THE_END:
-                aliases.add("DIM1");
-                aliases.add("the_end");
-                break;
-            default:
-                break;
-        }
         aliases.removeIf(world.getKey().toString()::equals);
         return Collections.unmodifiableList(aliases);
     }

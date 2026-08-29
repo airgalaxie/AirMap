@@ -41,10 +41,10 @@ public class ImageIOManager {
     	if (fmt.getEncoding() == ImageEncoding.WEBP) {
     		if (core.getCWEBPPath() == null) {	// No encoder?
     			if (!did_warning) {
-    				Log.warning("Attempt to use WEBP support when not usable: using JPEG");
+    				Log.warning("Attempt to use WEBP support when not usable: using " + ImageFormat.FORMAT_PNG.getID());
     				did_warning = true;
     			}
-				fmt = ImageFormat.FORMAT_JPG;	// Switch to JPEN
+				fmt = ImageFormat.FORMAT_PNG;	// Switch to lossless fallback format
     		}
     	}
     	return fmt;

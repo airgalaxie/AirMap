@@ -83,7 +83,7 @@ public class FileTreeMapStorage extends MapStorage {
     private Set<String> legacyIds(DynmapWorld world) {
         Set<String> ids = new LinkedHashSet<String>();
         ids.add(DynmapWorld.legacyWorldName(world.getRawName()));
-        for (String alias : world.getNameAliases()) ids.add(DynmapWorld.legacyWorldName(alias));
+        for (String alias : world.getWorldAliases()) ids.add(DynmapWorld.legacyWorldName(alias));
         ids.remove(world.getStorageId());
         ids.removeIf(id -> !WorldIdentifier.isSafeLegacyPathComponent(id));
         return ids;

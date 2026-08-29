@@ -49,13 +49,6 @@ public class FabricWorld extends DynmapWorld {
         List<String> aliases = new ArrayList<String>();
         if (dimension.equals(Level.OVERWORLD)) {
             aliases.add(w.getServer().getWorldData().getLevelName());
-            aliases.add("world");
-        } else if (dimension.equals(Level.NETHER)) {
-            aliases.add("DIM-1");
-            aliases.add("nether");
-        } else if (dimension.equals(Level.END)) {
-            aliases.add("DIM1");
-            aliases.add("the_end");
         } else {
             aliases.add(dimension.identifier().getNamespace() + "_" + dimension.identifier().getPath());
         }

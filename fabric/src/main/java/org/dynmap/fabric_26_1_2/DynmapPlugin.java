@@ -707,7 +707,7 @@ public class DynmapPlugin {
             return world;
         }
         for (FabricWorld candidate : worlds.values()) {
-            if (candidate.getNameAliases().contains(name)) {
+            if (candidate.getWorldAliases().contains(name)) {
                 return candidate;
             }
         }

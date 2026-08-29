@@ -487,13 +487,19 @@ public class DynmapCore implements DynmapCommonAPI {
         	cwebpPath = dwebpPath = null;
         }
         /* Get default image format */
+        /* The configured value is authoritative: adopt it verbatim when usable, and only fall back to the
+         * existing format 'png' when the format is unknown or the required encoder is not available. */
         def_image_format = configuration.getString("image-format", "png");
         MapType.ImageFormat fmt = MapType.ImageFormat.fromID(def_image_format);
-        if ((fmt == null) || ((fmt.enc == ImageEncoding.WEBP) && (cwebpPath == null))) {
-            Log.severe("Invalid image-format: " + def_image_format);
-            def_image_format = "png";
-            fmt = MapType.ImageFormat.fromID(def_image_format);
+        if (fmt == null) {
+            Log.severe("Invalid image-format: " + def_image_format + " - using " + MapType.ImageFormat.FORMAT_PNG.getID());
+            fmt = MapType.ImageFormat.FORMAT_PNG;
         }
+        else if ((fmt.getEncoding() == ImageEncoding.WEBP) && (cwebpPath == null)) {
+            fmt = MapType.ImageFormat.FORMAT_PNG;
+            Log.warning("Configured image-format '" + def_image_format + "' is not available on this system; falling back to '" + fmt.getID() + "'.");
+        }
+        def_image_format = fmt.getID();
         
         
         DynmapWorld.doInitialScan(configuration.getBoolean("initial-zoomout-validate", true));
@@ -1820,7 +1826,7 @@ public class DynmapCore implements DynmapCommonAPI {
         
         ConfigurationNode worldConfiguration = getWorldConfigurationNode(wname);
         if (worldConfiguration.isEmpty()) {
-            for (String alias : world.getNameAliases()) {
+            for (String alias : world.getWorldAliases()) {
                 worldConfiguration = getWorldConfigurationNode(alias);
                 if (!worldConfiguration.isEmpty()) {
                     Log.info("Using legacy world configuration '" + alias + "' for '" + wname + "'");

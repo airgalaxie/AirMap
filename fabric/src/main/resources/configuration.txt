@@ -42,13 +42,16 @@ deftemplatesuffix: hires
 #defaulttilescale: 0
 
 ### Default image format for HDMaps (png, jpg, jpg-q75, jpg-q80, jpg-q85, jpg-q90, jpg-q95, jpg-q100, webp, webp-q75, webp-q80, webp-q85, webp-q90, webp-q95, webp-q100, webp-l),
-### Note: any webp format requires the presence of the 'webp command line tools' (cwebp, dwebp) (https://developers.google.com/speed/webp/download)
-### Has no effect on maps with explicit format settings
+### A valid configured value is used exactly as set - AirMap does not optimize quality or prefer webp on its own.
+### Any webp format requires the external tools cwebp and dwebp (https://developers.google.com/speed/webp/download), found on the PATH
+### or configured below via cwebpPath/dwebpPath. If they are not available, AirMap logs a warning and falls back to the existing
+### 'png' format. There is no fallback format besides png.
+### This setting only applies to maps using 'image-format: default' - explicit per-map image-format settings are always respected.
 ### Default active in this fork: webp-q80
 image-format: webp-q80
 
-### If cwebp or dwebp are not on the PATH, use these settings to provide their full path.  Do not use these settings if the tools are on the PATH
-### For Windows, include .exe
+### If cwebp and dwebp are not found on the PATH, set these to their full paths so webp can be used - both tools are required.
+### Do not use these settings if the tools are already on the PATH. For Windows, include .exe
 #cwebpPath: /usr/bin/cwebp
 #dwebpPath: /usr/bin/dwebp
 
