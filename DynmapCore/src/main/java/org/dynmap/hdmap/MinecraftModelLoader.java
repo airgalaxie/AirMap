@@ -200,15 +200,15 @@ final class MinecraftModelLoader {
     /** Adds Minecraft's baked model-layer faces for special/block-entity models. */
     private boolean installModelLayer(DynmapBlockState state, AppliedModel applied,
             List<PatchDefinition> result, List<Integer> textures) throws IOException {
-        JsonObject special = itemSpecialModel(state);
+        SpecialModel special = itemSpecialModel(state);
         String layer = null;
         String textureId = null;
-        if (special != null && special.has("type")) {
-            layer = path(special.get("type").getAsString());
+        if (special != null && special.model.has("type")) {
+            layer = path(special.model.get("type").getAsString());
             if (layer.equals("copper_golem_statue")) {
-                layer += "_" + (special.has("pose") ? special.get("pose").getAsString() : "standing");
+                layer += "_" + (special.model.has("pose") ? special.model.get("pose").getAsString() : "standing");
             }
-            if (special.has("texture")) textureId = normalizeEntityTexture(special.get("texture").getAsString(), layer);
+            if (special.model.has("texture")) textureId = normalizeEntityTexture(special.model.get("texture").getAsString(), layer);
         }
         if (layer == null) layer = path(applied.id).substring(path(applied.id).lastIndexOf('/') + 1);
         JsonObject geometry = readLayer(layer);
@@ -222,6 +222,7 @@ final class MinecraftModelLoader {
         Map<String, String> values = properties(state.stateName);
         for (JsonElement faceElement : faces) {
             JsonArray vertices = faceElement.getAsJsonObject().getAsJsonArray("vertices");
+            if (special != null && special.transformation != null) vertices = transformVertices(vertices, special.transformation);
             PatchDefinition patch = modelLayerFace(vertices, textures.size());
             if (patch == null) continue;
             int[] rotation = layerRotation(orientation, values.get("facing"), applied);
@@ -274,7 +275,7 @@ final class MinecraftModelLoader {
                 minV, maxV, true);
     }
 
-    private JsonObject itemSpecialModel(DynmapBlockState state) {
+    private SpecialModel itemSpecialModel(DynmapBlockState state) {
         String id = state.blockName;
         if (missingItemModels.contains(id)) return null;
         try {
@@ -290,11 +291,11 @@ final class MinecraftModelLoader {
         }
     }
 
-    private JsonObject selectSpecial(JsonElement value, Map<String, String> state) {
+    private SpecialModel selectSpecial(JsonElement value, Map<String, String> state) {
         if (value == null || !value.isJsonObject()) return null;
         JsonObject node = value.getAsJsonObject();
         String type = node.has("type") ? node.get("type").getAsString() : "";
-        if (type.endsWith(":special")) return node.getAsJsonObject("model");
+        if (type.endsWith(":special")) return new SpecialModel(node.getAsJsonObject("model"), node.getAsJsonObject("transformation"));
         if (type.endsWith(":select")) {
             String property = node.has("block_state_property") ? node.get("block_state_property").getAsString() : null;
             String selected = property == null ? null : state.get(property);
@@ -310,6 +311,37 @@ final class MinecraftModelLoader {
         }
         return null;
     }
+
+    private static JsonArray transformVertices(JsonArray vertices, JsonObject transformation) {
+        double[] translation = vector(transformation, "translation", new double[] {0, 0, 0});
+        double[] scale = vector(transformation, "scale", new double[] {1, 1, 1});
+        double[] left = vector(transformation, "left_rotation", new double[] {0, 0, 0, 1});
+        double[] right = vector(transformation, "right_rotation", new double[] {0, 0, 0, 1});
+        JsonArray result = new JsonArray();
+        for (JsonElement vertexElement : vertices) {
+            double[] vertex = vector(vertexElement.getAsJsonArray());
+            double[] position = rotateQuaternion(new double[] {vertex[0], vertex[1], vertex[2]}, right);
+            for (int i = 0; i < 3; i++) position[i] *= scale[i];
+            position = rotateQuaternion(position, left);
+            JsonArray transformed = new JsonArray();
+            for (int i = 0; i < 3; i++) transformed.add(position[i] + translation[i]);
+            for (int i = 3; i < vertex.length; i++) transformed.add(vertex[i]);
+            result.add(transformed);
+        }
+        return result;
+    }
+
+    private static double[] rotateQuaternion(double[] v, double[] q) {
+        double tx = 2 * (q[1] * v[2] - q[2] * v[1]);
+        double ty = 2 * (q[2] * v[0] - q[0] * v[2]);
+        double tz = 2 * (q[0] * v[1] - q[1] * v[0]);
+        return new double[] {
+                v[0] + q[3] * tx + q[1] * tz - q[2] * ty,
+                v[1] + q[3] * ty + q[2] * tx - q[0] * tz,
+                v[2] + q[3] * tz + q[0] * ty - q[1] * tx};
+    }
+
+    private record SpecialModel(JsonObject model, JsonObject transformation) {}
 
     private static boolean contains(JsonArray values, String selected) {
         for (JsonElement value : values) if (selected.equals(value.getAsString())) return true;

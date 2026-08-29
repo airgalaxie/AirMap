@@ -51,6 +51,8 @@ class MinecraftStaticModelIntegrationTest {
         assertEquals(18, patches(chest).length, "Minecraft chest model layer");
         assertEquals(18, patches(copperChest).length, "Minecraft copper-chest model layer");
         assertEquals(12, patches(shulkerBox).length, "Minecraft shulker-box model layer");
+        assertEquals(0.00025, minX(patches(shulkerBox)), 1.0e-9, "special-model translation and scale");
+        assertEquals(0.99975, maxX(patches(shulkerBox)), 1.0e-9, "special-model translation and scale");
         assertEquals(28, patches(bell).length, "static bell support plus Minecraft bell model layer");
         assertEquals(54, patches(statue).length, "Minecraft copper-golem standing model layer");
     }
@@ -70,5 +72,21 @@ class MinecraftStaticModelIntegrationTest {
         assertNotNull(model, "missing model for " + state);
         assertTrue(model instanceof HDBlockPatchModel, "not a patch model for " + state);
         return ((HDBlockPatchModel) model).getPatches();
+    }
+
+    private static double minX(org.dynmap.utils.PatchDefinition[] patches) {
+        return java.util.Arrays.stream(patches).flatMapToDouble(p -> java.util.stream.DoubleStream.of(
+                p.x0 + p.u.x * p.umin + p.v.x * p.vmin,
+                p.x0 + p.u.x * p.umax + p.v.x * p.vmin,
+                p.x0 + p.u.x * p.umin + p.v.x * p.vmax,
+                p.x0 + p.u.x * p.umax + p.v.x * p.vmax)).min().orElseThrow();
+    }
+
+    private static double maxX(org.dynmap.utils.PatchDefinition[] patches) {
+        return java.util.Arrays.stream(patches).flatMapToDouble(p -> java.util.stream.DoubleStream.of(
+                p.x0 + p.u.x * p.umin + p.v.x * p.vmin,
+                p.x0 + p.u.x * p.umax + p.v.x * p.vmin,
+                p.x0 + p.u.x * p.umin + p.v.x * p.vmax,
+                p.x0 + p.u.x * p.umax + p.v.x * p.vmax)).max().orElseThrow();
     }
 }
