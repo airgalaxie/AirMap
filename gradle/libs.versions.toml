@@ -1,5 +1,5 @@
 [versions]
-airmap = "1.0.2"
+airmap = "1.0.3"
 dynmap = "3.8"
 minecraft = "26.2"
 java = "25"
