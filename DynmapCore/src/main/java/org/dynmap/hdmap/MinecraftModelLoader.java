@@ -151,6 +151,7 @@ final class MinecraftModelLoader {
         List<PatchDefinition> result = new ArrayList<>();
         List<Integer> textures = new ArrayList<>();
         boolean allElementsFullCubes = true;
+        boolean[] occluding = new boolean[1];
         for (AppliedModel applied : selected) {
             JsonObject model = resolveModel(applied.id);
             JsonArray elements = model.getAsJsonArray("elements");
@@ -187,11 +188,11 @@ final class MinecraftModelLoader {
                     if (patch != null) result.add(patch);
                 }
             }
-            if (installModelLayer(state, applied, result, textures)) allElementsFullCubes = false;
+            if (installModelLayer(state, applied, result, textures, occluding)) allElementsFullCubes = false;
         }
         if (result.isEmpty()) return;
         BitSet only = new BitSet(); only.set(state.stateIndex);
-        new HDBlockPatchModel(state.baseState, only, result.toArray(PatchDefinition[]::new), "minecraft-json");
+        new HDBlockPatchModel(state.baseState, only, result.toArray(PatchDefinition[]::new), "minecraft-json", occluding[0]);
         TexturePack.BlockTransparency transparency = allElementsFullCubes && state.getLightAttenuation() >= 15 && !state.isWaterFilled()
                 ? TexturePack.BlockTransparency.OPAQUE : TexturePack.BlockTransparency.SEMITRANSPARENT;
         TexturePack.registerMinecraftState(state, textures.stream().mapToInt(Integer::intValue).toArray(), transparency);
@@ -199,7 +200,7 @@ final class MinecraftModelLoader {
 
     /** Adds Minecraft's baked model-layer faces for special/block-entity models. */
     private boolean installModelLayer(DynmapBlockState state, AppliedModel applied,
-            List<PatchDefinition> result, List<Integer> textures) throws IOException {
+            List<PatchDefinition> result, List<Integer> textures, boolean[] occluding) throws IOException {
         SpecialModel special = itemSpecialModel(state);
         String layer = null;
         String textureId = null;
@@ -213,16 +214,19 @@ final class MinecraftModelLoader {
         if (layer == null) layer = path(applied.id).substring(path(applied.id).lastIndexOf('/') + 1);
         JsonObject geometry = readLayer(layer);
         if (geometry == null) return false;
+        if (geometry.has("occluding") && geometry.get("occluding").getAsBoolean()) occluding[0] = true;
         if ((textureId == null || textureId.isEmpty()) && geometry.has("texture")) textureId = geometry.get("texture").getAsString();
         if (textureId == null || textureId.isEmpty()) return false;
         int tile = texture(textureId);
         JsonArray faces = geometry.getAsJsonArray("faces");
         if (faces == null) return false;
         String orientation = geometry.has("orientation") ? geometry.get("orientation").getAsString() : "model_rotation";
+        double[] placement = geometry.has("translation") ? vector(geometry.get("translation").getAsJsonArray()) : null;
         Map<String, String> values = properties(state.stateName);
         for (JsonElement faceElement : faces) {
             JsonArray vertices = faceElement.getAsJsonObject().getAsJsonArray("vertices");
             if (special != null && special.transformation != null) vertices = transformVertices(vertices, special.transformation);
+            if (placement != null) vertices = translateVertices(vertices, placement);
             PatchDefinition patch = modelLayerFace(vertices, textures.size());
             if (patch == null) continue;
             int[] rotation = layerRotation(orientation, values.get("facing"), applied);
@@ -268,11 +272,43 @@ final class MinecraftModelLoader {
                 o[0] - uBasis[0] * minU - vBasis[0] * minV,
                 o[1] - uBasis[1] * minU - vBasis[1] * minV,
                 o[2] - uBasis[2] * minU - vBasis[2] * minV};
+        double[] basisNormal = cross(uBasis, vBasis);
+        double[] windingNormal = cross(
+                new double[] {v[1][0] - v[0][0], v[1][1] - v[0][1], v[1][2] - v[0][2]},
+                new double[] {v[2][0] - v[0][0], v[2][1] - v[0][1], v[2][2] - v[0][2]});
+        boolean flip = stepOf(basisNormal) == stepOf(windingNormal).opposite();
+        if (flip) {
+            return patches.getPatch(
+                    atlasOrigin[0] + uBasis[0], atlasOrigin[1] + uBasis[1], atlasOrigin[2] + uBasis[2],
+                    atlasOrigin[0], atlasOrigin[1], atlasOrigin[2],
+                    atlasOrigin[0] + uBasis[0] + vBasis[0], atlasOrigin[1] + uBasis[1] + vBasis[1],
+                    atlasOrigin[2] + uBasis[2] + vBasis[2],
+                    1.0 - maxU, 1.0 - minU, minV, maxV, RenderPatchFactory.SideVisible.TOP, textureIndex,
+                    minV, maxV, true);
+        }
         return patches.getPatch(atlasOrigin[0], atlasOrigin[1], atlasOrigin[2],
                 atlasOrigin[0] + uBasis[0], atlasOrigin[1] + uBasis[1], atlasOrigin[2] + uBasis[2],
                 atlasOrigin[0] + vBasis[0], atlasOrigin[1] + vBasis[1], atlasOrigin[2] + vBasis[2],
                 minU, maxU, minV, maxV, RenderPatchFactory.SideVisible.TOP, textureIndex,
                 minV, maxV, true);
+    }
+
+    private static double[] cross(double[] a, double[] b) {
+        return new double[] {
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0]};
+    }
+
+    /** Dominant-axis face classification, identical to PatchDefinition.update(). */
+    private static BlockStep stepOf(double[] normal) {
+        double cx = normal[0], cy = normal[1], cz = normal[2];
+        if (Math.abs(cx) > (Math.abs(cy) * 0.9)) {
+            if (Math.abs(cx) > Math.abs(cz)) return (cx > 0) ? BlockStep.X_PLUS : BlockStep.X_MINUS;
+            return (cz > 0) ? BlockStep.Z_PLUS : BlockStep.Z_MINUS;
+        }
+        if ((Math.abs(cy) * 0.9) > Math.abs(cz)) return (cy > 0) ? BlockStep.Y_PLUS : BlockStep.Y_MINUS;
+        return (cz > 0) ? BlockStep.Z_PLUS : BlockStep.Z_MINUS;
     }
 
     private SpecialModel itemSpecialModel(DynmapBlockState state) {
@@ -325,6 +361,22 @@ final class MinecraftModelLoader {
             position = rotateQuaternion(position, left);
             JsonArray transformed = new JsonArray();
             for (int i = 0; i < 3; i++) transformed.add(position[i] + translation[i]);
+            for (int i = 3; i < vertex.length; i++) transformed.add(vertex[i]);
+            result.add(transformed);
+        }
+        return result;
+    }
+
+    /** Shifts 3D face vertices by a constant block-space translation (Minecraft block-entity
+     * placement, e.g. translate(0.5, 0, 0.5)), keeping UV coordinates untouched. */
+    private static JsonArray translateVertices(JsonArray vertices, double[] translation) {
+        JsonArray result = new JsonArray();
+        for (JsonElement vertexElement : vertices) {
+            double[] vertex = vector(vertexElement.getAsJsonArray());
+            JsonArray transformed = new JsonArray();
+            transformed.add(vertex[0] + translation[0]);
+            transformed.add(vertex[1] + translation[1]);
+            transformed.add(vertex[2] + translation[2]);
             for (int i = 3; i < vertex.length; i++) transformed.add(vertex[i]);
             result.add(transformed);
         }

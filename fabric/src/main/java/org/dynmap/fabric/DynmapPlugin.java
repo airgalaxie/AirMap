@@ -167,10 +167,9 @@ public class DynmapPlugin {
                     if (statename.length() > 0) {
                         statename += ",";
                     }
-                    statename += p.getName() + "=" + p.value(bs).value().toString();
+                    statename += p.getName() + "=" + p.value(bs).valueName();
                 }
                 int lightAtten = bs.getLightDampening();
-                //Log.info("statename=" + bn + "[" + statename + "], lightAtten=" + lightAtten);
                 // Fill in base attributes
                 bld.setBaseState(basebs).setStateIndex(stateIndex).setBlockName(bn).setStateName(statename).setLegacyBlockID(idx).setAttenuatesLight(lightAtten);
                 if (bs.getSoundType() != null) { bld.setMaterial(bs.getSoundType().toString()); }

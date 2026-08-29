@@ -29,6 +29,7 @@ public final class HDBlockModels {
     public static boolean isChangeIgnoredBlock(DynmapBlockState block) { return changeIgnoredBlocks.get(block.globalStateIndex); }
     public static int getNeededTextureCount(DynmapBlockState block) { HDBlockModel m=model(block); return m == null ? 6 : m.getTextureCount(); }
     private static HDBlockModel model(DynmapBlockState b) { return b.globalStateIndex < models_by_id_data.length ? models_by_id_data[b.globalStateIndex] : null; }
+    public static boolean isModelOccluding(DynmapBlockState b) { HDBlockModel m=model(b); return (m instanceof HDBlockPatchModel p) && p.isOccluding(); }
     public static boolean resetIfNotBlockSet(DynmapBlockState block, String blockset) { HDBlockModel m=model(block); if(m != null && !m.getBlockSet().equals(blockset)){models_by_id_data[block.globalStateIndex]=null;return true;} return false; }
     public static String[] getTileEntityFieldsNeeded(DynmapBlockState block) { HDBlockModel m=model(block); return m instanceof CustomBlockModel c ? c.render.getTileEntityFieldsNeeded() : null; }
     public static HDScaledBlockModels getModelsForScale(int scale) { return scaledModels.computeIfAbsent(scale, HDScaledBlockModels::new); }

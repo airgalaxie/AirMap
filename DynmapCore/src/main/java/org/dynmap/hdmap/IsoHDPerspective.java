@@ -101,6 +101,7 @@ public class IsoHDPerspective implements HDPerspective {
         int x_inc, y_inc, z_inc;        
         double t_next_y, t_next_x, t_next_z;
         boolean nonairhit;
+        boolean occluded_geom;   /* True once a declared-occluding model surface was hit on this ray */
         /* Subblock tracer state */
         int mx, my, mz;
         //double xx, yy, zz;
@@ -374,6 +375,7 @@ public class IsoHDPerspective implements HDPerspective {
             /* Walk through scene */
             laststep = BlockStep.Y_MINUS; /* Last step is down into map */
             nonairhit = false;
+            occluded_geom = false;
             skiptoair = isnether;
         }
 
@@ -494,7 +496,7 @@ public class IsoHDPerspective implements HDPerspective {
             return hitcnt;
         }
         
-        private boolean handlePatches(RenderPatch[] patches, HDShaderState[] shaderstate, boolean[] shaderdone, DynmapBlockState fluidstate, RenderPatch[] fluidpatches) {
+        private boolean handlePatches(RenderPatch[] patches, HDShaderState[] shaderstate, boolean[] shaderdone, DynmapBlockState fluidstate, RenderPatch[] fluidpatches, boolean occluding) {
             int hitcnt = 0;
             int water_hit = Integer.MAX_VALUE; // hit index of first water hit
             /* Loop through patches : compute intercept values for each */
@@ -519,6 +521,10 @@ public class IsoHDPerspective implements HDPerspective {
                         shaderstate[i].setLastBlockState(blocktype);
                 }
                 return false;
+            }
+            /* If an occluding model's surface was hit, blocks behind must not fill missing coverage */
+            if (occluding && (water_hit > 0)) {
+                occluded_geom = true;
             }
             BlockStep old_laststep = laststep;  /* Save last step */
             DynmapBlockState cur_bt = blocktype;
@@ -615,6 +621,12 @@ public class IsoHDPerspective implements HDPerspective {
         private boolean visit_block(HDShaderState[] shaderstate, boolean[] shaderdone) {
             lastblocktype = blocktype;
             blocktype = mapiter.getBlockType();
+            /* A declared-occluding model was hit earlier on this ray: nothing behind it may contribute
+             * missing subpixel coverage, so terminate all active shaders here. */
+            if (occluded_geom) {
+                for (int i = 0; i < shaderdone.length; i++) shaderdone[i] = true;
+                return true;
+            }
             if (skiptoair) {	/* If skipping until we see air */
                 if (blocktype.isAir()) {	/* If air, we're done */
                 	skiptoair = false;
@@ -631,7 +643,8 @@ public class IsoHDPerspective implements HDPerspective {
                     if (fluidstate != null) {
                         fluidpatches = getPatches(fluidstate, true);
                     }
-                    return handlePatches(patches, shaderstate, shaderdone, fluidstate, fluidpatches);
+                    return handlePatches(patches, shaderstate, shaderdone, fluidstate, fluidpatches,
+                            HDBlockModels.isModelOccluding(blocktype));
                 }
                 else if ((model = scalemodels.getScaledModel(blocktype)) != null) {
                     return handleSubModel(model, shaderstate, shaderdone);
