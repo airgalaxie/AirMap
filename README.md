@@ -1,3 +1,7 @@
+<p align="center">
+    <img src="images/AirMap-banner.webp" alt="AirMap Banner" />
+</p>
+
 # AirMap – based on Dynmap®
 
 AirMap is an independent project based on the [Dynmap® project](https://github.com/webbukkit/dynmap), incorporating work from [JLyne's fork](https://github.com/JLyne/dynmap) and [airgalaxie/dynmap-paper](https://github.com/airgalaxie/dynmap-paper). Dynmap® is the original project and remains the foundation of AirMap. AirMap uses a hardened Dynmap core in its Fabric mod.
