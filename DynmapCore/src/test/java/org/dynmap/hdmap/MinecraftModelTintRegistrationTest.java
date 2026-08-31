@@ -65,8 +65,8 @@ class MinecraftModelTintRegistrationTest {
                 "stone must be opaque");
 
         HDBlockStateTextureMap waterMap = HDBlockStateTextureMap.getByBlockState(water);
-        assertNotNull(waterMap, "water must get an explicit fluid cube");
-        assertNotNull(waterMap.faces, "water cube must have faces");
+        assertNotNull(waterMap, "water must get an explicit fluid model");
+        assertNotNull(waterMap.faces, "water model must have textures");
         assertEquals(TexturePack.BlockTransparency.SEMITRANSPARENT, waterMap.trans, "water must stay semitransparent");
         int waterTile = waterMap.faces[0];
         // CLEARINSIDE op: readColor culls internal water-water faces and falls through to
@@ -75,12 +75,15 @@ class MinecraftModelTintRegistrationTest {
                 "water_still.png is grayscale in modern MC; CLEARINSIDE gives biome tone + face culling");
         assertTrue(waterTile % TexturePack.COLORMOD_MULT_INTERNAL > 267,
                 "water must resolve to a real dynamic tile, got " + waterTile);
-        for (int i = 0; i < waterMap.faces.length; i++) {
-            assertEquals(waterTile, waterMap.faces[i], "water face " + i + " must use the same still-water tile");
-        }
+        assertEquals(2, waterMap.faces.length, "fluid model needs Minecraft's still and flowing textures");
+        assertEquals(TexturePack.COLORMOD_CLEARINSIDE,
+                waterMap.faces[1] / TexturePack.COLORMOD_MULT_INTERNAL,
+                "water_flow.png needs the same tint and internal-face operation");
+        assertTrue(HDBlockModels.models_by_id_data[water.globalStateIndex] instanceof CustomBlockModel,
+                "water states must use the Minecraft-compatible fluid surface renderer");
 
         HDBlockStateTextureMap flowingMap = HDBlockStateTextureMap.getByBlockState(flowingWater);
-        assertNotNull(flowingMap, "flowing_water must get an explicit fluid cube");
+        assertNotNull(flowingMap, "flowing_water must get an explicit fluid model");
         assertEquals(TexturePack.BlockTransparency.SEMITRANSPARENT, flowingMap.trans,
                 "flowing_water must stay semitransparent");
         assertEquals(TexturePack.COLORMOD_CLEARINSIDE, flowingMap.faces[0] / TexturePack.COLORMOD_MULT_INTERNAL,

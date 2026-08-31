@@ -155,6 +155,22 @@ public class PatchDefinition implements RenderPatch {
         vec.add(origin);
     }
 
+    /**
+     * Rotate vector about the origin by the same X-then-Y-then-Z order the constructor uses.
+     * @param vec - vector to rotate in place
+     * @param rotatex - x rotation in degrees
+     * @param rotatey - y rotation in degrees
+     * @param rotatez - z rotation in degrees
+     */
+    public static void rotateAround(Vector3D vec, double rotatex, double rotatey, double rotatez) {
+        if (rotatex == 0 && rotatey == 0 && rotatez == 0) return;
+        double sinX = 0, cosX = 1, sinY = 0, cosY = 1, sinZ = 0, cosZ = 1;
+        if (rotatex != 0) { double r = Math.toRadians(rotatex); sinX = Math.sin(r); cosX = Math.cos(r); }
+        if (rotatey != 0) { double r = Math.toRadians(rotatey); sinY = Math.sin(r); cosY = Math.cos(r); }
+        if (rotatez != 0) { double r = Math.toRadians(rotatez); sinZ = Math.sin(r); cosZ = Math.cos(r); }
+        rotatePrecomputed(vec, sinX, cosX, sinY, cosY, sinZ, cosZ, offsetCenter);
+    }
+
     private static BlockStep rotateStep(BlockStep step,
             double sinX, double cosX, double sinY, double cosY, double sinZ, double cosZ) {
         if (step == null) return null;

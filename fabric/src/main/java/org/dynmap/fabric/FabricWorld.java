@@ -54,17 +54,20 @@ public class FabricWorld extends DynmapWorld {
         return canonicalName.replace(':', '@').replace('/', '+');
     }
 
-    private static String getCanonicalLevelName(String name, boolean nether, boolean theEnd) {
+    private static String getCanonicalLevelName(String name) {
         if (name.indexOf(':') > 0) {
             return name;
         }
-        if (nether) {
+        if (name.equals("DIM-1") || name.equals("nether") || name.equals("minecraft_the_nether")) {
             return Level.NETHER.identifier().toString();
         }
-        if (theEnd) {
+        if (name.equals("DIM1") || name.equals("the_end") || name.equals("minecraft_the_end")) {
             return Level.END.identifier().toString();
         }
-        return Level.OVERWORLD.identifier().toString();
+        if (name.equals("world") || name.equals("overworld") || name.equals("minecraft_overworld")) {
+            return Level.OVERWORLD.identifier().toString();
+        }
+        return name;
     }
 
     private static List<String> getLegacyLevelNames(Level w) {
@@ -73,7 +76,6 @@ public class FabricWorld extends DynmapWorld {
         if (dimension.equals(Level.OVERWORLD)) {
             aliases.add(dimension.identifier().toString());
             aliases.add(w.getServer().getWorldData().getLevelName());
-            aliases.add("world");
         } else if (dimension.equals(Level.NETHER)) {
             aliases.add(dimension.identifier().toString());
             aliases.add("DIM-1");
@@ -89,12 +91,11 @@ public class FabricWorld extends DynmapWorld {
         return Collections.unmodifiableList(aliases);
     }
 
-    private static List<String> getLegacyLevelNames(String name, boolean nether, boolean theEnd) {
-        String canonicalName = getCanonicalLevelName(name, nether, theEnd);
+    private static List<String> getLegacyLevelNames(String name) {
+        String canonicalName = getCanonicalLevelName(name);
         List<String> aliases = new ArrayList<String>();
         if (Level.OVERWORLD.identifier().toString().equals(canonicalName)) {
             aliases.add(name);
-            aliases.add("world");
         } else if (Level.NETHER.identifier().toString().equals(canonicalName)) {
             aliases.add(name);
             aliases.add("DIM-1");
@@ -130,7 +131,7 @@ public class FabricWorld extends DynmapWorld {
     }
 
     public FabricWorld(DynmapPlugin plugin, String name, int height, int sealevel, boolean nether, boolean the_end, String deftitle, int miny) {
-        super(getCanonicalLevelName(name, nether, the_end), (height > maxLevelHeight) ? maxLevelHeight : height, sealevel, miny);
+        super(getCanonicalLevelName(name), (height > maxLevelHeight) ? maxLevelHeight : height, sealevel, miny);
         this.plugin = plugin;
         world = null;
         setTitle(deftitle);
@@ -146,8 +147,8 @@ public class FabricWorld extends DynmapWorld {
             env = "normal";
         }
 
-        legacyNames = getLegacyLevelNames(name, nether, the_end);
-        storageName = getStorageName(getCanonicalLevelName(name, nether, the_end));
+        legacyNames = getLegacyLevelNames(name);
+        storageName = getStorageName(getCanonicalLevelName(name));
 
     }
 

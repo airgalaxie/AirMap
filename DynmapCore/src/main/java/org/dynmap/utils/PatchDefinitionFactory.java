@@ -127,6 +127,34 @@ public class PatchDefinitionFactory implements RenderPatchFactory {
             double zrot, int textureindex) {
     	return getPatch(patch, xrot, yrot, zrot, null, textureindex);
     }
+    public PatchDefinition getScaledPatch(PatchDefinition patch, double sx, double sy, double sz,
+            Vector3D scaleorigin, int textureindex) {
+        if (scaleorigin == null) scaleorigin = new Vector3D(0.5, 0.5, 0.5);
+        PatchDefinition pd = new PatchDefinition();
+        pd.update(
+                scaleorigin.x + (patch.x0 - scaleorigin.x) * sx,
+                scaleorigin.y + (patch.y0 - scaleorigin.y) * sy,
+                scaleorigin.z + (patch.z0 - scaleorigin.z) * sz,
+                scaleorigin.x + (patch.xu - scaleorigin.x) * sx,
+                scaleorigin.y + (patch.yu - scaleorigin.y) * sy,
+                scaleorigin.z + (patch.zu - scaleorigin.z) * sz,
+                scaleorigin.x + (patch.xv - scaleorigin.x) * sx,
+                scaleorigin.y + (patch.yv - scaleorigin.y) * sy,
+                scaleorigin.z + (patch.zv - scaleorigin.z) * sz,
+                patch.umin, patch.umax, patch.vmin, patch.vmax, patch.sidevis,
+                (textureindex < 0) ? patch.textureindex : textureindex,
+                patch.vminatumax, patch.vmaxatumax, patch.shade, patch.shadeStep);
+        if (pd.validate() == false)
+            return null;
+        synchronized(lock) {
+            PatchDefinition pd2 = patches.get(pd);  /* See if in cache already */
+            if (pd2 == null) {
+                patches.put(pd,  pd);
+                pd2 = pd;
+            }
+            return pd2;
+        }
+    }
     /**
      * Get named patch with given attributes.  Name can encode rotation and patch index info
      * "name" - simple name

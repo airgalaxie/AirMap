@@ -62,10 +62,15 @@ import org.yaml.snakeyaml.Yaml;
 public class DynmapCore implements DynmapCommonAPI {
     private MinecraftResourceProvider platformMinecraftResources;
     private volatile MinecraftResourceProvider minecraftResources;
+    private String minecraftResourceVersion;
 
     /** Adds an optional platform/resource-pack layer above the Core-managed vanilla client. */
     public synchronized void setMinecraftResourceProvider(MinecraftResourceProvider provider) {
         platformMinecraftResources = provider;
+        minecraftResources = null;
+    }
+    public synchronized void setMinecraftResourceVersion(String version) {
+        minecraftResourceVersion = version;
         minecraftResources = null;
     }
     public MinecraftResourceProvider getMinecraftResourceProvider() {
@@ -75,11 +80,13 @@ public class DynmapCore implements DynmapCommonAPI {
             if (minecraftResources != null) return minecraftResources;
             try {
                 String configuredVersion = MinecraftClientResources.configuredVersion();
-                if (platformVersion != null && !MinecraftClientResources.isSupportedPlatform(platformVersion)) {
-                    throw new IllegalStateException("AirMap targets Minecraft " + configuredVersion + " but the platform reports " + platformVersion);
+                String resourceVersion = minecraftResourceVersion == null ? configuredVersion : minecraftResourceVersion;
+                if (platformVersion != null && !platformVersion.equals(resourceVersion)
+                        && !MinecraftClientResources.isSupportedPlatform(platformVersion)) {
+                    throw new IllegalStateException("AirMap targets Minecraft " + resourceVersion + " but the platform reports " + platformVersion);
                 }
                 MinecraftResourceProvider vanilla = MinecraftClientResources.provision(
-                        dataDirectory.toPath().resolve("minecraft-resources"), configuredVersion);
+                        dataDirectory.toPath().resolve("minecraft-resources"), resourceVersion);
                 minecraftResources = platformMinecraftResources == null
                         ? vanilla
                         : new LayeredMinecraftResourceProvider(platformMinecraftResources, vanilla);

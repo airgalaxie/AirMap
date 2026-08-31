@@ -3,6 +3,7 @@ package org.dynmap.hdmap.renderer;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.dynmap.renderer.CustomRenderer;
 import org.dynmap.renderer.DynmapBlockState;
@@ -10,10 +11,10 @@ import org.dynmap.renderer.MapDataContext;
 import org.dynmap.renderer.RenderPatch;
 import org.dynmap.renderer.RenderPatchFactory;
 import org.dynmap.renderer.RenderPatchFactory.SideVisible;
-import org.dynmap.utils.DynIntHashMap;
 
 /**
- * Renderer for vanilla fluids - will attempt to emulate vanilla rendering behavior, but still WIP
+ * Renderer for vanilla fluids.  Surface heights follow Minecraft's FluidRenderer:
+ * FluidState own height (amount / 9) plus its weighted four-corner averaging.
  */
 public class FluidStateRenderer extends CustomRenderer {
     private static final int PATCH_STILL = 0;
@@ -25,23 +26,19 @@ public class FluidStateRenderer extends CustomRenderer {
     
     private static RenderPatch bottom = null; 	// Common bottom patch
 
-    private static DynIntHashMap meshcache = null;
+    private static Map<String, RenderPatch[]> meshcache = null;
     
-    private static DynIntHashMap fullculledcache = null;
+    private static Map<Integer, RenderPatch[]> fullculledcache = null;
     
-    private static void init(RenderPatchFactory rpf) {
+    private static synchronized void init(RenderPatchFactory rpf) {
+        if (didIinit) return;
         ArrayList<RenderPatch> list = new ArrayList<>();
-        // Create meshes for flat topped blocks
-    	meshcache = new DynIntHashMap();
-        for (int i = 0; i < 10; i++) {
-            list.clear();
-            CustomRenderer.addBox(rpf, list, 0.0, 1.0, 0.0, 1.0 - (i / 9.0), 0.0, 1.0, still_patches);
-            putCachedModel(9 - i, 9 - i, 9 - i, 9 - i, list.toArray(new RenderPatch[0]));
-        }
+        meshcache = new ConcurrentHashMap<>();
     	bottom = rpf.getPatch(0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, SideVisible.TOP, PATCH_STILL);
         // For full height, build culled cache - eliminate surfaces adjacent to other fluid blocks
-    	fullculledcache = new DynIntHashMap();
-    	RenderPatch[] fullblkmodel = getCachedModel(9, 9, 9, 9);
+        fullculledcache = new ConcurrentHashMap<>();
+        CustomRenderer.addBox(rpf, list, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, still_patches);
+            RenderPatch[] fullblkmodel = list.toArray(new RenderPatch[0]);
         for (int i = 0; i < 64; i++) {
         	list.clear();
         	for (int f = 0; f < 6; f++) {
@@ -51,6 +48,7 @@ public class FluidStateRenderer extends CustomRenderer {
         	}
         	fullculledcache.put(i, list.toArray(new RenderPatch[0]));
         }
+        didIinit = true;
     }
     @Override
     public boolean initializeRenderer(RenderPatchFactory rpf, String blkname, BitSet blockdatamask, Map<String,String> custparm) {
@@ -58,7 +56,6 @@ public class FluidStateRenderer extends CustomRenderer {
             return false;
         if (!didIinit) {
         	init(rpf);
-        	didIinit = true;
         }
         return true;
     }
@@ -80,24 +77,36 @@ public class FluidStateRenderer extends CustomRenderer {
     	return (fbs != null) ? fbs : bs;
     }
     
-    // Height of air, in ninths
-    private static int getAirHeight(DynmapBlockState bs) {
-    	int idx = bs.stateIndex;
-    	return (idx > 7) ? 1 : (idx + 1);
+    // Minecraft LiquidBlock level -> FluidState amount -> own height.
+    static double getOwnHeight(DynmapBlockState bs) {
+        int level = 0;
+        for (String value : bs.stateList) {
+            if (value.startsWith("level=")) {
+                try {
+                    level = Integer.parseInt(value.substring(6));
+                } catch (NumberFormatException ignored) {
+                    level = 0;
+                }
+                break;
+            }
+        }
+        int amount = (level == 0 || level >= 8) ? 8 : 8 - level;
+        return amount / 9.0;
     }
     
-    private static int getIntKey(int h_1_1, int h_n1_1, int h_1_n1, int h_n1_n1) {
-    	return (h_1_1) + (h_n1_1 << 4) + (h_1_n1 << 8) + (h_n1_n1 << 12);
+    private static String getKey(double h_1_1, double h_n1_1, double h_1_n1, double h_n1_n1) {
+        return Double.doubleToLongBits(h_1_1) + ":" + Double.doubleToLongBits(h_n1_1) + ":"
+                + Double.doubleToLongBits(h_1_n1) + ":" + Double.doubleToLongBits(h_n1_n1);
     }
 
     // Get cached model
-    private static RenderPatch[] getCachedModel(int h_1_1, int h_n1_1, int h_1_n1, int h_n1_n1) {
-    	return (RenderPatch[]) meshcache.get(getIntKey(h_1_1, h_n1_1, h_1_n1, h_n1_n1));
+    private static RenderPatch[] getCachedModel(double h_1_1, double h_n1_1, double h_1_n1, double h_n1_n1) {
+            return meshcache.get(getKey(h_1_1, h_n1_1, h_1_n1, h_n1_n1));
     }
     
     // Put cached model
-    private static void putCachedModel(int h_1_1, int h_n1_1, int h_1_n1, int h_n1_n1, RenderPatch[] model) {
-    	meshcache.put(getIntKey(h_1_1, h_n1_1, h_1_n1, h_n1_n1), model);
+    private static void putCachedModel(double h_1_1, double h_n1_1, double h_1_n1, double h_n1_n1, RenderPatch[] model) {
+            meshcache.put(getKey(h_1_1, h_n1_1, h_1_n1, h_n1_n1), model);
     }
 
     // Get culled full model
@@ -137,77 +146,41 @@ public class FluidStateRenderer extends CustomRenderer {
     	if (!bs_0_0_0.matchingBaseState(bs_0_0_1)) {
     		idx += 32;
     	}
-    	return (RenderPatch[]) fullculledcache.get(idx);
+            return fullculledcache.get(idx);
     }
 
-    // Check if full height corner due to upper block states
-    private static boolean isUpperCornerHeightFull(DynmapBlockState b0, DynmapBlockState u0, DynmapBlockState u1, DynmapBlockState u2, DynmapBlockState u3) {
-    	// If any above blocks are match, return full height
-    	return (b0.matchingBaseState(u0) || b0.matchingBaseState(u1) || b0.matchingBaseState(u2) || b0.matchingBaseState(u3));
+    private static double getHeight(DynmapBlockState fluid, DynmapBlockState block,
+            DynmapBlockState above) {
+        if (block.matchingBaseState(fluid)) {
+            return above.matchingBaseState(fluid) ? 1.0 : getOwnHeight(block);
+        }
+        return block.isSolid() ? -1.0 : 0.0;
     }
-    
-    // Return height in ninths (round to nearest - 0-9)
-    private static int getCornerHeight(DynmapBlockState b0, DynmapBlockState b1, DynmapBlockState b2, DynmapBlockState b3) {
-    	int accum = 0;
-    	int cnt = 0;
-    	// Check each of 4 neighbors
-    	// First, self
-    	int h = getAirHeight(b0);	// Our block is always liquid
-    	if (h == 1) {	// Max
-    		accum += (11 * h);
-    		cnt += 11;
-    	}
-    	else {
-    		accum += h;
-    		cnt++;
-    	}
-    	// Others are all nieghbors
-    	if (b1.matchingBaseState(b0)) {
-    		h = getAirHeight(b1);
-        	if (h == 1) {	// Max
-        		accum += (11 * h);
-        		cnt += 11;
-        	}
-        	else {
-        		accum += h;
-        		cnt++;
-        	}
-    	}
-    	else if (b1.isSolid() == false) {
-    		accum += 9;
-    		cnt += 1;
-    	}
-    	if (b2.matchingBaseState(b0)) {
-    		h = getAirHeight(b2);
-        	if (h == 1) {	// Max
-        		accum += (11 * h);
-        		cnt += 11;
-        	}
-        	else {
-        		accum += h;
-        		cnt++;
-        	}
-    	}
-    	else if (b2.isSolid() == false) {
-    		accum += 9;
-    		cnt += 1;
-    	}
-    	if (b3.matchingBaseState(b0)) {
-    		h = getAirHeight(b3);
-        	if (h == 1) {	// Max
-        		accum += (11 * h);
-        		cnt += 11;
-        	}
-        	else {
-        		accum += h;
-        		cnt++;
-        	}
-    	}
-    	else if (b3.isSolid() == false) {
-    		accum += 9;
-    		cnt += 1;
-    	}
-    	return 9 - ((accum + cnt/2) / cnt);
+
+    private static void addWeightedHeight(double[] total, double height) {
+        if (height >= 0.8) {
+            total[0] += height * 10.0;
+            total[1] += 10.0;
+        } else if (height >= 0.0) {
+            total[0] += height;
+            total[1] += 1.0;
+        }
+    }
+
+    // Exact Minecraft FluidRenderer.calculateAverageHeight semantics.
+    static double getCornerHeight(DynmapBlockState fluid, double center,
+            double side1, double side2, DynmapBlockState diagonal, DynmapBlockState diagonalAbove) {
+        if (side1 >= 1.0 || side2 >= 1.0) return 1.0;
+        double[] total = new double[2];
+        if (side1 > 0.0 || side2 > 0.0) {
+            double diagonalHeight = getHeight(fluid, diagonal, diagonalAbove);
+            if (diagonalHeight >= 1.0) return 1.0;
+            addWeightedHeight(total, diagonalHeight);
+        }
+        addWeightedHeight(total, center);
+        addWeightedHeight(total, side2);
+        addWeightedHeight(total, side1);
+        return total[0] / total[1];
     }
     
     
@@ -228,15 +201,6 @@ public class FluidStateRenderer extends CustomRenderer {
     	DynmapBlockState bs_n1_1_n1 = getFluidState(ctx, -1, 1, -1);
     	DynmapBlockState bs_1_1_n1 = getFluidState(ctx, 1, 1, -1);
     	DynmapBlockState bs_n1_1_1 = getFluidState(ctx, -1, 1, 1);
-    	// See if full height corner due to upper blocks
-    	boolean isfull_1_1 = isUpperCornerHeightFull(bs_0_0_0, bs_0_1_0, bs_1_1_0, bs_0_1_1, bs_1_1_1);
-    	boolean isfull_1_n1 = isUpperCornerHeightFull(bs_0_0_0, bs_0_1_0, bs_1_1_0, bs_0_1_n1, bs_1_1_n1);
-    	boolean isfull_n1_1 = isUpperCornerHeightFull(bs_0_0_0, bs_0_1_0, bs_n1_1_0, bs_0_1_1, bs_n1_1_1);
-    	boolean isfull_n1_n1 = isUpperCornerHeightFull(bs_0_0_0, bs_0_1_0, bs_n1_1_0, bs_0_1_n1, bs_n1_1_n1);
-    	// If full height
-    	if (isfull_1_1 && isfull_1_n1 && isfull_n1_1 && isfull_n1_n1) {
-    		return getFullCulledModel(ctx, bs_0_0_0, bs_0_1_0);
-		}
     	// Get other neighbors to figure out corner heights
     	DynmapBlockState bs_0_0_1 = getFluidState(ctx, 0, 0, 1);
     	DynmapBlockState bs_1_0_0 = getFluidState(ctx, 1, 0, 0);
@@ -246,15 +210,21 @@ public class FluidStateRenderer extends CustomRenderer {
     	DynmapBlockState bs_n1_0_n1 = getFluidState(ctx, -1, 0, -1);
     	DynmapBlockState bs_1_0_n1 = getFluidState(ctx, 1, 0, -1);
     	DynmapBlockState bs_n1_0_1 = getFluidState(ctx, -1, 0, 1);
-    	// Get each corner height
-    	int bh_1_1 = isfull_1_1 ? 9 : getCornerHeight(bs_0_0_0, bs_0_0_1, bs_1_0_0, bs_1_0_1);
-    	int bh_1_n1 = isfull_1_n1 ? 9 : getCornerHeight(bs_0_0_0, bs_0_0_n1, bs_1_0_0, bs_1_0_n1);
-    	int bh_n1_1 = isfull_n1_1 ? 9 : getCornerHeight(bs_0_0_0, bs_0_0_1, bs_n1_0_0, bs_n1_0_1);
-    	int bh_n1_n1 = isfull_n1_n1 ? 9 : getCornerHeight(bs_0_0_0, bs_0_0_n1, bs_n1_0_0, bs_n1_0_n1);
-    	// If full height
-    	if ((bh_1_1 == 9) && (bh_1_n1 == 9) && (bh_n1_1 == 9) && (bh_n1_n1 == 9)) {
-    		return getFullCulledModel(ctx, bs_0_0_0, bs_0_1_0, bs_n1_0_0, bs_1_0_0, bs_0_0_n1, bs_0_0_1);
-		}
+        double center = getHeight(bs_0_0_0, bs_0_0_0, bs_0_1_0);
+        double xp = getHeight(bs_0_0_0, bs_1_0_0, bs_1_1_0);
+        double xm = getHeight(bs_0_0_0, bs_n1_0_0, bs_n1_1_0);
+        double zp = getHeight(bs_0_0_0, bs_0_0_1, bs_0_1_1);
+        double zm = getHeight(bs_0_0_0, bs_0_0_n1, bs_0_1_n1);
+        // Minecraft orders each corner as center, its two cardinal neighbors, diagonal.
+        double bh_1_1 = getCornerHeight(bs_0_0_0, center, zp, xp, bs_1_0_1, bs_1_1_1);
+        double bh_1_n1 = getCornerHeight(bs_0_0_0, center, zm, xp, bs_1_0_n1, bs_1_1_n1);
+        double bh_n1_1 = getCornerHeight(bs_0_0_0, center, zp, xm, bs_n1_0_1, bs_n1_1_1);
+        double bh_n1_n1 = getCornerHeight(bs_0_0_0, center, zm, xm, bs_n1_0_n1, bs_n1_1_n1);
+        // Minecraft lowers every exposed top vertex slightly to avoid z-fighting.
+        bh_1_1 -= 0.001;
+        bh_1_n1 -= 0.001;
+        bh_n1_1 -= 0.001;
+        bh_n1_n1 -= 0.001;
     	// Do cached lookup of model
     	RenderPatch[] mod = getCachedModel(bh_1_1, bh_n1_1, bh_1_n1, bh_n1_n1);
     	// If not found, create model
@@ -268,10 +238,10 @@ public class FluidStateRenderer extends CustomRenderer {
 			addSide(list, rpf, 1, 0, 0, 0, bh_1_n1, bh_n1_n1); // Zminus
 			addSide(list, rpf, 0, 1, 1, 1, bh_n1_1, bh_1_1); // Zplus
 
-			int edge_xm = bh_n1_n1 + bh_n1_1;
-			int edge_xp = bh_1_n1 + bh_1_1;
-			int edge_zm = bh_n1_n1 + bh_1_n1;
-			int edge_zp = bh_1_1 + bh_n1_1;
+			double edge_xm = bh_n1_n1 + bh_n1_1;
+			double edge_xp = bh_1_n1 + bh_1_1;
+			double edge_zm = bh_n1_n1 + bh_1_n1;
+			double edge_zp = bh_1_1 + bh_n1_1;
 			
 			// See which edge is lowest
 			if ((edge_xp <= edge_xm) && (edge_xp <= edge_zm) && (edge_xp <= edge_zp)) { // bh_1_1 and bh_1_n1 (Xplus)
@@ -297,34 +267,34 @@ public class FluidStateRenderer extends CustomRenderer {
     	return mod;
     }
     
-    private static void addSide(ArrayList<RenderPatch> list, RenderPatchFactory rpf, double x0, double z0, double x1, double z1, int h0, int h1) {
+    private static void addSide(ArrayList<RenderPatch> list, RenderPatchFactory rpf, double x0, double z0, double x1, double z1, double h0, double h1) {
     	if ((h0 == 0) && (h1 == 0))
     		return;
-    	list.add(rpf.getPatch(x0, 0, z0, x1, 0, z1, x0, 1, z0, 0, 1, 0, 0, (double) h0 / 9.0, (double) h1 / 9.0, SideVisible.TOP, PATCH_FLOWING));
+            list.add(rpf.getPatch(x0, 0, z0, x1, 0, z1, x0, 1, z0, 0, 1, 0, 0, h0, h1, SideVisible.TOP, PATCH_FLOWING));
     }
     
-    private static void addTop(ArrayList<RenderPatch> list, RenderPatchFactory rpf, double x0, double z0, double x1, double z1, int h0, int h1, int h2, int h3) {
-    	int h0_upper = h1 + h2 - h3;
+    private static void addTop(ArrayList<RenderPatch> list, RenderPatchFactory rpf, double x0, double z0, double x1, double z1, double h0, double h1, double h2, double h3) {
+            double h0_upper = h1 + h2 - h3;
     	if (x0 == x1) {	// edge is Z+/-
     		if (h0_upper == h0) {	// If single surface
-    			list.add(rpf.getPatch(x0, (double) h0 / 9.0, z0, x1, (double) h1 / 9.0, z1, 1-x0, (double) h2 / 9.0, z0, 0, 1, 0, 0, 1, 1, SideVisible.TOP, PATCH_FLOWING));
+                    list.add(rpf.getPatch(x0, h0, z0, x1, h1, z1, 1-x0, h2, z0, 0, 1, 0, 0, 1, 1, SideVisible.TOP, PATCH_FLOWING));
     		}
     		else {
     			// Lower triangle
-    			list.add(rpf.getPatch(x0, (double) h0 / 9.0, z0, x1, (double) h1 / 9.0, z1, 1-x0, (double) h2 / 9.0, z0, 0, 1, 0, 0, 1, 0, SideVisible.TOP, PATCH_FLOWING));
+                    list.add(rpf.getPatch(x0, h0, z0, x1, h1, z1, 1-x0, h2, z0, 0, 1, 0, 0, 1, 0, SideVisible.TOP, PATCH_FLOWING));
     			// Upper triangle
-    			list.add(rpf.getPatch(x0, (double) h0_upper / 9.0, z0, x1, (double) h1 / 9.0, z1, 1-x0, (double) h2 / 9.0, z0, 0, 1, 1, 0, 1, 1, SideVisible.TOP, PATCH_FLOWING));
+                    list.add(rpf.getPatch(x0, h0_upper, z0, x1, h1, z1, 1-x0, h2, z0, 0, 1, 1, 0, 1, 1, SideVisible.TOP, PATCH_FLOWING));
     		}
     	}
     	else {
     		if (h0_upper == h0) {	// If single surface
-    			list.add(rpf.getPatch(x0, (double) h0 / 9.0, z0, x1, (double) h1 / 9.0, z1, x0, (double) h2 / 9.0, 1 - z0, 0, 1, 0, 0, 1, 1, SideVisible.TOP, PATCH_FLOWING));
+                    list.add(rpf.getPatch(x0, h0, z0, x1, h1, z1, x0, h2, 1 - z0, 0, 1, 0, 0, 1, 1, SideVisible.TOP, PATCH_FLOWING));
     		}
     		else {
     			// Lower triangle
-    			list.add(rpf.getPatch(x0, (double) h0 / 9.0, z0, x1, (double) h1 / 9.0, z1, x0, (double) h2 / 9.0, 1 - z0, 0, 1, 0, 0, 1, 0, SideVisible.TOP, PATCH_FLOWING));
+                    list.add(rpf.getPatch(x0, h0, z0, x1, h1, z1, x0, h2, 1 - z0, 0, 1, 0, 0, 1, 0, SideVisible.TOP, PATCH_FLOWING));
     			// Upper triangle
-    			list.add(rpf.getPatch(x0, (double) h0_upper / 9.0, z0, x1, (double) h1 / 9.0, z1, x0, (double) h2 / 9.0, 1 - z0, 0, 1, 1, 0, 1, 1, SideVisible.TOP, PATCH_FLOWING));
+                    list.add(rpf.getPatch(x0, h0_upper, z0, x1, h1, z1, x0, h2, 1 - z0, 0, 1, 1, 0, 1, 1, SideVisible.TOP, PATCH_FLOWING));
     		}
     	}
     }

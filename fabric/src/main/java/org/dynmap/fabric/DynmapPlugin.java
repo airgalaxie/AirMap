@@ -49,6 +49,7 @@ import org.dynmap.fabric.mixin.BiomeEffectsAccessor;
 import org.dynmap.fabric.permissions.*;
 import org.dynmap.permissions.PermissionsHandler;
 import org.dynmap.renderer.DynmapBlockState;
+import org.dynmap.resources.MinecraftClientResources;
 
 import java.io.File;
 import java.util.*;
@@ -429,6 +430,11 @@ public class DynmapPlugin {
         core.setPluginJarFile(DynmapMod.jarfile);
         core.setPluginVersion(DynmapMod.ver);
         core.setMinecraftVersion(mcver);
+        try {
+            core.setMinecraftResourceVersion(MinecraftClientResources.configuredVersion());
+        } catch (java.io.IOException exception) {
+            throw new IllegalStateException("Cannot determine Minecraft resource version", exception);
+        }
         core.setDataFolder(dataDirectory);
         core.setServer(fserver);
         core.setMinecraftResourceProvider(new FabricMinecraftResources());

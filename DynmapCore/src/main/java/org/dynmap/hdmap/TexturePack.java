@@ -2077,13 +2077,6 @@ public class TexturePack {
         return texture + modifier * COLORMOD_MULT_INTERNAL;
     }
 
-    static int applyMinecraftUvLock(int texture, int yRotation) {
-        int normalized = Math.floorMod(yRotation, 360);
-        int modifier = normalized == 90 ? COLORMOD_ROT270 : normalized == 180 ? COLORMOD_ROT180
-                : normalized == 270 ? COLORMOD_ROT90 : 0;
-        return modifier == 0 || texture >= COLORMOD_MULT_INTERNAL ? texture : texture + modifier * COLORMOD_MULT_INTERNAL;
-    }
-
     static void registerMinecraftState(DynmapBlockState state, int[] textures, BlockTransparency transparency) {
         HDBlockStateTextureMap map = new HDBlockStateTextureMap(textures, null, 0, null, "minecraft-json", true, null, transparency);
         HDBlockStateTextureMap.copyToStateIndex(state, map, transparency);

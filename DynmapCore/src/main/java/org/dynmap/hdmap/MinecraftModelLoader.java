@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -12,10 +13,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.imageio.ImageIO;
 import org.dynmap.Log;
 import org.dynmap.modsupport.BlockSide;
 import org.dynmap.modsupport.ModelBlockModel;
@@ -25,6 +28,7 @@ import org.dynmap.resources.MinecraftResourceProvider;
 import org.dynmap.utils.BlockStep;
 import org.dynmap.utils.PatchDefinition;
 import org.dynmap.utils.PatchDefinitionFactory;
+import org.dynmap.utils.Vector3D;
 
 /** Reads the vanilla blockstate/model JSON language into AirMap's render patches. */
 final class MinecraftModelLoader {
@@ -47,6 +51,7 @@ final class MinecraftModelLoader {
     private final Set<String> missingItemModels = new java.util.HashSet<>();
     private final Map<String, JsonObject> modelLayers = new HashMap<>();
     private final Set<String> missingModelLayers = new java.util.HashSet<>();
+    private final Map<String, Boolean> opaqueSprites = new HashMap<>();
 
     MinecraftModelLoader(MinecraftResourceProvider resources, PatchDefinitionFactory patches) {
         this.resources = resources; this.patches = patches;
@@ -57,14 +62,30 @@ final class MinecraftModelLoader {
         registerFluids();
     }
 
-    /** Fluids ship no element geometry in vanilla models - give them an explicit textured cube. */
+    /** Fluids ship no element geometry in vanilla models, so install the shared fluid tessellator. */
     private void registerFluids() {
         // CLEARINSIDE op: internal fluid-fluid faces are culled (matchingBaseState /
         // waterFilled+onFace) and surviving faces fall through to COLORMOD_WATERTONED
         // inside readColor - this is what keeps water see-through to the floor.
-        registerFluidCube("minecraft:water", "minecraft:block/water_still", false, TexturePack.COLORMOD_CLEARINSIDE);
-        registerFluidCube("minecraft:flowing_water", "minecraft:block/water_still", false, TexturePack.COLORMOD_CLEARINSIDE);
+        registerFluidRenderer("minecraft:water", "minecraft:block/water_still", "minecraft:block/water_flow");
+        registerFluidRenderer("minecraft:flowing_water", "minecraft:block/water_still", "minecraft:block/water_flow");
         registerFluidCube("minecraft:lava", "minecraft:block/lava_still", true, -1);
+    }
+
+    private void registerFluidRenderer(String blockName, String stillTextureId, String flowingTextureId) {
+        DynmapBlockState base = DynmapBlockState.getBaseStateByName(blockName);
+        if (base == DynmapBlockState.AIR) return;
+        int still = texture(stillTextureId) + TexturePack.COLORMOD_CLEARINSIDE * TexturePack.COLORMOD_MULT_INTERNAL;
+        int flowing = texture(flowingTextureId) + TexturePack.COLORMOD_CLEARINSIDE * TexturePack.COLORMOD_MULT_INTERNAL;
+        BitSet states = new BitSet();
+        for (int i = 0; i < base.getStateCount(); i++) states.set(base.getState(i).stateIndex);
+        new CustomBlockModel(base, states, "org.dynmap.hdmap.renderer.FluidStateRenderer", Map.of(),
+                "minecraft-json");
+        int[] faces = { still, flowing };
+        for (int i = 0; i < base.getStateCount(); i++) {
+            TexturePack.registerMinecraftState(base.getState(i), faces,
+                    TexturePack.BlockTransparency.SEMITRANSPARENT);
+        }
     }
 
     private void registerFluidCube(String blockName, String textureId, boolean opaque, int colorModifier) {
@@ -150,6 +171,7 @@ final class MinecraftModelLoader {
     private void install(DynmapBlockState state, List<AppliedModel> selected) throws IOException {
         List<PatchDefinition> result = new ArrayList<>();
         List<Integer> textures = new ArrayList<>();
+        Set<String> faceSprites = new HashSet<>();
         boolean allElementsFullCubes = true;
         boolean[] occluding = new boolean[1];
         for (AppliedModel applied : selected) {
@@ -175,10 +197,12 @@ final class MinecraftModelLoader {
                     int textureIndex = textures.size();
                     int tile = texture(texture);
                     tile = TexturePack.applyMinecraftTint(tile, state, integer(face, "tintindex", -1));
-                    textures.add(applied.uvlock ? TexturePack.applyMinecraftUvLock(tile, applied.y) : tile);
+                    textures.add(tile);
+                    faceSprites.add(texture);
                     double[] uv = face.has("uv") ? vector(face, "uv", null) : null;
                     int rotation = integer(face, "rotation", 0);
                     ModelBlockModel.SideRotation sideRotation = ModelBlockModel.SideRotation.valueOf("DEG" + rotation);
+                    if (applied.uvlock) sideRotation = uvLockedRotation(sideRotation, applied.x, applied.y, side);
                     PatchDefinition patch = patches.getModelFace(
                             from, to, side, uv, sideRotation, shade, shadeDirection, textureIndex);
                     if (patch == null) continue;
@@ -193,7 +217,9 @@ final class MinecraftModelLoader {
         if (result.isEmpty()) return;
         BitSet only = new BitSet(); only.set(state.stateIndex);
         new HDBlockPatchModel(state.baseState, only, result.toArray(PatchDefinition[]::new), "minecraft-json", occluding[0]);
-        TexturePack.BlockTransparency transparency = allElementsFullCubes && state.getLightAttenuation() >= 15 && !state.isWaterFilled()
+        boolean opaqueSprites = allElementsFullCubes;
+        for (String sprite : faceSprites) opaqueSprites &= isSpriteOpaque(sprite);
+        TexturePack.BlockTransparency transparency = state.getLightAttenuation() >= 15 && !state.isWaterFilled() && opaqueSprites
                 ? TexturePack.BlockTransparency.OPAQUE : TexturePack.BlockTransparency.SEMITRANSPARENT;
         TexturePack.registerMinecraftState(state, textures.stream().mapToInt(Integer::intValue).toArray(), transparency);
     }
@@ -452,17 +478,82 @@ final class MinecraftModelLoader {
 
     private PatchDefinition rotateElement(PatchDefinition patch, JsonObject rotation) {
         double[] origin = vector(rotation, "origin", new double[] {8,8,8});
-        org.dynmap.utils.Vector3D center = new org.dynmap.utils.Vector3D(origin[0]/16, origin[1]/16, origin[2]/16);
+        Vector3D center = new Vector3D(origin[0]/16, origin[1]/16, origin[2]/16);
+        double rx, ry, rz;
         if (rotation.has("axis")) {
             String axis = rotation.get("axis").getAsString(); double angle = rotation.get("angle").getAsDouble();
-            return patches.getPatch(patch, axis.equals("x") ? angle : 0, axis.equals("y") ? angle : 0,
-                    axis.equals("z") ? angle : 0, center, patch.textureindex);
+            rx = axis.equals("x") ? angle : 0; ry = axis.equals("y") ? angle : 0; rz = axis.equals("z") ? angle : 0;
         }
-        double rx = rotation.has("x") ? rotation.get("x").getAsDouble() : 0;
-        double ry = rotation.has("y") ? rotation.get("y").getAsDouble() : 0;
-        double rz = rotation.has("z") ? rotation.get("z").getAsDouble() : 0;
+        else {
+            rx = rotation.has("x") ? rotation.get("x").getAsDouble() : 0;
+            ry = rotation.has("y") ? rotation.get("y").getAsDouble() : 0;
+            rz = rotation.has("z") ? rotation.get("z").getAsDouble() : 0;
+        }
         if (rx == 0 && ry == 0 && rz == 0) return patch;
+        /* Matrix4f.scale post-multiplies in vanilla: local-axis rescale is applied before the
+         * rotation, both around the element origin. UV bounds remain unchanged. */
+        if (rotation.has("rescale") && rotation.get("rescale").getAsBoolean()) {
+            double[] scale = rotationFactors(rx, ry, rz);
+            patch = patches.getScaledPatch(patch, scale[0], scale[1], scale[2], center, patch.textureindex);
+            if (patch == null) return null;
+        }
         return patches.getPatch(patch, rx, ry, rz, center, patch.textureindex);
+    }
+
+    /** Local-axis rescale factors (= 1/maxAbs of each column of the rotation matrix). */
+    private static double[] rotationFactors(double rx, double ry, double rz) {
+        double[] factors = new double[] {1, 1, 1};
+        for (int axis = 0; axis < 3; axis++) {
+            Vector3D unit = new Vector3D(axis == 0 ? 1 : 0, axis == 1 ? 1 : 0, axis == 2 ? 1 : 0);
+            PatchDefinition.rotateAround(unit, rx, ry, rz);
+            double max = Math.max(Math.abs(unit.x), Math.max(Math.abs(unit.y), Math.abs(unit.z)));
+            if (max > 1.0e-9) factors[axis] = 1.0 / max;
+        }
+        return factors;
+    }
+
+    /** Combines the JSON face rotation with vanilla's per-face inverse blockstate rotation. */
+    static ModelBlockModel.SideRotation uvLockedRotation(ModelBlockModel.SideRotation rotation,
+            int xRotation, int yRotation, BlockSide side) {
+        int turns = UV_LOCK_TURNS[Math.floorMod(xRotation, 360) / 90]
+                [Math.floorMod(yRotation, 360) / 90][faceIndex(side)];
+        return ModelBlockModel.SideRotation.values()[(rotation.ordinal() + turns) & 3];
+    }
+
+    private static int faceIndex(BlockSide side) {
+        return switch (side) {
+            case BOTTOM -> 0;
+            case TOP -> 1;
+            case NORTH -> 2;
+            case SOUTH -> 3;
+            case WEST -> 4;
+            case EAST -> 5;
+            default -> throw new IllegalArgumentException("Not a Minecraft model face: " + side);
+        };
+    }
+
+    /* Quarter-turns counter-clockwise in atlas UV space, indexed by x, y, then face. */
+    private static final int[][][] UV_LOCK_TURNS = {
+        {{0,0,0,0,0,0}, {3,1,0,0,0,0}, {2,2,0,0,0,0}, {1,3,0,0,0,0}},
+        {{0,2,2,0,3,1}, {0,2,1,1,3,1}, {0,2,0,2,3,1}, {0,2,3,3,3,1}},
+        {{0,0,2,2,2,2}, {1,3,2,2,2,2}, {2,2,2,2,2,2}, {3,1,2,2,2,2}},
+        {{2,0,2,0,1,3}, {2,0,3,3,1,3}, {2,0,0,2,1,3}, {2,0,1,1,1,3}}
+    };
+
+    /** True when every pixel of the sprite tied to a texture reference is opaque (unknown/missing = false). */
+    private boolean isSpriteOpaque(String textureId) {
+        return opaqueSprites.computeIfAbsent(textureId, id -> {
+            String[] p = id.indexOf(':') >= 0 ? id.split(":", 2) : new String[] {"minecraft", id};
+            try (InputStream in = resources.open("assets/" + p[0] + "/textures/" + p[1] + ".png")) {
+                BufferedImage img = ImageIO.read(in);
+                if (img == null) return false;
+                int[] argb = img.getRGB(0, 0, img.getWidth(), img.getHeight(), null, 0, img.getWidth());
+                for (int value : argb) if ((value >>> 24) != 0xFF) return false;
+                return true;
+            } catch (IOException | RuntimeException e) {
+                return false;
+            }
+        });
     }
 
     private JsonObject resolveModel(String id) throws IOException {
