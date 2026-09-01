@@ -2,11 +2,11 @@
 airmap = "1.0.10-future"
 javaBuild = "26"
 javaTarget = "25"
+dynmap = "3.8"
 # Versionsbezeichnung des eigenständigen Paper-26.2-Adapters (JAR-Name + paper-plugin.yml)
 airmapPaper = "1.0.10-paper-26.2"
 # Paper-26.2-Plattform: zentrale Versionsdefinition, Update auf Paper 26.3 = nur diesen Eintrag ändern
 paper = "26.2.build.+"
-dynmap = "3.8"
 # Fabric
 minecraft = "26.3-snapshot-10"
 # Versionskennung, die der Ziel-Server zur Laufzeit meldet (Fabric Loader); abweichend zur Build-Version erlaubt
