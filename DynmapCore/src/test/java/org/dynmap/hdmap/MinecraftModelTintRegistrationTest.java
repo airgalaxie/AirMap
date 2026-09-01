@@ -33,6 +33,8 @@ class MinecraftModelTintRegistrationTest {
                 .setStateName("waterlogged=false").build();
         DynmapBlockState stone = new DynmapBlockState.Builder().setBlockName("minecraft:stone")
                 .setAttenuatesLight(15).build();
+        DynmapBlockState heavyCore = new DynmapBlockState.Builder().setBlockName("minecraft:heavy_core")
+                .setAttenuatesLight(15).build();
         DynmapBlockState water = new DynmapBlockState.Builder().setBlockName("minecraft:water")
                 .setStateName("level=0").build();
         DynmapBlockState flowingWater = new DynmapBlockState.Builder().setBlockName("minecraft:flowing_water")
@@ -63,6 +65,9 @@ class MinecraftModelTintRegistrationTest {
         assertEquals(TexturePack.BlockTransparency.OPAQUE,
                 HDBlockStateTextureMap.getByBlockState(stone).trans,
                 "stone must be opaque");
+        assertEquals(TexturePack.BlockTransparency.SEMITRANSPARENT,
+                HDBlockStateTextureMap.getByBlockState(heavyCore).trans,
+                "opaque sprites must not make partial-block geometry opaque");
 
         HDBlockStateTextureMap waterMap = HDBlockStateTextureMap.getByBlockState(water);
         assertNotNull(waterMap, "water must get an explicit fluid model");

@@ -12,8 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -171,18 +171,15 @@ final class MinecraftModelLoader {
     private void install(DynmapBlockState state, List<AppliedModel> selected) throws IOException {
         List<PatchDefinition> result = new ArrayList<>();
         List<Integer> textures = new ArrayList<>();
-        Set<String> faceSprites = new HashSet<>();
-        boolean allElementsFullCubes = true;
+        EnumSet<BlockStep> opaqueCubeFaces = EnumSet.noneOf(BlockStep.class);
         boolean[] occluding = new boolean[1];
         for (AppliedModel applied : selected) {
             JsonObject model = resolveModel(applied.id);
             JsonArray elements = model.getAsJsonArray("elements");
             Map<String, String> vars = textureVariables(model);
             if (elements != null) for (JsonElement elementValue : elements) {
-                allElementsFullCubes &= isFullCube(elementValue.getAsJsonObject());
-            }
-            if (elements != null) for (JsonElement elementValue : elements) {
                 JsonObject element = elementValue.getAsJsonObject();
+                boolean fullCube = isFullCube(element);
                 double[] from = vector(element, "from", new double[] {0, 0, 0});
                 double[] to = vector(element, "to", new double[] {16, 16, 16});
                 boolean shade = !element.has("shade") || element.get("shade").getAsBoolean();
@@ -198,7 +195,6 @@ final class MinecraftModelLoader {
                     int tile = texture(texture);
                     tile = TexturePack.applyMinecraftTint(tile, state, integer(face, "tintindex", -1));
                     textures.add(tile);
-                    faceSprites.add(texture);
                     double[] uv = face.has("uv") ? vector(face, "uv", null) : null;
                     int rotation = integer(face, "rotation", 0);
                     ModelBlockModel.SideRotation sideRotation = ModelBlockModel.SideRotation.valueOf("DEG" + rotation);
@@ -209,17 +205,21 @@ final class MinecraftModelLoader {
                     if (element.has("rotation")) patch = rotateElement(patch, element.getAsJsonObject("rotation"));
                     if (patch != null && (applied.x != 0 || applied.y != 0))
                         patch = patches.getPatch(patch, applied.x, applied.y, 0, textureIndex);
-                    if (patch != null) result.add(patch);
+                    if (patch != null) {
+                        result.add(patch);
+                        // Coverage is additive: a transparent overlay cannot remove an already
+                        // opaque full-cube face, while missing/partial faces remain uncovered.
+                        if (fullCube && isSpriteOpaque(texture)) opaqueCubeFaces.add(patch.step);
+                    }
                 }
             }
-            if (installModelLayer(state, applied, result, textures, occluding)) allElementsFullCubes = false;
+            installModelLayer(state, applied, result, textures, occluding);
         }
         if (result.isEmpty()) return;
         BitSet only = new BitSet(); only.set(state.stateIndex);
         new HDBlockPatchModel(state.baseState, only, result.toArray(PatchDefinition[]::new), "minecraft-json", occluding[0]);
-        boolean opaqueSprites = allElementsFullCubes;
-        for (String sprite : faceSprites) opaqueSprites &= isSpriteOpaque(sprite);
-        TexturePack.BlockTransparency transparency = state.getLightAttenuation() >= 15 && !state.isWaterFilled() && opaqueSprites
+        boolean opaqueCoverage = opaqueCubeFaces.size() == BlockStep.values().length;
+        TexturePack.BlockTransparency transparency = state.getLightAttenuation() >= 15 && !state.isWaterFilled() && opaqueCoverage
                 ? TexturePack.BlockTransparency.OPAQUE : TexturePack.BlockTransparency.SEMITRANSPARENT;
         TexturePack.registerMinecraftState(state, textures.stream().mapToInt(Integer::intValue).toArray(), transparency);
     }
@@ -544,7 +544,7 @@ final class MinecraftModelLoader {
     private boolean isSpriteOpaque(String textureId) {
         return opaqueSprites.computeIfAbsent(textureId, id -> {
             String[] p = id.indexOf(':') >= 0 ? id.split(":", 2) : new String[] {"minecraft", id};
-            try (InputStream in = resources.open("assets/" + p[0] + "/textures/" + p[1] + ".png")) {
+            try (InputStream in = resources.open(p[0] + ":textures/" + p[1] + ".png")) {
                 BufferedImage img = ImageIO.read(in);
                 if (img == null) return false;
                 int[] argb = img.getRGB(0, 0, img.getWidth(), img.getHeight(), null, 0, img.getWidth());
