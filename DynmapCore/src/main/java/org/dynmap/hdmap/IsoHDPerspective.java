@@ -37,6 +37,11 @@ import org.dynmap.utils.Vector3D;
 import com.google.gson.JsonObject;
 
 public class IsoHDPerspective implements HDPerspective {
+    /** Half-open edge ownership prevents both cracks and duplicate hits on shared patch edges. */
+    static boolean isWithinPatchBounds(double value, double minInclusive, double maxExclusive) {
+        return value >= minInclusive && value < maxExclusive;
+    }
+
     private final String name;
     private final int hashcode;
     /* View angles */
@@ -442,7 +447,7 @@ public class IsoHDPerspective implements HDPerspective {
             vS.subtract(v0);
             /* Compute u - slope times inner product of offset and cross product */
             double u = inv_det * vS.innerProduct(d_cross_uv);
-            if ((u <= pd.umin) || (u >= pd.umax)) {
+            if (!isWithinPatchBounds(u, pd.umin, pd.umax)) {
                 return hitcnt;
             }
             /* Compute cross product of offset and U */
@@ -454,7 +459,7 @@ public class IsoHDPerspective implements HDPerspective {
             double vmaxatu = pd.vmax + (pd.vmaxatumax - pd.vmax) * urel;
             // Check constrains: v must be above line from (umin, vmin) to (umax, vminatumax)
             double vminatu = pd.vmin + (pd.vminatumax - pd.vmin) * urel;
-            if ((v <= vminatu) || (v >= vmaxatu)) {
+            if (!isWithinPatchBounds(v, vminatu, vmaxatu)) {
                 return hitcnt;
             }
             /* Compute parametric value of intercept */
