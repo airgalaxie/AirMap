@@ -21,3 +21,6 @@ fabric/run/
 Thumbs.db
 hs_err_pid*
 replay_pid*
+
+# Local working/handoff documentation; never publish through Git.
+/HANDOFF-AirMap-future.md
