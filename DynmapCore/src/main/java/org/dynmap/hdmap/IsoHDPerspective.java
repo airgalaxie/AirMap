@@ -538,7 +538,9 @@ public class IsoHDPerspective implements HDPerspective {
                 double best_t = Double.MAX_VALUE;
                 int best_patch = 0;
                 for(int j = 0; j < hitcnt; j++) {
-                    if(patch_t[j] < best_t) {
+                    // Model patches at the same depth are layers: later patches are drawn
+                    // over earlier ones, so feed them to the front-to-back shader first.
+                    if(patch_t[j] <= best_t) {
                         best_patch = j;
                         best_t = patch_t[j];
                     }

@@ -134,11 +134,11 @@ public class PatchDefinition implements RenderPatch {
             Vector3D origin) {
     	if (sinX == 0 && sinY == 0 && sinZ == 0) return;
         vec.subtract(origin);
-        /* Do X rotation */
+        /* Do X rotation (Mojang right-hand rule about +X: y' = y cos - z sin, z' = y sin + z cos) */
         if (sinX != 0) {
-            double nval = vec.z * sinX + vec.y * cosX;
-            vec.z = vec.z * cosX - vec.y * sinX;
-            vec.y = nval;
+            double oy = vec.y, oz = vec.z;
+            vec.y = oy * cosX - oz * sinX;
+            vec.z = oy * sinX + oz * cosX;
         }
         /* Do Y rotation */
         if (sinY != 0) {
@@ -146,11 +146,11 @@ public class PatchDefinition implements RenderPatch {
             vec.z = vec.x * sinY + vec.z * cosY;
             vec.x = nval;
         }
-        /* Do Z rotation */
+        /* Do Z rotation (Mojang right-hand rule about +Z: x' = x cos - y sin, y' = x sin + y cos) */
         if (sinZ != 0) {
-            double nval = vec.y * sinZ + vec.x * cosZ;
-            vec.y = vec.y * cosZ - vec.x * sinZ;
-            vec.x = nval;
+            double ox = vec.x, oy = vec.y;
+            vec.x = ox * cosZ - oy * sinZ;
+            vec.y = ox * sinZ + oy * cosZ;
         }
         vec.add(origin);
     }

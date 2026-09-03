@@ -280,8 +280,9 @@ public class BiomeMap {
 
     /**
      * Applies vanilla's BiomeSpecialEffects.GrassColorModifier.modifyColor math.
-     * DARK_FOREST is exact bytecode; SWAMP approximates SimplexNoise(seed 2345) patchiness
-     * with deterministic value noise between the same two fixed colors.
+     * DARK_FOREST and SWAMP are exact bytecode ports (verified against Minecraft 26.2
+     * and 26.3-snapshot-10): SWAMP = SimplexNoise(WorldgenRandom(LegacyRandomSource(2345L)), [0])
+     * evaluated at (x*0.0225, z*0.0225), dark patch when value &lt; -0.1.
      */
     public final int applyGrassColorModifier(double x, double z, int base) {
         switch (grassMode) {
@@ -294,21 +295,127 @@ public class BiomeMap {
         }
     }
 
-    /** Smooth deterministic noise in roughly simplex range [-1,1], wavelength ~44 blocks (vanilla scale). */
+    /** Vanilla 2D simplex patchiness for the swamp modifier, seed 2345, scale 0.0225. */
     private static double swampPatchNoise(double x, double z) {
-        double sx = x * 0.0225, sz = z * 0.0225;
-        int xi = (int)Math.floor(sx), zi = (int)Math.floor(sz);
-        double fx = sx - xi, fz = sz - zi;
-        double u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
-        double n00 = hashCell(xi, zi),     n10 = hashCell(xi + 1, zi);
-        double n01 = hashCell(xi, zi + 1), n11 = hashCell(xi + 1, zi + 1);
-        return (n00 + (n10 - n00) * u) + ((n01 + (n11 - n01) * u) - (n00 + (n10 - n00) * u)) * v;
+        return SWAMP_NOISE.getValue(x * 0.0225, z * 0.0225);
     }
 
-    private static double hashCell(int x, int z) {
-        long h = x * 374761393L + z * 668265263L;
-        h = (h ^ (h >> 13)) * 1274126177L;
-        return ((h ^ (h >> 16)) & 0xFFFF) / 32767.5 - 1.0;
+    /*
+     * Exact ports of Minecraft 26.2 world.level.levelgen.synth.SimplexNoise (2D) and the
+     * java.util.Random-compatible legacy LCG behind LegacyRandomSource(2345L). Verified
+     * bit-identical against the real Minecraft classes, and 26.3-snapshot-10 agrees.
+     */
+    private static final VanillaSimplexNoise SWAMP_NOISE = new VanillaSimplexNoise(2345L);
+
+    private static final class LegacySimplexRandom {
+        private static final long MULTIPLIER = 0x5DEECE66DL;
+        private static final long ADDEND = 0xBL;
+        private static final long MASK = (1L << 48) - 1;
+        private long seed;
+
+        LegacySimplexRandom(long seed) {
+            this.seed = (seed ^ MULTIPLIER) & MASK;
+        }
+
+        int next(int bits) {
+            seed = (seed * MULTIPLIER + ADDEND) & MASK;
+            return (int) (seed >>> (48 - bits));
+        }
+
+        double nextDouble() {
+            return ((((long) next(26)) << 27) + next(27)) * 1.1102230246251565E-16;
+        }
+
+        int nextInt(int bound) {
+            if ((bound & -bound) == bound) {
+                return (int) ((bound * (long) next(31)) >> 31);
+            }
+            int bits, val;
+            do {
+                bits = next(31);
+                val = bits % bound;
+            } while (bits - val + (bound - 1) < 0);
+            return val;
+        }
+    }
+
+    private static final class VanillaSimplexNoise {
+        private static final int[][] GRADIENT = new int[][] {
+            {1, 1, 0}, {-1, 1, 0}, {1, -1, 0}, {-1, -1, 0},
+            {1, 0, 1}, {-1, 0, 1}, {1, 0, -1}, {-1, 0, -1},
+            {0, 1, 1}, {0, -1, 1}, {0, 1, -1}, {0, -1, -1},
+            {1, 1, 0}, {0, -1, 1}, {-1, 1, 0}, {0, -1, -1}
+        };
+        private static final double SQRT_3 = Math.sqrt(3.0);
+        private static final double F2 = 0.5 * (SQRT_3 - 1.0);
+        private static final double G2 = (3.0 - SQRT_3) / 6.0;
+        private final int[] p;
+
+        VanillaSimplexNoise(long seed) {
+            LegacySimplexRandom rnd = new LegacySimplexRandom(seed);
+            rnd.nextDouble(); // xo (unused by 2D, but part of the RNG stream)
+            rnd.nextDouble(); // yo (unused by 2D)
+            rnd.nextDouble(); // zo (unused by 2D)
+            p = new int[512];
+            for (int i = 0; i < 256; i++) {
+                p[i] = i;
+            }
+            for (int i = 0; i < 256; i++) {
+                int j = rnd.nextInt(256 - i);
+                int k = p[i];
+                p[i] = p[i + j];
+                p[i + j] = k;
+            }
+        }
+
+        private int p(int i) {
+            return p[i & 255];
+        }
+
+        double getValue(double x, double y) {
+            double s = (x + y) * F2;
+            int i = (int) Math.floor(x + s);
+            int j = (int) Math.floor(y + s);
+            double t = (i + j) * G2;
+            double xf = i - t;
+            double yf = j - t;
+            double x0 = x - xf;
+            double y0 = y - yf;
+            int i1, j1;
+            if (x0 > y0) {
+                i1 = 1;
+                j1 = 0;
+            } else {
+                i1 = 0;
+                j1 = 1;
+            }
+            double x1 = x0 - i1 + G2;
+            double y1 = y0 - j1 + G2;
+            double x2 = x0 - 1.0 + 2.0 * G2;
+            double y2 = y0 - 1.0 + 2.0 * G2;
+            int ii = i & 255;
+            int jj = j & 255;
+            int gi0 = p(ii + p(jj)) % 12;
+            int gi1 = p(ii + i1 + p(jj + j1)) % 12;
+            int gi2 = p(ii + 1 + p(jj + 1)) % 12;
+            return 70.0 * (cornerNoise3D(gi0, x0, y0, 0.0, 0.5)
+                    + cornerNoise3D(gi1, x1, y1, 0.0, 0.5)
+                    + cornerNoise3D(gi2, x2, y2, 0.0, 0.5));
+        }
+
+        private double cornerNoise3D(int gi, double x, double y, double z, double d) {
+            double e = d - x * x - y * y - z * z;
+            if (e < 0.0) {
+                return 0.0;
+            }
+            e *= e;
+            return e * e * dot(gi, x, y, z);
+        }
+
+        private double dot(int gi, double x, double y, double z) {
+            int[] g = GRADIENT[gi];
+            return g[0] * x + g[1] * y + g[2] * z;
+        }
     }
 
     public final int getModifiedFoliageMultiplier(int rawfoliagemult) {

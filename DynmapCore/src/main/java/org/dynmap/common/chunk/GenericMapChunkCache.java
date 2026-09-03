@@ -201,7 +201,7 @@ public abstract class GenericMapChunkCache extends MapChunkCache {
 				for (int dx = -1; dx <= 1; dx++) {
 					for (int dz = -1; dz <= 1; dz++) {
 						BiomeMap bm = getBiomeRel(dx, dz);
-						if (bm == BiomeMap.NULL) continue; 
+						if (bm == BiomeMap.NULL) continue;
 						int rmult = getGrassColor(bm, colormap, getX() + dx, getZ() + dz);
 						raccum += (rmult >> 16) & 0xFF;
 						gaccum += (rmult >> 8) & 0xFF;

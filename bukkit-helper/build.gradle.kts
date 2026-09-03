@@ -10,4 +10,5 @@ dependencies {
     implementation(project(":dynmap-api"))
 
     paperweightDevelopmentBundle(libs.paperDevBundle)
+    compileOnly(libs.paperApi)
 }

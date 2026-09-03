@@ -2,26 +2,26 @@
 airmap = "1.0.10-future"
 javaBuild = "26"
 javaTarget = "25"
+shadow = "9.6.1"
 dynmap = "3.8"
 # Versionsbezeichnung des eigenständigen Paper-26.2-Adapters (JAR-Name + paper-plugin.yml)
 airmapPaper = "1.0.10-paper-26.2"
 # Paper-26.2-Plattform: zentrale Versionsdefinition, Update auf Paper 26.3 = nur diesen Eintrag ändern
 paper = "26.2.build.+"
+paperweightUserdev = "2.0.0-beta.21"
+pluginYmlPaper = "0.9.0"
 # Fabric
-minecraft = "26.3-snapshot-10"
+minecraft = "26.3-pre-1"
 # Versionskennung, die der Ziel-Server zur Laufzeit meldet (Fabric Loader); abweichend zur Build-Version erlaubt
-minecraftRuntime = "26.3-alpha.10"
-fabricLoader = "0.19.3"
-fabricApi = "0.158.3+26.3"
+minecraftRuntime = "26.3-pre.1"
+fabricLoader = "0.19.5"
+fabricApi = "0.159.1+26.3"
 fabricLoom = "1.17-SNAPSHOT"
 jsr305 = "3.0.2"
 fabricPermissionsApi = "0.7.0"
 snakeYaml = "2.6" # upgrade From 1.23
 owaspHtmlSanitizer = "20260313.1"
 gson = "2.14.0"
-shadow = "9.6.1"
-paperweightUserdev = "2.0.0-beta.21"
-pluginYmlPaper = "0.9.0"
 luckperms = "5.5"
 vault = "1.7.1"
 groupManager = "2.10.1"
