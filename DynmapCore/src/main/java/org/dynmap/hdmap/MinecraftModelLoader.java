@@ -67,12 +67,14 @@ final class MinecraftModelLoader {
         // CLEARINSIDE op: internal fluid-fluid faces are culled (matchingBaseState /
         // waterFilled+onFace) and surviving faces fall through to COLORMOD_WATERTONED
         // inside readColor - this is what keeps water see-through to the floor.
-        registerFluidRenderer("minecraft:water", "minecraft:block/water_still", "minecraft:block/water_flow");
-        registerFluidRenderer("minecraft:flowing_water", "minecraft:block/water_still", "minecraft:block/water_flow");
-        registerFluidCube("minecraft:lava", "minecraft:block/lava_still", true, -1);
+        registerFluidRenderer("minecraft:water", "minecraft:block/water_still", "minecraft:block/water_flow", false);
+        registerFluidRenderer("minecraft:flowing_water", "minecraft:block/water_still", "minecraft:block/water_flow", false);
+        registerFluidRenderer("minecraft:lava", "minecraft:block/lava_still", "minecraft:block/lava_flow", true);
+        registerFluidRenderer("minecraft:flowing_lava", "minecraft:block/lava_still", "minecraft:block/lava_flow", true);
     }
 
-    private void registerFluidRenderer(String blockName, String stillTextureId, String flowingTextureId) {
+    private void registerFluidRenderer(String blockName, String stillTextureId, String flowingTextureId,
+            boolean opaque) {
         DynmapBlockState base = DynmapBlockState.getBaseStateByName(blockName);
         if (base == DynmapBlockState.AIR) return;
         int still = texture(stillTextureId) + TexturePack.COLORMOD_CLEARINSIDE * TexturePack.COLORMOD_MULT_INTERNAL;
@@ -84,7 +86,8 @@ final class MinecraftModelLoader {
         int[] faces = { still, flowing };
         for (int i = 0; i < base.getStateCount(); i++) {
             TexturePack.registerMinecraftState(base.getState(i), faces,
-                    TexturePack.BlockTransparency.SEMITRANSPARENT);
+                    opaque ? TexturePack.BlockTransparency.OPAQUE
+                            : TexturePack.BlockTransparency.SEMITRANSPARENT);
         }
     }
 
