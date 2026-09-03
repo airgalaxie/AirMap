@@ -1,11 +1,11 @@
 [versions]
-airmap = "1.0.10-future"
+airmap = "2.0.0-future"
 javaBuild = "26"
 javaTarget = "25"
 shadow = "9.6.1"
 dynmap = "3.8"
 # Versionsbezeichnung des eigenständigen Paper-26.2-Adapters (JAR-Name + paper-plugin.yml)
-airmapPaper = "1.0.10-paper-26.2"
+airmapPaper = "2.0.0-paper-26.2"
 # Paper-26.2-Plattform: zentrale Versionsdefinition, Update auf Paper 26.3 = nur diesen Eintrag ändern
 paper = "26.2.build.+"
 paperweightUserdev = "2.0.0-beta.21"
