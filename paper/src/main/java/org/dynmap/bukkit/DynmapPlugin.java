@@ -109,7 +109,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
 
     private final BukkitWorld getWorldByName(String name) {
         if((last_world != null) && (last_bworld.getName().equals(name)
-                || last_bworld.getNameAliases().contains(name))) {
+                || last_bworld.getWorldAliases().contains(name))) {
             return last_bworld;
         }
         BukkitWorld world = world_by_name.get(name);
@@ -117,7 +117,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
             return world;
         }
         for (BukkitWorld candidate : world_by_name.values()) {
-            if (candidate.getNameAliases().contains(name)) {
+            if (candidate.getWorldAliases().contains(name)) {
                 return candidate;
             }
         }

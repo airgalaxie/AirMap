@@ -1853,7 +1853,7 @@ public class DynmapCore implements DynmapCommonAPI {
         
         ConfigurationNode worldConfiguration = getWorldConfigurationNode(wname);
         if (worldConfiguration.isEmpty()) {
-            for (String alias : world.getNameAliases()) {
+            for (String alias : world.getWorldAliases()) {
                 worldConfiguration = getWorldConfigurationNode(alias);
                 if (!worldConfiguration.isEmpty()) {
                     Log.info("Using legacy world configuration '" + alias + "' for '" + wname + "'");

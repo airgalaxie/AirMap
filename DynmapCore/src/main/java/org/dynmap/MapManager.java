@@ -192,7 +192,7 @@ public class MapManager {
 
     private void registerWorldAliases(DynmapWorld world) {
         registerWorldAlias(DynmapWorld.legacyWorldName(world.getName()), world);
-        for (String alias : world.getNameAliases()) {
+        for (String alias : world.getWorldAliases()) {
             registerWorldAlias(alias, world);
             registerWorldAlias(DynmapWorld.legacyWorldName(alias), world);
         }

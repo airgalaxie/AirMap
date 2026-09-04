@@ -265,6 +265,32 @@ public abstract class DynmapWorld {
     public List<String> getNameAliases() {
         return java.util.Collections.emptyList();
     }
+    /** Common core policy: Dynmap legacy aliases for the vanilla standard dimensions,
+     * derived solely from the canonical world identity. */
+    public static List<String> getVanillaLegacyAliases(String canonicalId) {
+        if (canonicalId == null) return java.util.Collections.emptyList();
+        switch (canonicalId) {
+            case "minecraft:overworld":
+                return Arrays.asList("world");
+            case "minecraft:the_nether":
+                return Arrays.asList("DIM-1", "nether");
+            case "minecraft:the_end":
+                return Arrays.asList("DIM1", "the_end");
+            default:
+                return java.util.Collections.emptyList();
+        }
+    }
+    /** Common-core legacy aliases plus adapter-supplied platform names. */
+    public List<String> getWorldAliases() {
+        List<String> aliases = new ArrayList<String>();
+        for (String alias : getVanillaLegacyAliases(getName())) {
+            if (!aliases.contains(alias)) aliases.add(alias);
+        }
+        for (String alias : getNameAliases()) {
+            if (!aliases.contains(alias)) aliases.add(alias);
+        }
+        return aliases;
+    }
     /* Test if world is nether */
     public abstract boolean isNether();
 

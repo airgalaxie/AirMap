@@ -74,16 +74,7 @@ public class FabricWorld extends DynmapWorld {
         ResourceKey<Level> dimension = w.dimension();
         List<String> aliases = new ArrayList<String>();
         if (dimension.equals(Level.OVERWORLD)) {
-            aliases.add(dimension.identifier().toString());
             aliases.add(w.getServer().getWorldData().getLevelName());
-        } else if (dimension.equals(Level.NETHER)) {
-            aliases.add(dimension.identifier().toString());
-            aliases.add("DIM-1");
-            aliases.add("nether");
-        } else if (dimension.equals(Level.END)) {
-            aliases.add(dimension.identifier().toString());
-            aliases.add("DIM1");
-            aliases.add("the_end");
         } else {
             aliases.add(dimension.identifier().getNamespace() + "_" + dimension.identifier().getPath());
         }
@@ -96,14 +87,6 @@ public class FabricWorld extends DynmapWorld {
         List<String> aliases = new ArrayList<String>();
         if (Level.OVERWORLD.identifier().toString().equals(canonicalName)) {
             aliases.add(name);
-        } else if (Level.NETHER.identifier().toString().equals(canonicalName)) {
-            aliases.add(name);
-            aliases.add("DIM-1");
-            aliases.add("nether");
-        } else if (Level.END.identifier().toString().equals(canonicalName)) {
-            aliases.add(name);
-            aliases.add("DIM1");
-            aliases.add("the_end");
         } else {
             int separator = canonicalName.indexOf(':');
             if (separator > 0 && separator < canonicalName.length() - 1) {
