@@ -134,11 +134,11 @@ public class PatchDefinition implements RenderPatch {
             Vector3D origin) {
     	if (sinX == 0 && sinY == 0 && sinZ == 0) return;
         vec.subtract(origin);
-        /* Do X rotation (Mojang right-hand rule about +X: y' = y cos - z sin, z' = y sin + z cos) */
+        /* Minecraft model X rotation: y' = y cos + z sin, z' = z cos - y sin */
         if (sinX != 0) {
             double oy = vec.y, oz = vec.z;
-            vec.y = oy * cosX - oz * sinX;
-            vec.z = oy * sinX + oz * cosX;
+            vec.y = oy * cosX + oz * sinX;
+            vec.z = oz * cosX - oy * sinX;
         }
         /* Do Y rotation */
         if (sinY != 0) {

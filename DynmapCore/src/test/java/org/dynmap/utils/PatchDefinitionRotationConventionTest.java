@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Verifies PatchDefinition.rotatePrecomputed rotates all three axes with the
- * same Mojang-compatible right-hand convention (x=east, y=up, z=south).
+ * Minecraft model convention (x=east, y=up, z=south).
  *
  * <p>rotateAround rotates about the block center offsetCenter=(0.5,0.5,0.5),
  * so only vectors with a clean unit offset from the center are used here;
@@ -44,21 +44,21 @@ class PatchDefinitionRotationConventionTest {
         assertVec(0.5, -0.5, 0.5, rot(1.5, 0.5, 0.5, 0, 0, -90));
     }
 
-    /* ---- X rotation (Mojang right-hand about +X): y'=y cos - z sin, z'=y sin + z cos ---- */
+    /* ---- Minecraft model X rotation: y'=y cos + z sin, z'=z cos - y sin ---- */
 
     @Test
-    void xPositive90RotatesPlusYOffsetToPlusZ() {
-        assertVec(0.5, 0.5, 1.5, rot(0.5, 1.5, 0.5, 90, 0, 0));
+    void xPositive90RotatesPlusYOffsetToMinusZ() {
+        assertVec(0.5, 0.5, -0.5, rot(0.5, 1.5, 0.5, 90, 0, 0));
     }
 
     @Test
-    void xPositive90RotatesPlusZOffsetToMinusY() {
-        assertVec(0.5, -0.5, 0.5, rot(0.5, 0.5, 1.5, 90, 0, 0));
+    void xPositive90RotatesPlusZOffsetToPlusY() {
+        assertVec(0.5, 1.5, 0.5, rot(0.5, 0.5, 1.5, 90, 0, 0));
     }
 
     @Test
-    void xNegative90RotatesPlusYOffsetToMinusZ() {
-        assertVec(0.5, 0.5, -0.5, rot(0.5, 1.5, 0.5, -90, 0, 0));
+    void xNegative90RotatesPlusYOffsetToPlusZ() {
+        assertVec(0.5, 0.5, 1.5, rot(0.5, 1.5, 0.5, -90, 0, 0));
     }
 
     /* ---- Y rotation (unchanged control; right-hand about +Y): x'=x cos - z sin, z'=x sin + z cos ---- */
