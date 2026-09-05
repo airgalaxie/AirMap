@@ -2072,8 +2072,20 @@ public class TexturePack {
 
     static int applyMinecraftTint(int texture, DynmapBlockState state, int tintIndex) {
         if (tintIndex < 0) return texture;
-        int modifier = state.isWaterFilled() ? COLORMOD_WATERTONED
-                : state.isLeaves() ? COLORMOD_FOLIAGETONED : COLORMOD_GRASSTONED;
+        int modifier;
+        if (state.isWaterFilled()) {
+            modifier = COLORMOD_WATERTONED;
+        } else if (state.isLeaves()) {
+            modifier = switch (state.blockName) {
+                case "minecraft:oak_leaves", "minecraft:jungle_leaves", "minecraft:acacia_leaves",
+                     "minecraft:dark_oak_leaves", "minecraft:mangrove_leaves" -> COLORMOD_FOLIAGETONED;
+                case "minecraft:spruce_leaves" -> COLORMOD_PINETONED;
+                case "minecraft:birch_leaves" -> COLORMOD_BIRCHTONED;
+                default -> 0;
+            };
+        } else {
+            modifier = COLORMOD_GRASSTONED;
+        }
         return texture + modifier * COLORMOD_MULT_INTERNAL;
     }
 

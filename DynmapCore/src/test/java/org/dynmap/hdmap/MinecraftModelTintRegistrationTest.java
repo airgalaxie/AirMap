@@ -29,6 +29,10 @@ class MinecraftModelTintRegistrationTest {
         DynmapBlockState grassSnowy = new DynmapBlockState.Builder().setBaseState(grassDefault).setStateIndex(1)
                 .setBlockName("minecraft:grass_block").setStateName("snowy=true").setAttenuatesLight(15).build();
         DynmapBlockState leaves = new DynmapBlockState.Builder().setBlockName("minecraft:oak_leaves").setLeaves().build();
+        DynmapBlockState spruceLeaves = new DynmapBlockState.Builder().setBlockName("minecraft:spruce_leaves").setLeaves().build();
+        DynmapBlockState birchLeaves = new DynmapBlockState.Builder().setBlockName("minecraft:birch_leaves").setLeaves().build();
+        DynmapBlockState cherryLeaves = new DynmapBlockState.Builder().setBlockName("minecraft:cherry_leaves").setLeaves().build();
+        DynmapBlockState paleOakLeaves = new DynmapBlockState.Builder().setBlockName("minecraft:pale_oak_leaves").setLeaves().build();
         DynmapBlockState plant = new DynmapBlockState.Builder().setBlockName("minecraft:short_grass")
                 .setStateName("waterlogged=false").build();
         DynmapBlockState stone = new DynmapBlockState.Builder().setBlockName("minecraft:stone")
@@ -52,6 +56,10 @@ class MinecraftModelTintRegistrationTest {
                 || !carries(HDBlockStateTextureMap.getByBlockState(grassSnowy), TexturePack.COLORMOD_GRASSTONED),
                 "snowy grass must not use grass colormap");
         assertAllFacesCarry(leaves, TexturePack.COLORMOD_FOLIAGETONED, "untinted oak_leaves face");
+        assertAllFacesCarry(spruceLeaves, TexturePack.COLORMOD_PINETONED, "spruce leaves constant tint");
+        assertAllFacesCarry(birchLeaves, TexturePack.COLORMOD_BIRCHTONED, "birch leaves constant tint");
+        assertAllFacesCarry(cherryLeaves, 0, "cherry leaves must retain their texture color");
+        assertAllFacesCarry(paleOakLeaves, 0, "pale oak leaves must retain their texture color");
         assertSomeFacesCarry(plant, TexturePack.COLORMOD_GRASSTONED, "untinted short_grass face");
         HDBlockModel plantModel = HDBlockModels.models_by_id_data[plant.globalStateIndex];
         assertTrue(plantModel instanceof HDBlockPatchModel, "short_grass must use its Minecraft patch model");
