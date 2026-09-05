@@ -52,14 +52,12 @@ final class MinecraftModelLoader {
     private final Map<String, JsonObject> modelLayers = new HashMap<>();
     private final Set<String> missingModelLayers = new java.util.HashSet<>();
     private final Map<String, Boolean> opaqueSprites = new HashMap<>();
-    private MinecraftModelLayerRegistry modelLayerRegistry;
 
     MinecraftModelLoader(MinecraftResourceProvider resources, PatchDefinitionFactory patches) {
         this.resources = resources; this.patches = patches;
     }
 
     void load() throws IOException {
-        modelLayerRegistry = MinecraftModelLayerRegistry.load();
         for (String resource : resources.list("blockstates", ".json")) loadBlockstate(resource);
         registerFluids();
     }
@@ -233,27 +231,22 @@ final class MinecraftModelLoader {
     private boolean installModelLayer(DynmapBlockState state, AppliedModel applied,
             List<PatchDefinition> result, List<Integer> textures, boolean[] occluding) throws IOException {
         SpecialModel special = itemSpecialModel(state);
-        String specialType = null;
         String textureId = null;
-        if (special != null && special.model.has("type")) {
-            specialType = path(special.model.get("type").getAsString());
-        }
         Map<String, String> values = properties(state.stateName);
-        if (special != null) {
-            for (Map.Entry<String, JsonElement> entry : special.model.entrySet()) {
-                if (entry.getValue().isJsonPrimitive()) {
-                    values.put("special." + entry.getKey(), entry.getValue().getAsString());
-                }
+        JsonObject geometry = null;
+        for (String candidate : modelLayerCandidates(special == null ? null : special.model, applied.id)) {
+            JsonObject candidateGeometry = readLayer(candidate);
+            if (candidateGeometry != null) {
+                geometry = candidateGeometry;
+                break;
             }
         }
-        MinecraftModelLayerRegistry.Binding binding = modelLayerRegistry.resolve(specialType, applied.id, values);
-        if (binding == null) return false;
-        String layer = binding.layer();
-        if (special != null && special.model.has("texture")) {
-            textureId = normalizeEntityTexture(special.model.get("texture").getAsString(), binding.textureDirectory());
-        }
-        JsonObject geometry = readLayer(layer);
         if (geometry == null) return false;
+        if (special != null && special.model.has("texture")) {
+            String textureDirectory = geometry.has("texture_directory")
+                    ? geometry.get("texture_directory").getAsString() : "";
+            textureId = normalizeEntityTexture(special.model.get("texture").getAsString(), textureDirectory);
+        }
         if (geometry.has("occluding") && geometry.get("occluding").getAsBoolean()) occluding[0] = true;
         if ((textureId == null || textureId.isEmpty()) && geometry.has("texture")) textureId = geometry.get("texture").getAsString();
         if (textureId == null || textureId.isEmpty()) return false;
@@ -279,6 +272,26 @@ final class MinecraftModelLoader {
             }
         }
         return true;
+    }
+
+    /** Names static model layers directly from Minecraft's selected special model. Primitive
+     * special parameters provide optional variant suffixes; regular models use their basename. */
+    static List<String> modelLayerCandidates(JsonObject specialModel, String modelId) {
+        List<String> candidates = new ArrayList<>();
+        if (specialModel != null && specialModel.has("type")) {
+            String base = path(specialModel.get("type").getAsString());
+            candidates.add(base);
+            for (Map.Entry<String, JsonElement> entry : specialModel.entrySet()) {
+                if (entry.getKey().equals("type") || entry.getKey().equals("texture")
+                        || !entry.getValue().isJsonPrimitive()) continue;
+                String candidate = base + "_" + entry.getValue().getAsString();
+                if (!candidates.contains(candidate)) candidates.add(candidate);
+            }
+        } else {
+            String path = path(modelId);
+            candidates.add(path.substring(path.lastIndexOf('/') + 1));
+        }
+        return candidates;
     }
 
     private PatchDefinition modelLayerFace(JsonArray vertices, int textureIndex) {
