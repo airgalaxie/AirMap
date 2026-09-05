@@ -52,12 +52,14 @@ final class MinecraftModelLoader {
     private final Map<String, JsonObject> modelLayers = new HashMap<>();
     private final Set<String> missingModelLayers = new java.util.HashSet<>();
     private final Map<String, Boolean> opaqueSprites = new HashMap<>();
+    private MinecraftModelLayerRegistry modelLayerRegistry;
 
     MinecraftModelLoader(MinecraftResourceProvider resources, PatchDefinitionFactory patches) {
         this.resources = resources; this.patches = patches;
     }
 
     void load() throws IOException {
+        modelLayerRegistry = MinecraftModelLayerRegistry.load();
         for (String resource : resources.list("blockstates", ".json")) loadBlockstate(resource);
         registerFluids();
     }
@@ -231,16 +233,25 @@ final class MinecraftModelLoader {
     private boolean installModelLayer(DynmapBlockState state, AppliedModel applied,
             List<PatchDefinition> result, List<Integer> textures, boolean[] occluding) throws IOException {
         SpecialModel special = itemSpecialModel(state);
-        String layer = null;
+        String specialType = null;
         String textureId = null;
         if (special != null && special.model.has("type")) {
-            layer = path(special.model.get("type").getAsString());
-            if (layer.equals("copper_golem_statue")) {
-                layer += "_" + (special.model.has("pose") ? special.model.get("pose").getAsString() : "standing");
-            }
-            if (special.model.has("texture")) textureId = normalizeEntityTexture(special.model.get("texture").getAsString(), layer);
+            specialType = path(special.model.get("type").getAsString());
         }
-        if (layer == null) layer = path(applied.id).substring(path(applied.id).lastIndexOf('/') + 1);
+        Map<String, String> values = properties(state.stateName);
+        if (special != null) {
+            for (Map.Entry<String, JsonElement> entry : special.model.entrySet()) {
+                if (entry.getValue().isJsonPrimitive()) {
+                    values.put("special." + entry.getKey(), entry.getValue().getAsString());
+                }
+            }
+        }
+        MinecraftModelLayerRegistry.Binding binding = modelLayerRegistry.resolve(specialType, applied.id, values);
+        if (binding == null) return false;
+        String layer = binding.layer();
+        if (special != null && special.model.has("texture")) {
+            textureId = normalizeEntityTexture(special.model.get("texture").getAsString(), binding.textureDirectory());
+        }
         JsonObject geometry = readLayer(layer);
         if (geometry == null) return false;
         if (geometry.has("occluding") && geometry.get("occluding").getAsBoolean()) occluding[0] = true;
@@ -251,7 +262,6 @@ final class MinecraftModelLoader {
         if (faces == null) return false;
         String orientation = geometry.has("orientation") ? geometry.get("orientation").getAsString() : "model_rotation";
         double[] placement = geometry.has("translation") ? vector(geometry.get("translation").getAsJsonArray()) : null;
-        Map<String, String> values = properties(state.stateName);
         for (JsonElement faceElement : faces) {
             JsonArray vertices = faceElement.getAsJsonObject().getAsJsonArray("vertices");
             if (special != null && special.transformation != null) vertices = transformVertices(vertices, special.transformation);
@@ -445,15 +455,12 @@ final class MinecraftModelLoader {
         }
     }
 
-    private static String normalizeEntityTexture(String id, String layer) {
+    private static String normalizeEntityTexture(String id, String textureDirectory) {
         String namespace = namespace(id);
         String value = path(id);
         if (value.startsWith("textures/")) value = value.substring("textures/".length());
         if (value.endsWith(".png")) value = value.substring(0, value.length() - 4);
-        if (!value.contains("/")) {
-            if (layer.startsWith("chest")) value = "entity/chest/" + value;
-            else if (layer.startsWith("shulker_box")) value = "entity/shulker/" + value;
-        }
+        if (!value.contains("/") && !textureDirectory.isEmpty()) value = textureDirectory + value;
         return namespace + ":" + value;
     }
 
