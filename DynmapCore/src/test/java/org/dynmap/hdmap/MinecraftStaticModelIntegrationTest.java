@@ -31,6 +31,10 @@ class MinecraftStaticModelIntegrationTest {
         DynmapBlockState fence = state("minecraft:oak_fence",
                 "east=true,north=false,south=true,waterlogged=false,west=false", false);
         DynmapBlockState chest = state("minecraft:chest", "facing=north,type=single,waterlogged=false", false);
+        DynmapBlockState chestLeft = variant(chest, 1,
+                "facing=north,type=left,waterlogged=false");
+        DynmapBlockState chestRight = variant(chest, 2,
+                "facing=north,type=right,waterlogged=false");
         DynmapBlockState copperChest = state("minecraft:copper_chest", "facing=north,type=single,waterlogged=false", false);
         DynmapBlockState shulkerBox = state("minecraft:shulker_box", "facing=up", false);
         DynmapBlockState bell = state("minecraft:bell",
@@ -55,6 +59,23 @@ class MinecraftStaticModelIntegrationTest {
         assertTrue(patches(stairsNorth).length > 6, "rotated stair model");
         assertTrue(patches(fence).length > 6, "multipart fence model");
         assertEquals(18, patches(chest).length, "Minecraft chest model layer");
+        assertEquals(-1.0 / 16.0, minZ(patches(chest)), 1.0e-9,
+                "north-facing chest lock must point north");
+        assertEquals(15.0 / 16.0, maxZ(patches(chest)), 1.0e-9,
+                "north-facing chest body must retain its vanilla bounds");
+        assertEquals(15, patches(chestLeft).length, "Minecraft double-chest left layer");
+        assertEquals(15, patches(chestRight).length, "Minecraft double-chest right layer");
+        assertEquals(1.0 / 16.0, minX(patches(chestLeft)), 1.0e-9,
+                "north-facing left half must close the positive-X seam");
+        assertEquals(1.0, maxX(patches(chestLeft)), 1.0e-9,
+                "north-facing left half must reach its positive-X block edge");
+        assertEquals(0.0, minX(patches(chestRight)), 1.0e-9,
+                "north-facing right half must reach its negative-X block edge");
+        assertEquals(15.0 / 16.0, maxX(patches(chestRight)), 1.0e-9,
+                "north-facing right half must close the negative-X seam");
+        assertTrue(firstTexture(chest) != firstTexture(chestLeft));
+        assertTrue(firstTexture(chest) != firstTexture(chestRight));
+        assertTrue(firstTexture(chestLeft) != firstTexture(chestRight));
         assertEquals(18, patches(copperChest).length, "Minecraft copper-chest model layer");
         assertEquals(12, patches(shulkerBox).length, "Minecraft shulker-box model layer");
         assertEquals(0.00025, minX(patches(shulkerBox)), 1.0e-9, "special-model translation and scale");
@@ -73,6 +94,18 @@ class MinecraftStaticModelIntegrationTest {
         var builder = new DynmapBlockState.Builder().setBlockName(name).setStateName(properties);
         if (opaque) builder.setAttenuatesLight(15);
         return builder.build();
+    }
+
+    private static DynmapBlockState variant(DynmapBlockState base, int stateIndex, String properties) {
+        return new DynmapBlockState.Builder().setBaseState(base).setStateIndex(stateIndex)
+                .setBlockName(base.blockName).setStateName(properties).build();
+    }
+
+    private static int firstTexture(DynmapBlockState state) {
+        HDBlockStateTextureMap map = HDBlockStateTextureMap.getByBlockState(state);
+        assertNotNull(map, "missing texture map for " + state);
+        assertNotNull(map.faces, "missing textures for " + state);
+        return map.faces[0];
     }
 
     private static DynmapBlockState mushroom(String name, boolean up) {
@@ -145,5 +178,21 @@ class MinecraftStaticModelIntegrationTest {
                 p.y0 + p.u.y * p.umax + p.v.y * p.vmin,
                 p.y0 + p.u.y * p.umin + p.v.y * p.vmax,
                 p.y0 + p.u.y * p.umax + p.v.y * p.vmax)).max().orElseThrow();
+    }
+
+    private static double minZ(org.dynmap.utils.PatchDefinition[] patches) {
+        return java.util.Arrays.stream(patches).flatMapToDouble(p -> java.util.stream.DoubleStream.of(
+                p.z0 + p.u.z * p.umin + p.v.z * p.vmin,
+                p.z0 + p.u.z * p.umax + p.v.z * p.vmin,
+                p.z0 + p.u.z * p.umin + p.v.z * p.vmax,
+                p.z0 + p.u.z * p.umax + p.v.z * p.vmax)).min().orElseThrow();
+    }
+
+    private static double maxZ(org.dynmap.utils.PatchDefinition[] patches) {
+        return java.util.Arrays.stream(patches).flatMapToDouble(p -> java.util.stream.DoubleStream.of(
+                p.z0 + p.u.z * p.umin + p.v.z * p.vmin,
+                p.z0 + p.u.z * p.umax + p.v.z * p.vmin,
+                p.z0 + p.u.z * p.umin + p.v.z * p.vmax,
+                p.z0 + p.u.z * p.umax + p.v.z * p.vmax)).max().orElseThrow();
     }
 }

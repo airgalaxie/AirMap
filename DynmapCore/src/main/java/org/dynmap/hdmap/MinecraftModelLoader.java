@@ -242,18 +242,21 @@ final class MinecraftModelLoader {
             }
         }
         if (geometry == null) return false;
+        JsonObject layerMetadata = geometry;
         if (special != null && special.model.has("texture")) {
-            String textureDirectory = geometry.has("texture_directory")
-                    ? geometry.get("texture_directory").getAsString() : "";
+            String textureDirectory = layerMetadata.has("texture_directory")
+                    ? layerMetadata.get("texture_directory").getAsString() : "";
             textureId = normalizeEntityTexture(special.model.get("texture").getAsString(), textureDirectory);
+            textureId = modelLayerTexture(textureId, layerMetadata, values);
         }
-        if (geometry.has("occluding") && geometry.get("occluding").getAsBoolean()) occluding[0] = true;
+        if (layerMetadata.has("occluding") && layerMetadata.get("occluding").getAsBoolean()) occluding[0] = true;
         if ((textureId == null || textureId.isEmpty()) && geometry.has("texture")) textureId = geometry.get("texture").getAsString();
         if (textureId == null || textureId.isEmpty()) return false;
         int tile = texture(textureId);
-        JsonArray faces = geometry.getAsJsonArray("faces");
+        JsonArray faces = modelLayerFaces(geometry, values);
         if (faces == null) return false;
-        String orientation = geometry.has("orientation") ? geometry.get("orientation").getAsString() : "model_rotation";
+        String orientation = layerMetadata.has("orientation")
+                ? layerMetadata.get("orientation").getAsString() : "model_rotation";
         double[] placement = geometry.has("translation") ? vector(geometry.get("translation").getAsJsonArray()) : null;
         for (JsonElement faceElement : faces) {
             JsonArray vertices = faceElement.getAsJsonObject().getAsJsonArray("vertices");
@@ -272,6 +275,23 @@ final class MinecraftModelLoader {
             }
         }
         return true;
+    }
+
+    static JsonArray modelLayerFaces(JsonObject geometry, Map<String, String> values) {
+        if (!geometry.has("variants")) return geometry.getAsJsonArray("faces");
+        JsonObject variants = geometry.getAsJsonObject("variants");
+        String value = values.get(variants.get("property").getAsString());
+        JsonObject faces = variants.getAsJsonObject("faces");
+        return value != null && faces.has(value)
+                ? faces.getAsJsonArray(value) : geometry.getAsJsonArray("faces");
+    }
+
+    static String modelLayerTexture(String texture, JsonObject geometry, Map<String, String> values) {
+        if (!geometry.has("variants")) return texture;
+        JsonObject variants = geometry.getAsJsonObject("variants");
+        if (!variants.has("texture_suffix") || !variants.get("texture_suffix").getAsBoolean()) return texture;
+        String value = values.get(variants.get("property").getAsString());
+        return value != null && variants.getAsJsonObject("faces").has(value) ? texture + "_" + value : texture;
     }
 
     /** Names static model layers directly from Minecraft's selected special model. Primitive
@@ -477,9 +497,14 @@ final class MinecraftModelLoader {
         return namespace + ":" + value;
     }
 
-    private static int[] layerRotation(String orientation, String facing, AppliedModel applied) {
+    static int[] layerRotation(String orientation, String facing, AppliedModel applied) {
         if (orientation.equals("model_rotation")) return new int[] {applied.x, applied.y, 0};
         if (facing == null) return new int[] {0, 0, 0};
+        // ChestRenderer uses -Direction.toYRot() around the block center.  The baked chest
+        // layer faces south before that transform, unlike the other horizontal model layers.
+        if (orientation.equals("chest_facing")) return new int[] {0, switch (facing) {
+            case "east" -> 90; case "north" -> 180; case "west" -> 270; default -> 0;
+        }, 0};
         if (orientation.equals("horizontal_facing")) return new int[] {0, switch (facing) {
             case "east" -> 90; case "south" -> 180; case "west" -> 270; default -> 0;
         }, 0};
