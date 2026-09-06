@@ -9,6 +9,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -328,6 +329,7 @@ public class TexturePack {
         List<CustomTileRec> cust;
         String[] tilenames;         /* For TILESET, array of tilenames, indexed by tile index */
         boolean used;               // Set to true if any active references to the file
+        boolean preserveResolution; // UVs address the complete image as an atlas
         MaterialType material;      // Material type, if specified
     }
     private static ArrayList<DynamicTileFile> addonfiles = new ArrayList<>();
@@ -370,6 +372,7 @@ public class TexturePack {
     }    
     
     private int[][]   tile_argb;
+    private Set<Integer> nativeResolutionTiles = new HashSet<>();
     private int[] blank;
     private int native_scale;
     private CTMTexturePack ctm;
@@ -1051,6 +1054,7 @@ public class TexturePack {
     private TexturePack(TexturePack tp) {
         this.tile_argb = Arrays.copyOf(tp.tile_argb, tp.tile_argb.length);
         this.native_scale = tp.native_scale;
+        this.nativeResolutionTiles = new HashSet<>(tp.nativeResolutionTiles);
         this.ctm = tp.ctm;
         this.imgs = tp.imgs;
         this.blockColoring = tp.blockColoring;
@@ -1236,10 +1240,11 @@ public class TexturePack {
                             for(int j = 0; j < dim; j++) {
                                 System.arraycopy(li.argb, (y*dim+j)*li.width + (x*dim), old_argb, j*dim, dim); 
                             }
-                            /* Rescale to match rest of terrain PNG */
-                            int new_argb[] = new int[native_scale*native_scale];
-                            scaleTerrainPNGSubImage(dim, native_scale, old_argb, new_argb);
+                            int targetScale = dtf.preserveResolution ? dim : native_scale;
+                            int new_argb[] = new int[targetScale*targetScale];
+                            scaleTerrainPNGSubImage(dim, targetScale, old_argb, new_argb);
                             setTileARGB(tileidx, new_argb);
+                            if (dtf.preserveResolution) nativeResolutionTiles.add(tileidx);
                         }
                     }
                 }
@@ -1363,8 +1368,13 @@ public class TexturePack {
         tp.tile_argb = new int[tile_argb.length][];
         /* Terrain.png is 16x16 array of images : process one at a time */
         for(int idx = 0; idx < tile_argb.length; idx++) {
-            tp.tile_argb[idx] = new int[tp.native_scale*tp.native_scale];
-            scaleTerrainPNGSubImage(native_scale, tp.native_scale, getTileARGB(idx),  tp.tile_argb[idx]);
+            int[] source = getTileARGB(idx);
+            if (nativeResolutionTiles.contains(idx)) {
+                tp.tile_argb[idx] = Arrays.copyOf(source, source.length);
+            } else {
+                tp.tile_argb[idx] = new int[tp.native_scale*tp.native_scale];
+                scaleTerrainPNGSubImage(native_scale, tp.native_scale, source, tp.tile_argb[idx]);
+            }
         }
         /* Special case - some textures are used as masks - need pure alpha (00 or FF) */
         makeAlphaPure(tp.tile_argb[TILEINDEX_GRASSMASK]); /* Grass side mask */
@@ -1560,6 +1570,8 @@ public class TexturePack {
         
         if (simplemap) {    /* If simple mapping */
             int[] texture = getTileARGB(textid);
+            int textureScale = (patchid >= 0 && nativeResolutionTiles.contains(textid))
+                    ? (int) Math.round(Math.sqrt(texture.length)) : native_scale;
             /* Get texture coordinates (U=horizontal(left=0),V=vertical(top=0)) */
             int u = 0, v = 0;
             /* If not patch, compute U and V */
@@ -1598,15 +1610,15 @@ public class TexturePack {
                 }
             }
             else {
-                u = fastFloor(ps.getPatchU() * native_scale);
-                v = native_scale - fastFloor(ps.getPatchV() * native_scale) - 1;
+                u = fastFloor(ps.getPatchU() * textureScale);
+                v = textureScale - fastFloor(ps.getPatchV() * textureScale) - 1;
             }
             /* Read color from texture — clamp instead of try-catch for hot-path speed */
-            if ((u | v | (native_scale - 1 - u) | (native_scale - 1 - v)) < 0) {
-                u = (u < 0) ? 0 : (u >= native_scale ? native_scale-1 : u);
-                v = (v < 0) ? 0 : (v >= native_scale ? native_scale-1 : v);
+            if ((u | v | (textureScale - 1 - u) | (textureScale - 1 - v)) < 0) {
+                u = (u < 0) ? 0 : (u >= textureScale ? textureScale-1 : u);
+                v = (v < 0) ? 0 : (v >= textureScale ? textureScale-1 : v);
             }
-            rslt.setARGB(texture[v*native_scale + u]);
+            rslt.setARGB(texture[v*textureScale + u]);
             
             return;            
         }
@@ -2067,6 +2079,15 @@ public class TexturePack {
     static int registerMinecraftTexture(String textureId) {
         String[] p = textureId.indexOf(':') >= 0 ? textureId.split(":", 2) : new String[] { "minecraft", textureId };
         int file = findOrAddDynamicTileFile("assets/" + p[0] + "/textures/" + p[1] + ".png", p[0], 1, 1, TileFileFormat.GRID, new String[0]);
+        return findOrAddDynamicTile(file, 0);
+    }
+
+    /** Register an image whose model UVs address the complete image as an atlas. */
+    static int registerMinecraftTextureAtlas(String textureId) {
+        String[] p = textureId.indexOf(':') >= 0 ? textureId.split(":", 2) : new String[] { "minecraft", textureId };
+        int file = findOrAddDynamicTileFile("assets/" + p[0] + "/textures/" + p[1] + ".png", p[0], 1, 1,
+                TileFileFormat.GRID, new String[0]);
+        addonfiles.get(file).preserveResolution = true;
         return findOrAddDynamicTile(file, 0);
     }
 

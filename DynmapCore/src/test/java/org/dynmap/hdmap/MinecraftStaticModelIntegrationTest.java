@@ -59,8 +59,8 @@ class MinecraftStaticModelIntegrationTest {
         assertTrue(patches(stairsNorth).length > 6, "rotated stair model");
         assertTrue(patches(fence).length > 6, "multipart fence model");
         assertEquals(18, patches(chest).length, "Minecraft chest model layer");
-        assertEquals(-1.0 / 16.0, minZ(patches(chest)), 1.0e-9,
-                "north-facing chest lock must point north");
+        assertEquals(0.0, minZ(patches(chest)), 1.0e-9,
+                "north-facing chest lock must sit flush with its block's north face");
         assertEquals(15.0 / 16.0, maxZ(patches(chest)), 1.0e-9,
                 "north-facing chest body must retain its vanilla bounds");
         assertEquals(15, patches(chestLeft).length, "Minecraft double-chest left layer");

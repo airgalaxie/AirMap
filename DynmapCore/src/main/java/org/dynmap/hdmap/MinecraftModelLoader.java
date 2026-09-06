@@ -252,7 +252,7 @@ final class MinecraftModelLoader {
         if (layerMetadata.has("occluding") && layerMetadata.get("occluding").getAsBoolean()) occluding[0] = true;
         if ((textureId == null || textureId.isEmpty()) && geometry.has("texture")) textureId = geometry.get("texture").getAsString();
         if (textureId == null || textureId.isEmpty()) return false;
-        int tile = texture(textureId);
+        int tile = textureAtlas(textureId);
         JsonArray faces = modelLayerFaces(geometry, values);
         if (faces == null) return false;
         String orientation = layerMetadata.has("orientation")
@@ -641,6 +641,9 @@ final class MinecraftModelLoader {
         return "minecraft:block/missingno";
     }
     private int texture(String id) { return textureIds.computeIfAbsent(id, TexturePack::registerMinecraftTexture); }
+    private int textureAtlas(String id) {
+        return textureIds.computeIfAbsent("atlas\u0000" + id, ignored -> TexturePack.registerMinecraftTextureAtlas(id));
+    }
     private JsonObject read(String id) throws IOException { try (var in = resources.open(id); var reader = new InputStreamReader(in, StandardCharsets.UTF_8)) { return JsonParser.parseReader(reader).getAsJsonObject(); } }
     private static boolean matchesVariant(String key, Map<String,String> values) { if (key.isEmpty()) return true; for (String term:key.split(",")) { String[] p=term.split("=",2); if (p.length!=2 || !List.of(p[1].split("\\|")).contains(values.get(p[0]))) return false; } return true; }
     private static boolean matchesWhen(JsonElement when, Map<String,String> values) { JsonObject o=when.getAsJsonObject(); if(o.has("OR")) { for(JsonElement e:o.getAsJsonArray("OR")) if(matchesWhen(e,values)) return true; return false; } if(o.has("AND")) { for(JsonElement e:o.getAsJsonArray("AND")) if(!matchesWhen(e,values)) return false; return true; } for(var e:o.entrySet()) if(!List.of(e.getValue().getAsString().split("\\|")).contains(values.get(e.getKey()))) return false; return true; }

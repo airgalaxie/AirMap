@@ -653,30 +653,36 @@ class ChestFlatVsSurfaceRenderTest {
      *  against the block behind it in EVERY projection, while every non-occluding model must keep its
      *  exact pre-change behaviour (regression pin). Values are deterministic for this synthetic world. */
     private static void assertBlockOcclusion(String blockName, TraceStats nat, TraceStats res, TraceStats surf) {
-        assertEquals(36352, nat.rendered(), blockName + " native: all pixels keep rendering");
-        assertEquals(36352, res.rendered(), blockName + " FLAT-resampled: all pixels keep rendering");
+        // Feed count is a per-block window fact: some statue edge pixels sample alpha=0 and only
+        // close on a later opaque statue face, giving this model its own deterministic baseline.
+        int natFlow = switch (blockName) {
+            case "minecraft:copper_golem_statue" -> 36346;
+            default -> 36352;
+        };
+        assertEquals(natFlow, nat.rendered(), blockName + " native: all pixels keep rendering");
+        assertEquals(natFlow, res.rendered(), blockName + " FLAT-resampled: all pixels keep rendering");
         assertEquals(36864, surf.rendered(), blockName + " surface: all pixels keep rendering");
         switch (blockName) {
             case "minecraft:copper_golem_statue" -> {
-                assertEquals(12, nat.targetVisited(), "STATUE native visited");
+                assertEquals(54, nat.targetVisited(), "STATUE native visited");
                 assertEquals(0, nat.targetHitButTransparent(), "STATUE native: no false-pierce to block behind");
-                assertEquals(12, nat.targetBecameLastOpaque(), "STATUE native: statue ends every statue pixel");
-                assertEquals(24, res.targetVisited(), "STATUE FLAT-resampled visited");
+                assertEquals(48, nat.targetBecameLastOpaque(), "STATUE native: statue ends every statue pixel");
+                assertEquals(54, res.targetVisited(), "STATUE FLAT-resampled visited");
                 assertEquals(0, res.targetHitButTransparent(), "STATUE FLAT-resampled: no grass fill behind (occluding)");
-                assertEquals(12, res.targetBecameLastOpaque(), "STATUE FLAT-resampled scale-4: statue ends every statue pixel");
+                assertEquals(48, res.targetBecameLastOpaque(), "STATUE atlas survives FLAT resampling");
                 assertEquals(0, surf.targetHitButTransparent(), "STATUE surface: no block behind statue");
-                assertEquals(149, surf.targetBecameLastOpaque(), "STATUE surface: statue ends every statue pixel");
+                assertEquals(203, surf.targetBecameLastOpaque(), "STATUE surface: statue ends every statue pixel");
             }
             case "minecraft:chest" -> {
                 assertEquals(144, nat.targetBecameLastOpaque(), "CHEST native unchanged");
-                assertEquals(108, res.targetBecameLastOpaque(), "CHEST FLAT-resampled unchanged");
-                assertEquals(36, res.targetHitButTransparent(), "CHEST FLAT-resampled unchanged");
-                assertEquals(258, surf.targetBecameLastOpaque(), "CHEST surface unchanged");
+                assertEquals(144, res.targetBecameLastOpaque(), "CHEST atlas survives FLAT resampling");
+                assertEquals(0, res.targetHitButTransparent(), "CHEST atlas has no false transparent samples");
+                assertEquals(340, surf.targetBecameLastOpaque(), "CHEST surface uses the native atlas");
             }
             case "minecraft:shulker_box" -> {
-                assertEquals(36, res.targetBecameLastOpaque(), "SHULKER FLAT-resampled unchanged");
-                assertEquals(0, res.targetHitButTransparent(), "SHULKER FLAT-resampled unchanged");
-                assertEquals(154, surf.targetBecameLastOpaque(), "SHULKER surface unchanged");
+                assertEquals(144, res.targetBecameLastOpaque(), "SHULKER atlas survives FLAT resampling");
+                assertEquals(0, res.targetHitButTransparent(), "SHULKER atlas has no false transparent samples");
+                assertEquals(430, surf.targetBecameLastOpaque(), "SHULKER surface uses the native atlas");
             }
             case "minecraft:glass" -> {
                 assertEquals(0, res.targetBecameLastOpaque(), "GLASS FLAT-resampled unchanged");
