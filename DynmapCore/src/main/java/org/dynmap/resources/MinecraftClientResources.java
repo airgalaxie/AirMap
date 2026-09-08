@@ -19,6 +19,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Properties;
+import org.dynmap.Log;
 
 /** Locates and verifies the Mojang client JAR for AirMap's configured Minecraft version. */
 public final class MinecraftClientResources {
@@ -26,6 +27,14 @@ public final class MinecraftClientResources {
     private static final String VERSION_RESOURCE = "/airmap-minecraft-version.properties";
 
     private MinecraftClientResources() { }
+
+    public static final class DownloadNotPermittedException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        private DownloadNotPermittedException(String message) {
+            super(message);
+        }
+    }
 
     public static String configuredVersion() throws IOException {
         Properties properties = loadProperties();
@@ -53,12 +62,14 @@ public final class MinecraftClientResources {
         return properties;
     }
 
-    public static MinecraftResourceProvider provision(Path cacheDirectory, String requiredVersion) throws IOException {
+    public static MinecraftResourceProvider provision(Path cacheDirectory, String requiredVersion,
+            boolean acceptDownload) throws IOException {
         Files.createDirectories(cacheDirectory);
         String fileVersion = requiredVersion.replaceAll("[^A-Za-z0-9._-]", "_");
         Path metadataFile = cacheDirectory.resolve("minecraft-" + fileVersion + ".json");
         JsonObject metadata = readVerifiedMetadata(metadataFile, requiredVersion);
         if (metadata == null) {
+            requireDownloadPermission(requiredVersion, acceptDownload);
             metadata = downloadMetadata(requiredVersion);
             if (!requiredVersion.equals(metadata.get("id").getAsString())) {
                 throw new IOException("Mojang metadata version does not match " + requiredVersion);
@@ -69,8 +80,22 @@ public final class MinecraftClientResources {
         String sha1 = client.get("sha1").getAsString();
         long size = client.get("size").getAsLong();
         Path clientJar = cacheDirectory.resolve("minecraft-client-" + fileVersion + ".jar");
-        if (!matches(clientJar, sha1, size)) download(client.get("url").getAsString(), clientJar, sha1, size);
+        if (!matches(clientJar, sha1, size)) {
+            requireDownloadPermission(requiredVersion, acceptDownload);
+            download(client.get("url").getAsString(), clientJar, sha1, size);
+        }
         return new ZipMinecraftResourceProvider(clientJar);
+    }
+
+    private static void requireDownloadPermission(String requiredVersion, boolean acceptDownload) throws IOException {
+        if (acceptDownload) return;
+        String message = "Minecraft client download requires explicit permission. "
+                + "Set 'accept-minecraft-client-download: true' in configuration.txt "
+                + "to permit AirMap to download the required Minecraft client resources "
+                + "from the official Mojang/Microsoft source. "
+                + "The required Minecraft client " + requiredVersion + " is missing or unusable.";
+        Log.warning(message);
+        throw new DownloadNotPermittedException(message);
     }
 
     private static JsonObject readVerifiedMetadata(Path file, String version) {

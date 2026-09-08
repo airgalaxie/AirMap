@@ -2,9 +2,9 @@ package org.dynmap.hdmap;
 
 import java.io.IOException;
 import java.util.BitSet;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.dynmap.ConfigurationNode;
 import org.dynmap.DynmapCore;
 import org.dynmap.Log;
@@ -19,7 +19,7 @@ public final class HDBlockModels {
     static PatchDefinitionFactory pdf = new PatchDefinitionFactory();
     static BitSet customModelsRequestingTileData = new BitSet();
     private static final BitSet changeIgnoredBlocks = new BitSet();
-    private static final Map<Integer, HDScaledBlockModels> scaledModels = new HashMap<>();
+    private static final Map<Integer, HDScaledBlockModels> scaledModels = new ConcurrentHashMap<>();
     public static final int[] boxPatchList = { 1, 4, 0, 3, 2, 5 };
 
 

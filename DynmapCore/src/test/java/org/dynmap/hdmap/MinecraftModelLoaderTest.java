@@ -1,5 +1,6 @@
 package org.dynmap.hdmap;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -8,19 +9,82 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import org.dynmap.renderer.RenderPatchFactory.SideVisible;
+import org.dynmap.utils.PatchDefinition;
+import org.dynmap.utils.PatchDefinitionFactory;
+import org.dynmap.utils.Vector3D;
 import org.junit.jupiter.api.Test;
 
 class MinecraftModelLoaderTest {
     @Test
+    void preservesModelLayerUvsForBothPolygonWindings() throws Exception {
+        var geometry = layer("chest");
+        var loader = new MinecraftModelLoader(null, new PatchDefinitionFactory());
+
+        var flipped = loader.modelLayerFace(
+                geometry.getAsJsonObject("variants").getAsJsonObject("faces")
+                        .getAsJsonArray("left").get(1).getAsJsonObject().getAsJsonArray("vertices"), 0);
+        assertEquals(SideVisible.BOTTOM, flipped.sidevis);
+        assertEquals(29.0 / 64.0, flipped.umin);
+        assertEquals(44.0 / 64.0, flipped.umax);
+
+        var normal = loader.modelLayerFace(
+                geometry.getAsJsonObject("variants").getAsJsonObject("faces")
+                        .getAsJsonArray("left").get(0).getAsJsonObject().getAsJsonArray("vertices"), 0);
+        assertEquals(SideVisible.TOP, normal.sidevis);
+        assertEquals(14.0 / 64.0, normal.umin);
+        assertEquals(29.0 / 64.0, normal.umax);
+    }
+
+    @Test
     void rotatesChestLayerLikeMinecraftChestRenderer() {
         assertArrayEquals(new int[] {0, 0, 0},
                 MinecraftModelLoader.layerRotation("chest_facing", "south", null));
-        assertArrayEquals(new int[] {0, 90, 0},
+        assertArrayEquals(new int[] {0, 270, 0},
                 MinecraftModelLoader.layerRotation("chest_facing", "east", null));
         assertArrayEquals(new int[] {0, 180, 0},
                 MinecraftModelLoader.layerRotation("chest_facing", "north", null));
-        assertArrayEquals(new int[] {0, 270, 0},
+        assertArrayEquals(new int[] {0, 90, 0},
                 MinecraftModelLoader.layerRotation("chest_facing", "west", null));
+    }
+
+    @Test
+    void rotatesSouthBakedChestTowardEveryFacing() {
+        assertFacing("south", 0.5, 1.0);
+        assertFacing("east", 1.0, 0.5);
+        assertFacing("north", 0.5, 0.0);
+        assertFacing("west", 0.0, 0.5);
+    }
+
+    @Test
+    void rotationPreservesPatchContractForEveryStaticLayer() throws Exception {
+        var factory = new PatchDefinitionFactory();
+        var loader = new MinecraftModelLoader(null, factory);
+        for (String name : List.of("bell_between_walls", "bell_ceiling", "bell_floor", "bell_wall",
+                "shulker_box", "copper_golem_statue_running", "copper_golem_statue_sitting",
+                "copper_golem_statue_standing", "copper_golem_statue_star")) {
+            var faces = layer(name).getAsJsonArray("faces");
+            for (int i = 0; i < faces.size(); i++) {
+                PatchDefinition patch = loader.modelLayerFace(
+                        faces.get(i).getAsJsonObject().getAsJsonArray("vertices"), 0);
+                PatchDefinition rotated = factory.getPatch(patch, 0, 90, 0, 0);
+                String face = name + " face " + i;
+                assertAll(face,
+                        () -> assertEquals(patch.umin, rotated.umin),
+                        () -> assertEquals(patch.umax, rotated.umax),
+                        () -> assertEquals(patch.vmin, rotated.vmin),
+                        () -> assertEquals(patch.vmax, rotated.vmax),
+                        () -> assertEquals(patch.sidevis, rotated.sidevis));
+            }
+        }
+    }
+
+    private static void assertFacing(String facing, double expectedX, double expectedZ) {
+        Vector3D front = new Vector3D(0.5, 0.5, 1.0);
+        int angle = MinecraftModelLoader.layerRotation("chest_facing", facing, null)[1];
+        PatchDefinition.rotateAround(front, 0, angle, 0);
+        assertEquals(expectedX, front.x, 1.0E-12, facing);
+        assertEquals(expectedZ, front.z, 1.0E-12, facing);
     }
 
     @Test

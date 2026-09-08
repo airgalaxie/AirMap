@@ -314,7 +314,7 @@ final class MinecraftModelLoader {
         return candidates;
     }
 
-    private PatchDefinition modelLayerFace(JsonArray vertices, int textureIndex) {
+    PatchDefinition modelLayerFace(JsonArray vertices, int textureIndex) {
         if (vertices.size() != 4) return null;
         double[][] v = new double[4][];
         for (int i = 0; i < 4; i++) v[i] = vector(vertices.get(i).getAsJsonArray());
@@ -349,19 +349,11 @@ final class MinecraftModelLoader {
                 new double[] {v[1][0] - v[0][0], v[1][1] - v[0][1], v[1][2] - v[0][2]},
                 new double[] {v[2][0] - v[0][0], v[2][1] - v[0][1], v[2][2] - v[0][2]});
         boolean flip = stepOf(basisNormal) == stepOf(windingNormal).opposite();
-        if (flip) {
-            return patches.getPatch(
-                    atlasOrigin[0] + uBasis[0], atlasOrigin[1] + uBasis[1], atlasOrigin[2] + uBasis[2],
-                    atlasOrigin[0], atlasOrigin[1], atlasOrigin[2],
-                    atlasOrigin[0] + uBasis[0] + vBasis[0], atlasOrigin[1] + uBasis[1] + vBasis[1],
-                    atlasOrigin[2] + uBasis[2] + vBasis[2],
-                    1.0 - maxU, 1.0 - minU, minV, maxV, RenderPatchFactory.SideVisible.TOP, textureIndex,
-                    minV, maxV, true);
-        }
         return patches.getPatch(atlasOrigin[0], atlasOrigin[1], atlasOrigin[2],
                 atlasOrigin[0] + uBasis[0], atlasOrigin[1] + uBasis[1], atlasOrigin[2] + uBasis[2],
                 atlasOrigin[0] + vBasis[0], atlasOrigin[1] + vBasis[1], atlasOrigin[2] + vBasis[2],
-                minU, maxU, minV, maxV, RenderPatchFactory.SideVisible.TOP, textureIndex,
+                minU, maxU, minV, maxV,
+                flip ? RenderPatchFactory.SideVisible.BOTTOM : RenderPatchFactory.SideVisible.TOP, textureIndex,
                 minV, maxV, true);
     }
 
@@ -503,7 +495,7 @@ final class MinecraftModelLoader {
         // ChestRenderer uses -Direction.toYRot() around the block center.  The baked chest
         // layer faces south before that transform, unlike the other horizontal model layers.
         if (orientation.equals("chest_facing")) return new int[] {0, switch (facing) {
-            case "east" -> 90; case "north" -> 180; case "west" -> 270; default -> 0;
+            case "east" -> 270; case "north" -> 180; case "west" -> 90; default -> 0;
         }, 0};
         if (orientation.equals("horizontal_facing")) return new int[] {0, switch (facing) {
             case "east" -> 90; case "south" -> 180; case "west" -> 270; default -> 0;

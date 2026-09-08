@@ -13,6 +13,10 @@ webpath: web
 ### Note: web interface is unsupported in this configuration - you're on your own
 update-webpath-files: true
 
+# Allow AirMap to download the required Minecraft client resources
+# from the official Mojang/Microsoft source.
+accept-minecraft-client-download: false
+
 ### The path were the /dynmapexp command exports OBJ ZIP files
 exportpath: export
 

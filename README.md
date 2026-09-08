@@ -109,6 +109,16 @@ etc) - Removal of Postgres and S3 storage types
     folder. General upstream configuration guidance still applies, with
     the canonical world-ID and storage-migration differences documented
     below.
+-   **Minecraft client resources:** AirMap uses Minecraft client resources
+    for current Vanilla models and textures. New installations contain
+    `accept-minecraft-client-download: false`; setting it to `true` permits
+    AirMap to download the resources required by this build from the official
+    Mojang/Microsoft source. Existing `configuration.txt` files are not
+    automatically extended with new options, so operators upgrading an older
+    installation must explicitly add the key when a download is needed. A
+    missing key means that download permission has not been granted. A matching
+    local client resource that passes the existing validation is reused
+    regardless of this setting.
 -   **Webserver Default:** The Dynmap webserver configuration is
     present, and the bundled default configuration follows the original
     Dynmap default with `disable-webserver: false`. Deploy the generated

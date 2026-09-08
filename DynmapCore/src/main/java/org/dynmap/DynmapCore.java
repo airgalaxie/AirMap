@@ -63,6 +63,7 @@ public class DynmapCore implements DynmapCommonAPI {
     private MinecraftResourceProvider platformMinecraftResources;
     private volatile MinecraftResourceProvider minecraftResources;
     private String minecraftResourceVersion;
+    private boolean acceptMinecraftClientDownload;
 
     /** Adds an optional platform/resource-pack layer above the Core-managed vanilla client. */
     public synchronized void setMinecraftResourceProvider(MinecraftResourceProvider provider) {
@@ -86,7 +87,8 @@ public class DynmapCore implements DynmapCommonAPI {
                     throw new IllegalStateException("AirMap targets Minecraft " + resourceVersion + " but the platform reports " + platformVersion);
                 }
                 MinecraftResourceProvider vanilla = MinecraftClientResources.provision(
-                        dataDirectory.toPath().resolve("minecraft-resources"), resourceVersion);
+                        dataDirectory.toPath().resolve("minecraft-resources"), resourceVersion,
+                        acceptMinecraftClientDownload);
                 minecraftResources = platformMinecraftResources == null
                         ? vanilla
                         : new LayeredMinecraftResourceProvider(platformMinecraftResources, vanilla);
@@ -407,6 +409,7 @@ public class DynmapCore implements DynmapCommonAPI {
         /* Load configuration.txt */
         configuration = new ConfigurationNode(f);
         configuration.load();
+        acceptMinecraftClientDownload = configuration.getBoolean("accept-minecraft-client-download", false);
 
         // Read web path
         webpath = configuration.getString("webpath", "web");
@@ -576,7 +579,14 @@ public class DynmapCore implements DynmapCommonAPI {
         DynmapBlockState.finalizeBlockStates();
         /* Load block models */
         Log.verboseinfo("Loading models...");
-        HDBlockModels.loadModels(this, configuration);
+        try {
+            HDBlockModels.loadModels(this, configuration);
+        } catch (IllegalStateException exception) {
+            if (exception.getCause() instanceof MinecraftClientResources.DownloadNotPermittedException) {
+                return false;
+            }
+            throw exception;
+        }
         
         /* Now, process worlds.txt - merge it in as an override of existing values (since it is only user supplied values) */
         File f = new File(dataDirectory, "worlds.txt");
