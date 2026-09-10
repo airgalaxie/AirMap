@@ -168,7 +168,7 @@ public class PatchDefinition implements RenderPatch {
         if (rotatex != 0) { double r = Math.toRadians(rotatex); sinX = Math.sin(r); cosX = Math.cos(r); }
         if (rotatey != 0) { double r = Math.toRadians(rotatey); sinY = Math.sin(r); cosY = Math.cos(r); }
         if (rotatez != 0) { double r = Math.toRadians(rotatez); sinZ = Math.sin(r); cosZ = Math.cos(r); }
-        rotatePrecomputed(vec, sinX, cosX, sinY, cosY, sinZ, cosZ, offsetCenter);
+        rotatePrecomputed(vec, sinX, cosX, sinY, cosY, sinZ, cosZ, new Vector3D());
     }
 
     private static BlockStep rotateStep(BlockStep step,

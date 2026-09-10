@@ -50,10 +50,10 @@ class MinecraftModelLoaderTest {
 
     @Test
     void rotatesSouthBakedChestTowardEveryFacing() {
-        assertFacing("south", 0.5, 1.0);
-        assertFacing("east", 1.0, 0.5);
-        assertFacing("north", 0.5, 0.0);
-        assertFacing("west", 0.0, 0.5);
+        assertFacing("south", 0.0, 1.0);
+        assertFacing("east", 1.0, 0.0);
+        assertFacing("north", 0.0, -1.0);
+        assertFacing("west", -1.0, 0.0);
     }
 
     @Test
@@ -80,7 +80,7 @@ class MinecraftModelLoaderTest {
     }
 
     private static void assertFacing(String facing, double expectedX, double expectedZ) {
-        Vector3D front = new Vector3D(0.5, 0.5, 1.0);
+        Vector3D front = new Vector3D(0, 0, 1);
         int angle = MinecraftModelLoader.layerRotation("chest_facing", facing, null)[1];
         PatchDefinition.rotateAround(front, 0, angle, 0);
         assertEquals(expectedX, front.x, 1.0E-12, facing);

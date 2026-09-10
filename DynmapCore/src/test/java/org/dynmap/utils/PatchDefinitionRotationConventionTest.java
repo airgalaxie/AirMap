@@ -8,9 +8,7 @@ import org.junit.jupiter.api.Test;
  * Verifies PatchDefinition.rotatePrecomputed rotates all three axes with the
  * Minecraft model convention (x=east, y=up, z=south).
  *
- * <p>rotateAround rotates about the block center offsetCenter=(0.5,0.5,0.5),
- * so only vectors with a clean unit offset from the center are used here;
- * the test asserts on the resulting absolute coords.
+ * <p>rotateAround rotates direction and basis vectors about the origin.
  */
 class PatchDefinitionRotationConventionTest {
 
@@ -27,66 +25,79 @@ class PatchDefinitionRotationConventionTest {
     }
 
     /* ---- Z rotation (Mojang right-hand about +Z): x'=x cos - y sin, y'=x sin + y cos ---- */
-    /* offset (1,0,0) is the unit +X offset from center(0.5,0.5,0.5); input=(1.5,0.5,0.5). */
-
     @Test
-    void zPositive90RotatesPlusXOffsetToPlusY() {
-        assertVec(0.5, 1.5, 0.5, rot(1.5, 0.5, 0.5, 0, 0, 90));
+    void zPositive90RotatesPlusXToPlusY() {
+        assertVec(0, 1, 0, rot(1, 0, 0, 0, 0, 90));
     }
 
     @Test
-    void zPositive90RotatesPlusYOffsetToMinusX() {
-        assertVec(-0.5, 0.5, 0.5, rot(0.5, 1.5, 0.5, 0, 0, 90));
+    void zPositive90RotatesPlusYToMinusX() {
+        assertVec(-1, 0, 0, rot(0, 1, 0, 0, 0, 90));
     }
 
     @Test
-    void zNegative90RotatesPlusXOffsetToMinusY() {
-        assertVec(0.5, -0.5, 0.5, rot(1.5, 0.5, 0.5, 0, 0, -90));
+    void zNegative90RotatesPlusXToMinusY() {
+        assertVec(0, -1, 0, rot(1, 0, 0, 0, 0, -90));
     }
 
     /* ---- Minecraft model X rotation: y'=y cos + z sin, z'=z cos - y sin ---- */
 
     @Test
-    void xPositive90RotatesPlusYOffsetToMinusZ() {
-        assertVec(0.5, 0.5, -0.5, rot(0.5, 1.5, 0.5, 90, 0, 0));
+    void xPositive90RotatesPlusYToMinusZ() {
+        assertVec(0, 0, -1, rot(0, 1, 0, 90, 0, 0));
     }
 
     @Test
-    void xPositive90RotatesPlusZOffsetToPlusY() {
-        assertVec(0.5, 1.5, 0.5, rot(0.5, 0.5, 1.5, 90, 0, 0));
+    void xPositive90RotatesPlusZToPlusY() {
+        assertVec(0, 1, 0, rot(0, 0, 1, 90, 0, 0));
     }
 
     @Test
-    void xNegative90RotatesPlusYOffsetToPlusZ() {
-        assertVec(0.5, 0.5, 1.5, rot(0.5, 1.5, 0.5, -90, 0, 0));
+    void xNegative90RotatesPlusYToPlusZ() {
+        assertVec(0, 0, 1, rot(0, 1, 0, -90, 0, 0));
     }
 
     /* ---- Y rotation (unchanged control; right-hand about +Y): x'=x cos - z sin, z'=x sin + z cos ---- */
 
     @Test
-    void yPositive90RotatesPlusXOffsetToPlusZ() {
-        assertVec(0.5, 0.5, 1.5, rot(1.5, 0.5, 0.5, 0, 90, 0));
+    void yPositive90RotatesPlusXToPlusZ() {
+        assertVec(0, 0, 1, rot(1, 0, 0, 0, 90, 0));
     }
 
     @Test
-    void yPositive90RotatesPlusZOffsetToMinusX() {
-        assertVec(-0.5, 0.5, 0.5, rot(0.5, 0.5, 1.5, 0, 90, 0));
+    void yPositive90RotatesPlusZToMinusX() {
+        assertVec(-1, 0, 0, rot(0, 0, 1, 0, 90, 0));
     }
 
-    /* ---- each axis leaves its own offset component fixed ---- */
+    /* ---- each axis leaves its own component fixed ---- */
 
     @Test
-    void xRotationLeavesXOffsetUnchanged() {
-        assertEquals(1.5, rot(1.5, 1.5, 0.5, 90, 0, 0).x, 1.0e-9);
-    }
-
-    @Test
-    void yRotationLeavesYOffsetUnchanged() {
-        assertEquals(1.5, rot(1.5, 1.5, -1.5, 0, 90, 0).y, 1.0e-9);
+    void xRotationLeavesXComponentUnchanged() {
+        assertEquals(1, rot(1, 1, 0, 90, 0, 0).x, 1.0e-9);
     }
 
     @Test
-    void zRotationLeavesZOffsetUnchanged() {
-        assertEquals(-2.5, rot(1.5, 0.5, -2.5, 0, 0, 90).z, 1.0e-9);
+    void yRotationLeavesYComponentUnchanged() {
+        assertEquals(1, rot(1, 1, -1, 0, 90, 0).y, 1.0e-9);
+    }
+
+    @Test
+    void zRotationLeavesZComponentUnchanged() {
+        assertEquals(-2, rot(1, 0, -2, 0, 0, 90).z, 1.0e-9);
+    }
+
+    @Test
+    void y45UnitBasisProducesSymmetricVanillaRescaleFactors() {
+        double[] factors = new double[3];
+        for (int axis = 0; axis < 3; axis++) {
+            Vector3D unit = rot(axis == 0 ? 1 : 0, axis == 1 ? 1 : 0, axis == 2 ? 1 : 0,
+                    0, 45, 0);
+            double max = Math.max(Math.abs(unit.x), Math.max(Math.abs(unit.y), Math.abs(unit.z)));
+            factors[axis] = 1 / max;
+        }
+
+        assertEquals(Math.sqrt(2), factors[0], 1.0e-9);
+        assertEquals(1, factors[1], 1.0e-9);
+        assertEquals(Math.sqrt(2), factors[2], 1.0e-9);
     }
 }
