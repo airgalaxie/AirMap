@@ -1,5 +1,48 @@
 # HANDOFF / Checkpoint: AirMap-future
 
+## Globaler Core-Fix: Model-Rescale rotiert Basisvektoren um den Ursprung (2026-09-10)
+
+**Ursprünglicher Campfire-Befund:** Bei Vanilla-Modellen mit Elementrotation `rescale:true` und
+Y=45° waren die beiden Feuer-Ebenen des Campfires gegensätzlich verzerrt. Die gemessenen
+Skalierungsfaktoren waren `sx=0.8284271247461902`, `sy=1.0`, `sz=2.0`; dadurch wurde eine
+Diagonalebene auf ungefähr 59 % komprimiert und die andere auf ungefähr 141 % gestreckt.
+
+**Ausgeschlossene Ursachen:** Facing und Blockstate-Y-Rotation sind korrekt. Auch die Übergabe
+`State -> globalStateIndex -> Modell` ist korrekt. An Facing-, State- und
+`globalStateIndex`-Logik wurde nichts geändert.
+
+**Root Cause und mathematische Ursache:** Die statische
+`PatchDefinition.rotateAround(vec, rx, ry, rz)` rotierte Richtungs- und Einheitsbasisvektoren
+fälschlich um `offsetCenter=(0.5,0.5,0.5)`. `MinecraftModelLoader.rotationFactors` bestimmt seine
+lokalen Rescale-Faktoren aus den Maximalbeträgen der rotierten Einheitsbasisvektoren. Die dabei
+eingebrachte Translation verfälschte deshalb die Spalten der Rotationsmatrix und erzeugte die
+asymmetrischen Faktoren. Richtungs- und Basisvektoren müssen um `(0,0,0)` rotiert werden.
+
+**Minimaler Fix:** Ausschließlich der Ursprung des Aufrufs von `rotatePrecomputed` in der
+statischen `rotateAround`-Methode wurde von `offsetCenter` auf den Nullvektor geändert. Die
+benachbarten Punkt-/Patch-Rotationen um explizite Zentren bleiben unverändert. Dies ist ein
+globaler Core-Mathematikfix, kein Campfire-Sonderpatch und keine Paper-, Fabric- oder
+Folia-spezifische Lösung. Implementierungs-Commit: `1e0cb31` (`Fix model rescale rotation around
+origin`).
+
+**Regressionstest:** `PatchDefinitionRotationConventionTest` sichert die Ursprungssemantik für
+alle drei Achsen. Der neue Y=45°-Fall rotiert die drei Einheitsbasisvektoren und leitet daraus
+`sqrt(2), 1, sqrt(2)` ab; mit der früheren Mittelpunktrotation erkennt er reproduzierbar die
+falsche Kombination. Der vorhandene Chest-Facing-Test verwendet entsprechend einen
+Richtungsvektor und bestätigt weiterhin alle vier Facing-Winkel.
+
+**Campfire-/Stage-Gegenprobe:** Die vorhandene reale `DumpLoaderArgs`-Probe wurde nach dem Fix
+gegen den lokalen Minecraft-26.3-pre-3-Clientcache erneut ausgeführt. Der Loader meldete für alle
+vier `rescale:true`, Y=45° Feuerflächen (NORTH, SOUTH, WEST, EAST) identisch
+`sx=1.414213562373095`, `sy=1.0`, `sz=1.414213562373095`. Damit besitzen beide Feuer-Ebenen
+symmetrische Vanilla-Geometrie; `0.8284271247461902, 1.0, 2.0` trat nicht mehr auf.
+
+**Validierung:** Gezielter Lauf von `PatchDefinitionRotationConventionTest` und
+`MinecraftModelLoaderTest`: `BUILD SUCCESSFUL`, 19 Tests, 0 Fehler. Vollständige DynmapCore-Suite
+nach `:DynmapCore:cleanTest`: `BUILD SUCCESSFUL`, 74 Tests, 0 Failures, 0 Errors, 13 Skips.
+Anschließend `./gradlew build`: `BUILD SUCCESSFUL` (36 Tasks; 7 ausgeführt, 29 up-to-date).
+`git diff --check` war sauber.
+
 ## Fix: `PatchDefinition.rotatePrecomputed` – X- und Z-Rotation auf die Mojang-Rechtshand-Konvention korrigiert (Y unverändert) (2026-09-03)
 
 **Auftrag und STOP:** Nur `PatchDefinition.rotatePrecomputed()` korrigieren, damit X und Z die
