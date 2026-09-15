@@ -156,6 +156,18 @@ public class BukkitVersionHelper {
     	return biome.getWaterColor();	// waterColor
 	}
 
+    public int getBiomeBaseGrassColor(Object bb) {
+        return ((Biome) bb).getSpecialEffects().grassColorOverride().orElse(-1);
+    }
+
+    public int getBiomeBaseFoliageColor(Object bb) {
+        return ((Biome) bb).getSpecialEffects().foliageColorOverride().orElse(-1);
+    }
+
+    public String getBiomeBaseGrassColorModifier(Object bb) {
+        return ((Biome) bb).getSpecialEffects().grassColorModifier().getSerializedName();
+    }
+
     /** Get temperature from biomebase */
     public float getBiomeBaseTemperature(Object bb) {
     	return ((Biome)bb).getBaseTemperature();

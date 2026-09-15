@@ -82,7 +82,9 @@ public final class MinecraftClientResources {
         Path clientJar = cacheDirectory.resolve("minecraft-client-" + fileVersion + ".jar");
         if (!matches(clientJar, sha1, size)) {
             requireDownloadPermission(requiredVersion, acceptDownload);
+            Log.info("Downloading Minecraft " + requiredVersion + " client...");
             download(client.get("url").getAsString(), clientJar, sha1, size);
+            Log.info("Minecraft " + requiredVersion + " client download complete");
         }
         return new ZipMinecraftResourceProvider(clientJar);
     }

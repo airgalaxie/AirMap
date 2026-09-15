@@ -1152,8 +1152,8 @@ public class IsoHDPerspective implements HDPerspective {
                 for(int k = 0; k < 2; k++) {
                     corner.z = blocks[k].z;
                     world_to_map.transform(corner, tcorner);  /* Get map coordinate of corner */
-                    int tx = fastFloor(tcorner.x/(tileSize << tilescale));
-                    int ty = fastFloor(tcorner.y/(tileSize << tilescale));
+                    int tx = fastFloor(tcorner.x/tileSize);
+                    int ty = fastFloor(tcorner.y/tileSize);
                     if(mintilex > tx) mintilex = tx;
                     if(maxtilex < tx) maxtilex = tx;
                     if(mintiley > ty) mintiley = ty;

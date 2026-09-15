@@ -43,6 +43,285 @@ nach `:DynmapCore:cleanTest`: `BUILD SUCCESSFUL`, 74 Tests, 0 Failures, 0 Errors
 Anschließend `./gradlew build`: `BUILD SUCCESSFUL` (36 Tasks; 7 ausgeführt, 29 up-to-date).
 `git diff --check` war sauber.
 
+## Download-Consent für Minecraft-Client-Ressourcen (2026-09-08)
+
+**Vertrag:** AirMap benötigt für den Vanilla-JSON-Ressourcenpfad den zur gebauten AirMap-JAR
+passenden Minecraft-Client. Die benötigte Minecraft-Version wird weiterhin ausschließlich durch
+den Build beziehungsweise den bestehenden Versionsvertrag bestimmt. Es gibt keine Runtime-Auswahl
+der Minecraft-Version durch den Administrator. `accept-minecraft-client-download` beantwortet
+ausschließlich, ob AirMap einen erforderlichen Minecraft-Client herunterladen darf. Dieser Consent
+ist eine **Download-Erlaubnis**; er ist keine Minecraft-Versionskonfiguration und keine allgemeine
+Lizenz- oder Ressourcenfreigabe.
+
+**Consent-Semantik:** Ein fehlender Schlüssel bedeutet keine Download-Erlaubnis, `false` bedeutet
+keine Download-Erlaubnis und `true` erlaubt den Download. Insbesondere ist ein fehlender Schlüssel
+in bestehenden oder alten `configuration.txt` keine implizite Zustimmung. Bestehende
+Konfigurationen werden nicht automatisch umgeschrieben oder migriert. Die ausgelieferten Fabric-
+und Paper-Standardkonfigurationen enthalten `accept-minecraft-client-download: false`. Die README
+dokumentiert diesen Vertrag einschließlich des Upgrade-Verhaltens bei einer alten
+`configuration.txt`.
+
+**Lokaler Client und Downloadpfad:** Ein bereits vorhandener, zur benötigten Version passender und
+durch die bestehende Validierung gültiger lokaler Minecraft-Client wird unabhängig vom Consent
+wiederverwendet; dafür findet kein neuer Download statt. Ist ein Download erforderlich, wird die
+Zustimmung in `MinecraftClientResources.provision()` unmittelbar vor dem jeweiligen Netzwerkzugriff
+geprüft. Ohne Erlaubnis findet kein entsprechender Netzwerkdownload statt. Bei erlaubtem Download
+bleibt der bestehende Downloadpfad unverändert. Versionsbestimmung, Cache sowie Metadaten-, SHA-1-
+und Größenvalidierung wurden nicht verändert.
+
+**Verhalten ohne Erlaubnis:** Wenn ein benötigter Download nicht erlaubt ist, protokolliert AirMap
+die notwendige Änderung an `configuration.txt` und beendet seinen eigenen Startpfad sauber. Der
+Minecraft-Server wird dadurch nicht beendet.
+
+**Validierung:** `MinecraftClientResourcesTest`: 4 Tests, 0 Fehler, 0 Skips. Der erlaubte Download
+wurde ausschließlich gegen einen lokalen Testserver getestet; kein Test griff auf Mojang zu.
+`git diff --check` war sauber. Bereits vorhandene fachfremde uncommittete Änderungen wurden nicht
+verändert, bereinigt oder zurückgesetzt.
+
+**Bestehender Projektvertrag:** Config und Custom bleiben dauerhafte Nutzerverträge und dürfen
+durch die Vanilla-Ressourcenintegration nicht umgangen werden.
+
+## Fix: `ConcurrentModificationException` beim Start beseitigt – `HDBlockModels.scaledModels` ist jetzt `ConcurrentHashMap` (2026-09-08)
+
+**Auftrag und STOP:** Diagnostizieren, warum das Plugin beim Start eine übermäßige CPU-Auslastung
+zeigt und einen Render-Job sofort mit `java.util.ConcurrentModificationException` abbricht. Keine
+weitere Codeänderung über den bestätigten Fix hinaus; Handoff eintragen, STOP.
+
+**Befund – die Exception:** Das Server-Log zeigte im ersten Render-Job nach dem Start (welt
+`minecraft:overworld`, `map=null` = Full-World-Render-Stufe) einen Abbruch mit
+`java.util.ConcurrentModificationException` bei `HashMap.computeIfAbsent(HashMap.java:1230)` im
+Stacktrace über `HDBlockModels.getModelsForScale(HDBlockModels.java:35)` →
+`IsoHDPerspective.OurPerspectiveState.<init>` → `IsoHDPerspective.render` → `HDMapTile.render`.
+Ursache: `HDBlockModels.scaledModels` war ein statisches `HashMap`, das pro Render-Zustand lazy
+über `computeIfAbsent` befüllt wird. Sobald die Render-Queue startet, betreten mehrere
+**AirMap Render Threads** dieselbe Map gleichzeitig; `HashMap.computeIfAbsent` ist nicht
+thread-sicher und wirft dort die ConcurrentModificationException. Damit brach jeder startende
+Render-Job auf der Stelle ab.
+
+**Fix (genau eine Produktionsdatei, `DynmapCore/.../hdmap/HDBlockModels.java`):** Der Typ des
+statischen Caches `scaledModels` wurde von `HashMap` auf `ConcurrentHashMap` umgestellt
+(Import `java.util.concurrent.ConcurrentHashMap`, Feld auf Zeile 22). `getModelsForScale` und
+`loadModels` (das den Cache mit `scaledModels.clear()` zurücksetzt – ist unter
+`ConcurrentHashMap` weiterhin zulässig) bleiben inhaltlich unverändert. `ConcurrentHashMap`
+wird bewusst nur an dieser einen, im heißen Render-Pfad liegenden Stelle eingesetzt; andere
+statische Caches wurden nicht spekulativ angefasst.
+
+**Antwort auf die CPU-Frage:** Die übermäßige CPU beim Plugin-Laden ist **kein Codefehler**,
+sondern erwartetes Startup-Verhalten von `HDBlockModels.loadModels` →
+`MinecraftModelLoader.load()`: beim Enable werden alle `blockstates/*.json` geparst, für jede
+Textur das PNG per `ImageIO` geladen und jeder Pixel auf Alpha-Opazität geprüft
+(`isSpriteOpaque`). Im Log sichtbar an den ~22 s zwischen `17:39:21` (DB-Verbindung) und
+`17:39:43` ("Loaded block models directly from Minecraft JSON resources"). Der
+ConcurrentModificationException-Abbruch der Render-Jobs ist durch den obigen Fix beseitigt; die
+einmalige Startup-Last beim Blockmodell-/Renderaufbau bleibt bestehen.
+
+**Was im Startup zusätzlich lädt, das nicht (eigener) Plugin-Code ist (Bezug auf die Frage
+"was gehört nicht in den Code"):** Die Log-Zeilen `Using LuckPerms`, `MariaDB
+192.168.178.43:3306` und `cwebp/dwebp unter /usr/bin` belegen externe, über Adaptergrenzen
+integrierte Komponenten (Zugriffskontrolle, Map-Speicher, WebP-Enkodierung) – sie gehören zur
+Plugin-Architektur, nicht zum gemeinsamen Core. Der internal webserver ist deaktiviert
+("Internal webserver is disabled"), lädt also nichts. Die 49 `pending tile renders` stammen aus
+`.pending`-Resten der Welt und laufen nach dem Start direkt in die Render-Queue.
+
+**Abgrenzung / Stand:** Uncommittet im Working Tree sind neben diesem Fix weiterhin die zwei
+bereits im Handoff dokumentierten Änderungen aus dem vorangegangenen Auftrag
+(`MinecraftModelLoader.modelLayerFace` Flip-Umstellung und die `chest_facing`-Winkelkorrektur
+inkl. `MinecraftModelLoaderTest`). Diese sind bewusst unverändert. Der ConcurrentMap-Fix wurde
+auf `DynmapCore`-Ebene auf Dateikorrektheit geprüft (keine Fehler/Probleme in der Datei);
+ein voller Gradle-Build wurde nicht neu ausgeführt.
+
+## Fix: Südlich gebackte Model-Layer rotieren für Ost/West in die korrekte Richtung (2026-09-08)
+
+**Runtime-Ausgangsbefund des Users:** Double Chests waren auf Paper 26.2 und Fabric 26.3 in
+Nord/Süd korrekt und in Ost/West identisch falsch. Gemäß Auftrag wurde daraus keine weitere
+Plattformanalyse abgeleitet und kein Runtime-Test ausgeführt.
+
+**Erste Core-Abweichung im N/S-vs-O/W-Vergleich:** `PatchDefinition` bildet seine bestehende
+Y-Rotation allgemein so ab, dass +90° die Nordrichtung nach Ost dreht. Das Chest-Layer ist
+dagegen nach Süd gebacken. Die bisherige `orientation="chest_facing"`-Zuordnung verwendete
+für Ost ebenfalls +90° und drehte die südliche Modellfront dadurch nach West; für West galt
+entsprechend die Gegenrichtung. Süd mit 0° und Nord mit 180° waren korrekt, weil dort kein
+Vorzeichenunterschied sichtbar wird. UV-Grenzen, `SideVisible.BOTTOM` und die Rotation der
+Patchbasis selbst bleiben beim Rotieren unverändert und waren nicht die erste Abweichungsstelle.
+
+**Minimale allgemeine Korrektur:** Ausschließlich der vorhandene Vertrag für südlich gebackte
+statische Layer (`layerRotation`, Orientierung `chest_facing`) wurde berichtigt:
+South=0°, East=270°, North=180°, West=90°. Es gibt keine Änderung an `chest.json`, keine
+UV-Offsets, keine Änderung an Mojang-Grundwerten, `PatchDefinition`, Renderern, Adaptern oder
+anderen Systemen. `model_rotation`, `horizontal_facing` und `facing` bleiben unverändert.
+
+**Regressionen:** `MinecraftModelLoaderTest` prüft nun sieben Fälle insgesamt. Die vier
+`chest_facing`-Winkel und ein transformierter südlicher Frontvektor sichern N/S sowie O/W.
+Der bestehende Test sichert weiterhin Flip (`BOTTOM`, U=29..44/64) und Nicht-Flip (`TOP`,
+U=14..29/64). Ein zusätzlicher Vertragstest erzeugt jede Fläche aller vier Bell-Layer, der
+Shulker Box und aller vier Copper-Golem-Statue-Posen, rotiert sie um Y und belegt, dass U/V-
+Grenzen und `SideVisible` unverändert bleiben. Diese Layer verwenden außerdem nicht die
+geänderte Orientierung `chest_facing`.
+
+**Validierung:** Gezielter Lauf mit `MinecraftModelLoaderTest`,
+`PatchDefinitionRotationConventionTest`, `MinecraftStaticModelIntegrationTest` und
+`ChestGeometryContractTest`: `BUILD SUCCESSFUL`; Loader 7/7 und Rotation 11/11 erfolgreich,
+die beiden ressourcenabhängigen Klassen jeweils weiterhin skipped. Anschließend vollständige
+DynmapCore-Suite nach `:DynmapCore:cleanTest`: `BUILD SUCCESSFUL`, 69 Tests, 0 Failures,
+0 Errors, 13 Skips.
+
+**Runtime-Grenze:** Die Core-Verträge und Tests sind belegt. Ob der korrigierte Stand Double
+Chests in Ost/West real sichtbar richtig rendert, bleibt gemäß Auftrag dem Runtime-Test des
+Users auf Paper/Fabric vorbehalten.
+
+## Fix: Statische Model-Layer behalten Mojangs UV-Zuordnung bei entgegengesetzter Wicklung (2026-09-08)
+
+**Ergebnis:** Die in `MinecraftModelLoader.modelLayerFace` nachgewiesene allgemeine Ursache ist
+minimal korrigiert. Bei einer zur UV-Basis entgegengesetzten Polygonwicklung bleiben jetzt die
+aus Mojangs Positions-/UV-Vertices berechnete Patch-Geometrie und die Atlasgrenzen unverändert;
+ausschließlich die sichtbare Patch-Seite wird von `TOP` auf `BOTTOM` gesetzt. Damit beschreibt
+`SideVisible` die Polygonseite, während U und V weiterhin unmittelbar Mojangs Zuordnung
+beschreiben. Der frühere Flip-Zweig, der zusätzlich die geometrische U-Achse umkehrte und
+`1-maxU .. 1-minU` einsetzte, ist entfernt. `modelLayerFace` ist nur package-lokal statt privat,
+damit der Vertrag direkt getestet werden kann. Es gibt keine Chest-Sonderbehandlung und
+`chest.json` ist unverändert.
+
+**Vorprüfung anderer statischer Layer:** Derselbe Flip-Pfad wird nicht nur von Chest benutzt.
+Aus den eingecheckten Layer-Vertices erreichen ihn Bell (`bell_between_walls`, `bell_ceiling`,
+`bell_floor`, `bell_wall`: jeweils 2/12 Flächen), Shulker Box (2/12), Copper Golem Statue
+(`running`, `standing`, `star`: jeweils 9/54; `sitting`: 11/66) sowie Chest (Single 3/18,
+Left 3/15, Right 3/15). Für alle diese Flächen gilt nun derselbe Vertex→Patch-Vertrag: Die
+Wicklung bestimmt nur die sichtbare Seite; die Modell-UVs werden nicht nachträglich gespiegelt.
+Normale Nicht-Flip-Flächen bleiben `TOP` mit unveränderter Geometrie und UV-Zuordnung.
+
+**Regressionstest:** `MinecraftModelLoaderTest.preservesModelLayerUvsForBothPolygonWindings`
+prüft direkt einen zuvor fehlerhaften Flip-Fall der linken Chest-Deckeloberseite: sichtbare Seite
+`BOTTOM`, U weiterhin exakt `29..44 / 64`. Als Kontrolle prüft er eine normale Nicht-Flip-Fläche:
+sichtbare Seite `TOP`, U exakt `14..29 / 64`. Der Test verwendet die bestehenden Mojang-abgeleiteten
+Layer-Vertices und keine manuellen Produktions-Offsets.
+
+**Validierung:** Gezielter Lauf mit `MinecraftModelLoaderTest`,
+`MinecraftStaticModelIntegrationTest` und `ChestGeometryContractTest`: `BUILD SUCCESSFUL`;
+Loader 5 Tests, 0 Skips/Fehler, die beiden ressourcenabhängigen Klassen mangels gesetzter
+Umgebung jeweils weiterhin skipped. Anschließend vollständige DynmapCore-Suite nach
+`:DynmapCore:cleanTest`: `BUILD SUCCESSFUL`, 67 Tests, 0 Failures, 0 Errors, 13 Skips.
+
+**Verbleibende Runtime-Beweisgrenze:** Unit- und Core-Suite belegen Patch-Seite und UV-Vertrag
+sowie fehlende Core-Testregressionen. Ein neuer realer Paper-/Fabric-Render der betroffenen
+Chest-, Bell-, Shulker- und Copper-Golem-Flächen wurde in diesem Auftrag nicht erzeugt; der
+sichtbare Runtime-Beweis bleibt daher offen.
+
+## Forensische Core-Chest-Prüfung: Single / Left / Right (2026-09-07)
+
+**Ergebnis:** Der aktuelle, uncommittete UV-Fix an den Deckeloberseiten von `left` und
+`right` war nachweislich keine Minecraft-Zuordnung und wurde exakt zurückgenommen. Die danach
+fortgesetzte reine Codeanalyse hat die erste tatsächliche Core-Abweichung lokalisiert:
+`MinecraftModelLoader.modelLayerFace` spiegelt bei entgegengesetzter Polygonwicklung die
+Atlas-U-Koordinate. Weitere Chest-Codeänderungen wurden nicht vorgenommen; eine Ausführung
+der unten beschriebenen Korrektur darf erst nach ausdrücklicher Freigabe erfolgen.
+
+**Minecraft-Grundlage:** Geprüft wurden die lokal vorhandenen, deobfuskierten Mojang-Klassen
+aus Minecraft 26.2 und 26.3-snapshot-10. In beiden Ständen erzeugt `ChestModel` die Single
+Chest sowie beide Double-Chest-Hälften nach demselben Modellvertrag. Für Double Chest bauen
+`createDoubleBodyLeftLayer` und `createDoubleBodyRightLayer` jeweils Body und Lid mit
+`texOffs(0,19)` beziehungsweise `texOffs(0,0)`, Breite 15, Höhe 10/5 und Tiefe 14. Die
+Hälften unterscheiden sich in X-Lage und ausgelassener innerer Fläche, nicht im UV-Ursprung
+oder in den Abmessungen. `ModelPart.Cube` berechnet die Lid-Oberseite daher für beide Hälften
+mit U = 29..44 auf der 64 Pixel breiten Textur, also normiert `0.453125..0.6875`.
+
+### Getrennte Prüfstufen
+
+1. **Blockstate-Eingang – entspricht im untersuchten Core-Pfad; vorgelagerte Lieferung nicht
+   innerhalb dieses Auftrags beweisbar.** `MinecraftModelLoader` liest `facing` und `type`
+   direkt aus `DynmapBlockState.stateName`. Mojangs Chest-Blockstate besitzt genau `facing`,
+   `type=single|left|right` und `waterlogged`; `waterlogged` ändert Mojangs Chest-Modell nicht.
+   Ob jeder Adapter jeden realen Weltzustand korrekt anliefert, wurde wegen des ausdrücklichen
+   Adapterverbots nicht untersucht.
+2. **Auswahl single / left / right – entspricht Minecraft.** `modelLayerFaces` wählt anhand
+   der Blockstate-Eigenschaft `type`; `modelLayerTexture` behält bei `single` `normal` und
+   wählt bei `left`/`right` `normal_left`/`normal_right`. Mojangs `ChestRenderer`,
+   `MultiblockChestResources.select` und `Sheets.chooseSprite` wählen Modell und Textur mit
+   demselben `ChestType`. Der alte `renderer/ChestRenderer`/`ChestStateRenderer` ist im
+   aktuellen Minecraft-JSON-Pfad nicht die Modellquelle.
+3. **Geometrie – entspricht der geprüften Mojang-Grundlage.** Single: Body 14×10×14, Lid
+   14×5×14, mittiges Schloss 2×4×1. Double-Hälften: Body/Lid jeweils 15 Blöckeinheiten
+   breit und ohne innere WEST- beziehungsweise EAST-Fläche; das Schloss ist je Hälfte 1×4×1
+   am gemeinsamen Rand. Die JSON-Koordinaten entsprechen diesen Maßen nach der vorhandenen
+   1/16-Skalierung und geschlossenen Lid-Pose.
+4. **Facing / Weltorientierung – entspricht Minecraft.** Das statische Layer ist in
+   Süd-Ausrichtung gebacken. `chest_facing` bildet south/east/north/west auf
+   0/90/180/270 Grad um Y am Blockzentrum ab. Mojangs Renderer verwendet dazu
+   `-Direction.toYRot()` am Zentrum; die resultierenden vier Ausrichtungen stimmen überein.
+5. **Zusammensetzung Double Chest – entspricht auf der Modellgrenze.** Jeder bereits als
+   `left` oder `right` gelieferte Blockstate erhält die gleichnamige 15-Flächen-Hälfte. Bei
+   Nordausrichtung reicht `left` von X=1/16 bis 1 und `right` von X=0 bis 15/16; gemeinsam
+   schließen sie die Blockgrenze ohne innere Trennfläche. Der Core rekonstruiert den Typ nicht
+   heuristisch aus Nachbarn, weil Minecraft ihn bereits im Blockstate liefert.
+6. **Textur / UV / Atlas – weicht im Core nach dem korrekten JSON-Eingang von Minecraft ab.**
+   Die Layer-Auswahl bindet zwar die richtigen nativen Mojang-Entity-Texturen
+   `entity/chest/normal`, `normal_left` und `normal_right`, und die Lid-Top-UVs im JSON
+   `29..44 / 64` folgen exakt aus Mojangs Cube-Formel. Beim Umsetzen dieser Mojang-Vertices in
+   eine `PatchDefinition` verändert `modelLayerFace` die UV-Zuordnung jedoch nachträglich; der
+   genaue Fehler ist im folgenden Abschnitt belegt.
+7. **Übergabe an den Renderer – strukturell korrekt, inhaltlich bereits verfälscht.** Der
+   Loader erzeugt pro vollständigem Blockstate ein fertiges `HDBlockPatchModel` und registriert
+   die zugehörige Texturfolge. `HDScaledBlockModels` reicht dessen Patches unverändert an
+   `IsoHDPerspective`; dort wird kein Chest-Modell mehr ausgewählt oder zusammengesetzt. Die
+   falsche U-Spiegelung ist zu diesem Zeitpunkt bereits Bestandteil des fertigen Core-Modells.
+
+### Nachgewiesener Fehler und widerlegte Hypothese
+
+Der verworfene Patch ersetzte links U=`29..44` durch `36..50` und rechts durch `21..35`
+(normiert `0.5625..0.78125` beziehungsweise `0.328125..0.546875`). Diese unterschiedlichen
+Offsets widersprechen unmittelbar den identischen Mojang-Aufrufen `texOffs(0,0)` und den
+identischen Lid-Maßen. Die behauptete Pixelpaarung `normal_left[35] | normal_right[20]` und
+das Ziel `left[28] | right[29]` beweisen keine Modellzuordnung: Pixelähnlichkeit ist kein
+Bestandteil von Mojangs Cube-UV-Berechnung. Die Hypothese, diese vier Verschiebungen seien aus
+Mojangs Chest-Modell/Texturlayout ableitbar, ist damit widerlegt.
+
+### Nachgewiesene Core-Ursache des Mittelbalkens
+
+Die Deckeloberseite besitzt in `chest.json` Mojangs vier zusammengehörige Positions-/UV-
+Vertices. Für beide Double-Hälften gilt U=`0.453125..0.6875` (= Pixelgrenzen 29..44). In
+`MinecraftModelLoader.modelLayerFace` wird daraus ein geometrischer Atlas-U-/V-Basisrahmen
+aufgebaut. Bei der Deckeloberseite zeigt `cross(uBasis,vBasis)` wegen Mojangs Vertexwicklung
+entgegengesetzt zum aus der Vertexreihenfolge bestimmten `windingNormal`; daher ist dort
+`flip=true`.
+
+Der `flip`-Zweig dreht die geometrische Patch-U-Achse um und ersetzt zusätzlich die
+Texturgrenzen durch `1-maxU .. 1-minU`. Die geometrische Umkehr bildet denselben Ort bereits
+mit dem Patchparameter `U'=1-U` ab. Weil der Renderer diesen Parameter unmittelbar als
+Atlas-U liest, bewirkt die zusätzliche Grenzspiegelung eine echte Texturspiegelung um die
+Atlasmitte: Aus `0.453125..0.6875` wird `0.3125..0.546875`, also aus den Mojang-Grenzen
+29..44 werden 20..35. An den beiden geometrisch entgegengesetzten Nahtkanten werden dadurch
+`normal_left[35]` und `normal_right[20]` adressiert.
+
+Die zuvor beobachtete Paarung war somit ein korrektes Symptom. Die daraus abgeleitete
+manuelle Verschiebung der JSON-UVs behandelte die Folge statt der Core-Ursache.
+
+**Erste nachgewiesene Abweichungsstelle:** `MinecraftModelLoader.modelLayerFace`, `flip`-
+Zweig, bei der Umwandlung der bereits korrekten Mojang-Vertices in `PatchDefinition`. Vor
+dieser Stelle entsprechen Blockstate-Auswahl, Variantenauswahl, Geometrie, Facing,
+Double-Chest-Hälften, Textur-ID und JSON-UVs der geprüften Minecraft-Grundlage.
+
+**Zwingende Korrektureigenschaft, noch nicht ausgeführt:** Eine Korrektur muss bei
+entgegengesetzter Wicklung die sichtbare Patch-Seite passend ausdrücken, ohne die bereits in
+den Mojang-Vertices vollständig enthaltene UV-Zuordnung zu spiegeln. Eine konkrete
+Produktionsänderung und ihre Auswirkung auf andere statische Model-Layer wurden in diesem
+reinen Diagnoseauftrag nicht ausgeführt. Sie bedürfen der ausdrücklichen Freigabe.
+
+**Zwingende und ausgeführte Korrektur:** Nur die vier geänderten U-Werte wurden auf den aus
+Mojangs Modell zwingend folgenden und in `HEAD` bereits bekannten Stand `29..44 / 64`
+zurückgesetzt. Damit ist `chest.json` wieder identisch zu `HEAD`.
+
+**Offen / nicht bewiesen:** Nicht geprüft ist, welche anderen statischen Model-Layer denselben
+`flip`-Zweig erreichen und welche konkrete minimale Implementierungsform den allgemeinen
+Vertex-/Patch-Vertrag sicher wahrt. Blockstate-Lieferung und spätere Renderer-Schritte sind
+nicht als zusätzliche Fehlerursachen bewiesen. Es erfolgten keine Produktionsänderung, keine
+weiteren JSON-UV-Verschiebungen, keine Fallbacks, Sonderbehandlungen oder Adapteränderungen.
+
+**Ausgeführte vorhandene Tests:** Der gezielte Gradle-Lauf für
+`MinecraftModelLoaderTest`, `MinecraftStaticModelIntegrationTest` und
+`ChestGeometryContractTest` endete mit `BUILD SUCCESSFUL`. Die vier Loader-Tests liefen grün.
+Die beiden ressourcenabhängigen Testklassen wurden wegen ihrer nicht gesetzten
+Umgebungs-Voraussetzungen jeweils als `skipped` ausgewiesen; daraus wird kein Realwelt- oder
+Double-Chest-Erfolgsbeweis abgeleitet.
+
 ## Fix: `PatchDefinition.rotatePrecomputed` – X- und Z-Rotation auf die Mojang-Rechtshand-Konvention korrigiert (Y unverändert) (2026-09-03)
 
 **Auftrag und STOP:** Nur `PatchDefinition.rotatePrecomputed()` korrigieren, damit X und Z die
@@ -521,9 +800,10 @@ einem neuen, ausdrücklichen Nutzerauftrag mit klarer Plattform und klarem Umfan
 
 ## 0. Verbindlicher Projektvertrag
 
-- AirMap liest die Realität der jeweils eingesetzten Minecraft-Version:
-  - **Paper: Minecraft 26.2**
-  - **Fabric: Minecraft 26.3-snapshot-10** (Laufzeit-Label `26.3-alpha.10`)
+- AirMap liest die Realität der jeweils eingesetzten Minecraft-Version. Paper und Fabric lesen
+  die jeweils in `gradle/libs.versions.toml` festgelegte Minecraft-Realität (Version Catalog,
+  `[versions]`); dort ist die einzige maßgebliche Angabe. Im Vertrag wird keine konkrete,
+  veraltbare Versionsnummer festgeschrieben.
 - Gleiche Vanilla-Semantik bleibt im gemeinsamen Core. Tatsächliche Versions- oder
   Plattformunterschiede werden an der bestehenden Adaptergrenze behandelt.
 - Der historische TXT-Renderer ist nur alte Referenz, nicht Render-Wahrheit.
@@ -541,17 +821,25 @@ einem neuen, ausdrücklichen Nutzerauftrag mit klarer Plattform und klarem Umfan
 
 ## 1. Versionsstände und Build-Basis
 
+**Maßgeblich ist ausschließlich `gradle/libs.versions.toml`** (Version Catalog, `[versions]`).
+Laufzeit-/Build-Versionen nicht hart kodieren oder erfinden; wo im Runtime-Paket vorhanden,
+gelten immer die Catalog-Angaben. Alle nachfolgend gelisteten Werte sind Stand 2026-09-08 direkt
+aus dem Catalog entnommen:
+
 - **Core:** gemeinsamer DynmapCore; er liest den echten Vanilla-Client-JAR der konfigurierten
-  Ressourcenversion.
-- **Fabric-Adapter:**
-  - Minecraft `26.3-snapshot-10` / Laufzeit-Label `26.3-alpha.10`
-  - Fabric Loader `0.19.3`, API `0.158.3+26.3`, Loom `1.17-SNAPSHOT`
-- **Paper-Adapter:**
-  - Paper zentral als `paper = "26.2.build.+"` definiert
-  - `airmapPaper = "1.0.10-paper-26.2"`
+  Ressourcenversion (`MinecraftClientResources.configuredVersion()` aus
+  `airmap-minecraft-version.properties`, gespeist von `libs.versions.minecraft`).
+- **Fabric-Adapter** (`minecraft`, `minecraftRuntime`, `fabricLoader`, `fabricApi`,
+  `fabricLoom`):
+  - Minecraft Build `26.3-pre-2` → erzeugte Ressource `minecraft-client-26.3-pre-2.jar`
+  - Laufzeit-Label `26.3-pre.2` (Fabric Loader-Deklaration)
+  - Fabric Loader `0.19.5`, Fabric API `0.159.4+26.3`, Loom `1.18+`
+- **Paper-Adapter** (`paper`, `airmapPaper`, `paperweightUserdev`, `pluginYmlPaper`):
+  - Paper zentral `26.2.build.+`
+  - `airmapPaper` (JAR-Name + paper-plugin.yml) `2.0.0-paper-26.2`
   - paperweight `2.0.0-beta.21`, plugin-yml Paper `0.9.0`
   - Support-Deps zentral: LuckPerms `5.5`, Vault `1.7.1`, GroupManager `2.10.1`
-- **Java:** Build `26`, Target `25`; **Gradle Wrapper:** `9.7.1`.
+- **Java:** Build `26`, Target `25`; **Gradle Wrapper:** laut `gradle/wrapper/gradle-wrapper.properties`.
 - Module: `:paper`, `:fabric`, `:bukkit-helper`, `:dynmap-api`, `:DynmapCore`,
   `:DynmapCoreAPI`.
 
@@ -559,9 +847,15 @@ Architektur:
 
 ```text
 gemeinsamer Core
- ├─ Fabric-Adapter → Minecraft 26.3-snapshot-10
+ ├─ Fabric-Adapter → Minecraft 26.3-pre-2 (Runtime-Label 26.3-pre.2)
  └─ Paper-Adapter  → Minecraft 26.2
 ```
+
+**Hinweis zur früheren Bezeichnung `26.3-snapshot-10`:** `libs.versions.toml` nutzt seit dem
+Wechsel auf `26.3-pre-2` / `26.3-pre.2` keine `-snapshot-10`-Kennung mehr. Die
+`minecraft-client-26.3-snapshot-10.jar` ist eine historische Datei aus früheren Builds; der
+aktuelle Build erzeugt strikt `minecraft-client-26.3-pre-2.jar`. `snapshot-10`-Referenzen in
+Befund-/Test-Kommentaren sind historisch und beziehen sich auf jenen früheren Ressourcenstand.
 
 Vorherige Fabric- und Paper-Builds waren erfolgreich. Das dokumentiert Kompilierung und Tests,
 nicht das Laufzeitverhalten.
@@ -719,3 +1013,12 @@ Wasser ist Ruhepunkt und gehört nicht in die nächste Renderer-Runde.
 **Arbeitsprinzip:** Die Minecraft-Version liefert ihre Realität. Der Core übersetzt gemeinsame
 Minecraft-Semantik. Adapter übersetzen Plattformfakten. Config und Custom bleiben
 Nutzervertrag. Keine erfundene Wahrheit dazwischen.
+
+---
+
+## Sichtbare Logmeldung beim Minecraft-Client-Download (2026-09-13)
+
+Im gemeinsamen Downloadpfad von `MinecraftClientResources.provision()` wird unmittelbar vor dem
+Client-Download `Downloading Minecraft <version> client...` und nach dessen erfolgreichem Abschluss
+`Minecraft <version> client download complete` protokolliert. Cache-Nutzung, Consent,
+Versionsbestimmung, Validierung und Netzwerkverhalten bleiben unverändert.

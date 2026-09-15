@@ -370,7 +370,6 @@ public class DynmapPlugin {
                 fx.grassColorOverride().ifPresent(bmap::setGrassColorOverride);
                 fx.foliageColorOverride().ifPresent(bmap::setFoliageColorOverride);
                 bmap.setGrassColorModifier(fx.grassColorModifier().getSerializedName());
-                bmap.setBiomeObject(bb);
             }
         }
         if (cnt > 0)

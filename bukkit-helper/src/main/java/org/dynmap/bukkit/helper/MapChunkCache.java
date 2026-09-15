@@ -1,11 +1,8 @@
 package org.dynmap.bukkit.helper;
 
-import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.BiomeSpecialEffects;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.dynmap.DynmapChunk;
-import org.dynmap.common.BiomeMap;
 import org.dynmap.common.chunk.GenericChunk;
 import org.dynmap.common.chunk.GenericChunkCache;
 import org.dynmap.common.chunk.GenericMapChunkCache;
@@ -65,18 +62,5 @@ public class MapChunkCache extends GenericMapChunkCache {
     public void setChunks(BukkitWorld dw, List<DynmapChunk> chunks) {
         this.w = dw.getWorld();
         super.setChunks(dw, chunks);
-    }
-
-    @Override
-    public int getFoliageColor(BiomeMap bm, int[] colormap, int x, int z) {
-		return bm.<Biome>getBiomeObject().map(Biome::getSpecialEffects)
-                .flatMap(BiomeSpecialEffects::foliageColorOverride).orElse(colormap[bm.biomeLookup()]);
-    }
-
-    @Override
-    public int getGrassColor(BiomeMap bm, int[] colormap, int x, int z) {
-        BiomeSpecialEffects fog = bm.<Biome>getBiomeObject().map(Biome::getSpecialEffects).orElse(null);
-        if (fog == null) return colormap[bm.biomeLookup()];
-        return fog.grassColorModifier().modifyColor(x, z, fog.grassColorOverride().orElse(colormap[bm.biomeLookup()]));
     }
 }

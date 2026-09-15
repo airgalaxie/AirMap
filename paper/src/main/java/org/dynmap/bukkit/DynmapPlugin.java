@@ -646,7 +646,11 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
                     bmap.setWaterColorMultiplier(watermult);
                     Log.verboseinfo("Set watercolormult for " + bmap.toString() + " (" + i + ") to " + Integer.toHexString(watermult));
                 }
-                bmap.setBiomeObject(bb);
+                int grassColor = helper.getBiomeBaseGrassColor(bb);
+                if (grassColor != -1) bmap.setGrassColorOverride(grassColor);
+                int foliageColor = helper.getBiomeBaseFoliageColor(bb);
+                if (foliageColor != -1) bmap.setFoliageColorOverride(foliageColor);
+                bmap.setGrassColorModifier(helper.getBiomeBaseGrassColorModifier(bb));
             }
         }
         if(cnt > 0) {
