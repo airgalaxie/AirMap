@@ -134,7 +134,7 @@ final class MinecraftModelLoader {
         for (int i = 0; i < base.getStateCount(); i++) {
             DynmapBlockState state = base.getState(i);
             try {
-                List<AppliedModel> selected = select(root, state.stateName, namespace);
+                List<WeightedAppliedModels> selected = select(root, state.stateName, namespace);
                 if (!selected.isEmpty()) install(state, selected);
             } catch (Exception e) {
                 Log.warning("Cannot load Minecraft blockstate " + resource + " [" + state.stateName + "]: " + e.getMessage());
@@ -142,41 +142,73 @@ final class MinecraftModelLoader {
         }
     }
 
-    private List<AppliedModel> select(JsonObject root, String stateName, String namespace) {
+    private List<WeightedAppliedModels> select(JsonObject root, String stateName, String namespace) {
         Map<String, String> values = properties(stateName);
-        List<AppliedModel> out = new ArrayList<>();
+        List<WeightedAppliedModels> out = new ArrayList<>();
         JsonObject variants = root.getAsJsonObject("variants");
         if (variants != null) for (Map.Entry<String, JsonElement> e : variants.entrySet())
-            if (matchesVariant(e.getKey(), values)) { out.add(best(e.getValue(), namespace)); break; }
+            if (matchesVariant(e.getKey(), values)) { out.add(alternatives(e.getValue(), namespace)); break; }
         JsonArray multipart = root.getAsJsonArray("multipart");
         if (multipart != null) for (JsonElement partElement : multipart) {
             JsonObject part = partElement.getAsJsonObject();
-            if (!part.has("when") || matchesWhen(part.get("when"), values)) out.add(best(part.get("apply"), namespace));
+            if (!part.has("when") || matchesWhen(part.get("when"), values))
+                out.add(alternatives(part.get("apply"), namespace));
         }
-        out.removeIf(x -> x == null);
         return out;
     }
 
-    private AppliedModel best(JsonElement value, String namespace) {
-        JsonObject obj;
-        if (value.isJsonArray()) {
-            obj = null; int weight = -1;
-            for (JsonElement e : value.getAsJsonArray()) {
-                JsonObject candidate = e.getAsJsonObject(); int w = integer(candidate, "weight", 1);
-                if (w > weight) { weight = w; obj = candidate; }
-            }
-        } else obj = value.getAsJsonObject();
-        if (obj == null || !obj.has("model")) return null;
-        return new AppliedModel(qualify(obj.get("model").getAsString(), namespace), integer(obj, "x", 0), integer(obj, "y", 0),
-                obj.has("uvlock") && obj.get("uvlock").getAsBoolean());
+    private WeightedAppliedModels alternatives(JsonElement value, String namespace) {
+        JsonArray values = value.isJsonArray() ? value.getAsJsonArray() : new JsonArray();
+        if (!value.isJsonArray()) values.add(value);
+        List<AppliedModel> models = new ArrayList<>();
+        List<Integer> weights = new ArrayList<>();
+        for (JsonElement element : values) {
+            JsonObject object = element.getAsJsonObject();
+            if (!object.has("model")) continue;
+            int weight = integer(object, "weight", 1);
+            if (weight <= 0) throw new IllegalArgumentException("Model weight must be positive");
+            models.add(new AppliedModel(qualify(object.get("model").getAsString(), namespace),
+                    integer(object, "x", 0), integer(object, "y", 0),
+                    object.has("uvlock") && object.get("uvlock").getAsBoolean()));
+            weights.add(weight);
+        }
+        if (models.isEmpty()) throw new IllegalArgumentException("Model alternatives must not be empty");
+        return new WeightedAppliedModels(models, weights);
     }
 
-    private void install(DynmapBlockState state, List<AppliedModel> selected) throws IOException {
-        List<PatchDefinition> result = new ArrayList<>();
+    private void install(DynmapBlockState state, List<WeightedAppliedModels> selected) throws IOException {
         List<Integer> textures = new ArrayList<>();
+        List<HDBlockPatchModel.WeightedPatchGroup> patchGroups = new ArrayList<>();
+        EnumSet<BlockStep> guaranteedOpaqueFaces = EnumSet.noneOf(BlockStep.class);
+        boolean guaranteedOccluding = false;
+        for (WeightedAppliedModels group : selected) {
+            List<PatchDefinition[]> alternatives = new ArrayList<>();
+            EnumSet<BlockStep> groupOpaqueFaces = null;
+            boolean groupOccluding = true;
+            for (AppliedModel applied : group.models) {
+                ModelGeometry geometry = buildModel(state, applied, textures);
+                alternatives.add(geometry.patches);
+                if (groupOpaqueFaces == null) groupOpaqueFaces = geometry.opaqueCubeFaces.clone();
+                else groupOpaqueFaces.retainAll(geometry.opaqueCubeFaces);
+                groupOccluding &= geometry.occluding;
+            }
+            patchGroups.add(new HDBlockPatchModel.WeightedPatchGroup(alternatives, group.weights));
+            guaranteedOpaqueFaces.addAll(groupOpaqueFaces);
+            guaranteedOccluding |= groupOccluding;
+        }
+        if (patchGroups.isEmpty()) return;
+        new HDBlockPatchModel(state, patchGroups, "minecraft-json", guaranteedOccluding);
+        boolean opaqueCoverage = guaranteedOpaqueFaces.size() == BlockStep.values().length;
+        TexturePack.BlockTransparency transparency = state.getLightAttenuation() >= 15 && !state.isWaterFilled() && opaqueCoverage
+                ? TexturePack.BlockTransparency.OPAQUE : TexturePack.BlockTransparency.SEMITRANSPARENT;
+        TexturePack.registerMinecraftState(state, textures.stream().mapToInt(Integer::intValue).toArray(), transparency);
+    }
+
+    private ModelGeometry buildModel(DynmapBlockState state, AppliedModel applied,
+            List<Integer> textures) throws IOException {
+        List<PatchDefinition> result = new ArrayList<>();
         EnumSet<BlockStep> opaqueCubeFaces = EnumSet.noneOf(BlockStep.class);
         boolean[] occluding = new boolean[1];
-        for (AppliedModel applied : selected) {
             JsonObject model = resolveModel(applied.id);
             JsonArray elements = model.getAsJsonArray("elements");
             Map<String, String> vars = textureVariables(model);
@@ -217,14 +249,7 @@ final class MinecraftModelLoader {
                 }
             }
             installModelLayer(state, applied, result, textures, occluding);
-        }
-        if (result.isEmpty()) return;
-        BitSet only = new BitSet(); only.set(state.stateIndex);
-        new HDBlockPatchModel(state.baseState, only, result.toArray(PatchDefinition[]::new), "minecraft-json", occluding[0]);
-        boolean opaqueCoverage = opaqueCubeFaces.size() == BlockStep.values().length;
-        TexturePack.BlockTransparency transparency = state.getLightAttenuation() >= 15 && !state.isWaterFilled() && opaqueCoverage
-                ? TexturePack.BlockTransparency.OPAQUE : TexturePack.BlockTransparency.SEMITRANSPARENT;
-        TexturePack.registerMinecraftState(state, textures.stream().mapToInt(Integer::intValue).toArray(), transparency);
+        return new ModelGeometry(result.toArray(PatchDefinition[]::new), opaqueCubeFaces, occluding[0]);
     }
 
     /** Adds Minecraft's baked model-layer faces for special/block-entity models. */
@@ -647,5 +672,8 @@ final class MinecraftModelLoader {
     private static String qualify(String id,String namespace){return id.indexOf(':')>=0?id:namespace+":"+id;}
     private static String modelResource(String id){return namespace(id)+":models/"+path(id)+".json";}
     private record AppliedModel(String id,int x,int y,boolean uvlock){}
+    private record WeightedAppliedModels(List<AppliedModel> models, List<Integer> weights){}
+    private record ModelGeometry(PatchDefinition[] patches, EnumSet<BlockStep> opaqueCubeFaces,
+            boolean occluding){}
     private static final class ModelException extends RuntimeException { ModelException(IOException cause){super(cause);} }
 }

@@ -13,7 +13,7 @@ public class CustomBlockModel extends HDBlockModel {
     public CustomRenderer render;
 
     public CustomBlockModel(DynmapBlockState bstate, BitSet databits, String classname, Map<String,String> classparm, String blockset) {
-        super(bstate, databits, blockset);
+        super(blockset);
         try {
             Class<?> cls = Class.forName(classname);   /* Get class */
             render = (CustomRenderer) cls.getDeclaredConstructor().newInstance();
@@ -22,7 +22,8 @@ public class CustomBlockModel extends HDBlockModel {
                 render = null;
             }
             else {
-                if(render.getTileEntityFieldsNeeded() != null) {
+                String[] tileEntityFields = render.getTileEntityFieldsNeeded();
+                if(tileEntityFields != null) {
                     DynmapBlockState bbs = bstate.baseState;
                     for(int i = 0; i < bbs.getStateCount(); i++) {
                         if (databits.isEmpty() || databits.get(i)) {
@@ -31,6 +32,7 @@ public class CustomBlockModel extends HDBlockModel {
                         }
                     }
                 }
+                register(bstate, databits);
             }
         } catch (Exception x) {
             Log.severe("Error loading custom renderer - " + classname, x);

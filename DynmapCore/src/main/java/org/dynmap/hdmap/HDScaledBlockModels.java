@@ -3,93 +3,32 @@ package org.dynmap.hdmap;
 import org.dynmap.renderer.DynmapBlockState;
 import org.dynmap.utils.PatchDefinition;
 
+/** Immutable view of one fully published block-model generation. */
 public class HDScaledBlockModels {
-    private short[][] modelvectors;
-    // These are scale invariant - only need once
-    private static PatchDefinition[][] patches;
-    private static CustomBlockModel[] custom;
+    private final HDBlockPatchModel[] patches;
+    private final CustomBlockModel[] custom;
 
-    public HDScaledBlockModels(int scale) {
-        short[][] blockmodels = new short[DynmapBlockState.getGlobalIndexMax()][];
-        PatchDefinition[][] newpatches = null;
-        if (patches == null) { 
-        	newpatches = new PatchDefinition[DynmapBlockState.getGlobalIndexMax()][];
-        	patches = newpatches;
+    public HDScaledBlockModels(int ignoredScale) {
+        HDBlockModel[] source = HDBlockModels.models_by_id_data;
+        HDBlockPatchModel[] newPatches = new HDBlockPatchModel[source.length];
+        CustomBlockModel[] newCustom = new CustomBlockModel[source.length];
+        for (int index = 0; index < source.length; index++) {
+            HDBlockModel model = source[index];
+            if (model instanceof HDBlockPatchModel patchModel) newPatches[index] = patchModel;
+            else if (model instanceof CustomBlockModel customModel) newCustom[index] = customModel;
         }
-        CustomBlockModel[] newcustom = null;
-        if (custom == null) {
-        	newcustom = new CustomBlockModel[DynmapBlockState.getGlobalIndexMax()];
-        	custom = newcustom;
-        }
-        for(int gidx = 0; gidx < HDBlockModels.models_by_id_data.length; gidx++) {
-            HDBlockModel m = HDBlockModels.models_by_id_data[gidx];
-            if(m == null) continue;
-
-            if(m instanceof HDBlockVolumetricModel) {
-                HDBlockVolumetricModel vm = (HDBlockVolumetricModel)m;
-                short[] smod = vm.getScaledMap(scale);
-                /* See if scaled model is full block : much faster to not use it if it is */
-                if(smod != null) {
-                    boolean keep = false;
-                    for(int i = 0; (!keep) && (i < smod.length); i++) {
-                        if(smod[i] == 0) keep = true;
-                    }
-                    if(keep) {
-                        blockmodels[gidx] = smod;
-                    }
-                    else {
-                        blockmodels[gidx] = null;
-                    }
-                }
-            }
-            else if(m instanceof HDBlockPatchModel) {
-            	if (newpatches != null) {
-            		HDBlockPatchModel pm = (HDBlockPatchModel)m;
-            		newpatches[gidx] = pm.getPatches();
-            	}
-            }
-            else if(m instanceof CustomBlockModel) {
-            	if (newcustom != null) {
-            		CustomBlockModel cbm = (CustomBlockModel)m;
-            		newcustom[gidx] = cbm;
-            	}
-            }
-        }
-        this.modelvectors = blockmodels;
-    }
-    
-    public final short[] getScaledModel(DynmapBlockState blk) {
-        short[][] mv = modelvectors;  // hoist instance field to local — avoids redundant reload
-        int idx = blk.globalStateIndex;
-        if(idx >= mv.length) {
-            short[][] newmodels = new short[idx + 1][];
-            System.arraycopy(mv, 0, newmodels, 0, mv.length);
-            modelvectors = newmodels;
-            return null;
-        }
-        return mv[idx];
-    }
-    public final PatchDefinition[] getPatchModel(DynmapBlockState blk) {
-        PatchDefinition[][] p = patches;  // hoist static field to local — avoids redundant reload
-        int idx = blk.globalStateIndex;
-        if(idx >= p.length) {
-            PatchDefinition[][] newpatches = new PatchDefinition[idx + 1][];
-            System.arraycopy(p, 0, newpatches, 0, p.length);
-            patches = newpatches;
-            return null;
-        }
-        return p[idx];
+        patches = newPatches;
+        custom = newCustom;
     }
 
-    public final CustomBlockModel getCustomBlockModel(DynmapBlockState blk) {
-        CustomBlockModel[] c = custom;  // hoist static field to local — avoids redundant reload
-        int idx = blk.globalStateIndex;
-        if(idx >= c.length) {
-            CustomBlockModel[] newcustom = new CustomBlockModel[idx + 1];
-            System.arraycopy(c, 0, newcustom, 0, c.length);
-            custom = newcustom;
-            return null;
-        }
-        return c[idx];
+    public PatchDefinition[] getPatchModel(DynmapBlockState block, int x, int y, int z) {
+        int index = block.globalStateIndex;
+        return index < patches.length && patches[index] != null
+                ? patches[index].getPatches(x, y, z) : null;
+    }
+
+    public CustomBlockModel getCustomBlockModel(DynmapBlockState block) {
+        int index = block.globalStateIndex;
+        return index < custom.length ? custom[index] : null;
     }
 }

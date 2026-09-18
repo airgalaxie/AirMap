@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.BitSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import org.dynmap.ConfigurationNode;
 import org.dynmap.DynmapCore;
 import org.dynmap.Log;
@@ -19,7 +18,7 @@ public final class HDBlockModels {
     static PatchDefinitionFactory pdf = new PatchDefinitionFactory();
     static BitSet customModelsRequestingTileData = new BitSet();
     private static final BitSet changeIgnoredBlocks = new BitSet();
-    private static final Map<Integer, HDScaledBlockModels> scaledModels = new ConcurrentHashMap<>();
+    private static HDScaledBlockModels scaledModels;
     public static final int[] boxPatchList = { 1, 4, 0, 3, 2, 5 };
 
 
@@ -32,16 +31,20 @@ public final class HDBlockModels {
     public static boolean isModelOccluding(DynmapBlockState b) { HDBlockModel m=model(b); return (m instanceof HDBlockPatchModel p) && p.isOccluding(); }
     public static boolean resetIfNotBlockSet(DynmapBlockState block, String blockset) { HDBlockModel m=model(block); if(m != null && !m.getBlockSet().equals(blockset)){models_by_id_data[block.globalStateIndex]=null;return true;} return false; }
     public static String[] getTileEntityFieldsNeeded(DynmapBlockState block) { HDBlockModel m=model(block); return m instanceof CustomBlockModel c ? c.render.getTileEntityFieldsNeeded() : null; }
-    public static HDScaledBlockModels getModelsForScale(int scale) { return scaledModels.computeIfAbsent(scale, HDScaledBlockModels::new); }
+    public static synchronized HDScaledBlockModels getModelsForScale(int scale) {
+        if (scaledModels == null) scaledModels = new HDScaledBlockModels(scale);
+        return scaledModels;
+    }
 
-    public static void loadModels(DynmapCore core, ConfigurationNode ignored) {
-        maxPatches=6; models_by_id_data=new HDBlockModel[DynmapBlockState.getGlobalIndexMax()]; scaledModels.clear();
+    public static synchronized void loadModels(DynmapCore core, ConfigurationNode ignored) {
+        maxPatches=6; models_by_id_data=new HDBlockModel[DynmapBlockState.getGlobalIndexMax()];
         changeIgnoredBlocks.clear(); customModelsRequestingTileData.clear(); pdf=new PatchDefinitionFactory();
         TexturePack.resetFiles(); HDBlockStateTextureMap.initializeTable();
         try {
             new MinecraftModelLoader(core.getMinecraftResourceProvider(), pdf).load();
-            for(HDBlockModel model:models_by_id_data) if(model instanceof HDBlockPatchModel p) maxPatches=Math.max(maxPatches,p.getPatches().length);
+            for(HDBlockModel model:models_by_id_data) if(model instanceof HDBlockPatchModel p) maxPatches=Math.max(maxPatches,p.getMaximumPatchCount());
         } catch(IOException e) { throw new IllegalStateException("Cannot load Minecraft model resources",e); }
+        scaledModels = null;
         Log.info("Loaded block models directly from Minecraft JSON resources");
     }
 

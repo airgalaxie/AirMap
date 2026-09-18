@@ -6,7 +6,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -25,7 +24,6 @@ import org.dynmap.hdmap.HDBlockStateTextureMap;
 import org.dynmap.hdmap.HDScaledBlockModels;
 import org.dynmap.hdmap.HDShader;
 import org.dynmap.hdmap.TexturePack.BlockTransparency;
-import org.dynmap.renderer.CustomRenderer;
 import org.dynmap.renderer.DynmapBlockState;
 import org.dynmap.renderer.RenderPatch;
 import org.dynmap.renderer.RenderPatchFactory.SideVisible;
@@ -60,7 +58,6 @@ public class OBJExport {
     
     private HashMap<String, List<Face>> facesByTexture = new HashMap<String, List<Face>>();
     private static final int MODELSCALE = 16;
-    private static final double BLKSIZE = 1.0 / (double) MODELSCALE;
     
     // Index of group settings
     public static final int GROUP_CHUNK = 0;
@@ -364,7 +361,7 @@ public class OBJExport {
         BlockStep[] steps = BlockStep.values();
         int[] txtidx = null;
         // See if the block has a patch model
-        RenderPatch[] patches = models.getPatchModel(blk);
+        RenderPatch[] patches = models.getPatchModel(blk, map.getX(), map.getY(), map.getZ());
         /* If no patches, see if custom model */
         if(patches == null) {
             CustomBlockModel cbm = models.getCustomBlockModel(blk);
@@ -378,19 +375,6 @@ public class OBJExport {
             for (int i = 0; i < txtidx.length; i++) {
                 txtidx[i] = ((PatchDefinition) patches[i]).getTextureIndex();
                 steps[i] = ((PatchDefinition) patches[i]).step;
-            }
-        }
-        else {  // See if volumetric
-            short[] smod = models.getScaledModel(blk);
-            if (smod != null) {
-                patches = getScaledModelAsPatches(smod);
-                steps = new BlockStep[patches.length];
-                txtidx = new int[patches.length];
-                for (int i = 0; i < patches.length; i++) {
-                    PatchDefinition pd = (PatchDefinition) patches[i];
-                    steps[i] = pd.step;
-                    txtidx[i] = pd.getTextureIndex();
-                }
             }
         }
         // Set block ID and ID+meta groups
@@ -551,75 +535,6 @@ public class OBJExport {
     
     public Set<String> getMaterialIDs() {
         return matIDs;
-    }
-    
-    private static final boolean getSubblock(short[] mod, int x, int y, int z) {
-        if ((x >= 0) && (x < MODELSCALE) && (y >= 0) && (y < MODELSCALE) && (z >= 0) && (z < MODELSCALE)) {
-            return mod[MODELSCALE*MODELSCALE*y + MODELSCALE*z + x] != 0;
-        }
-        return false;
-    }
-    // Scan along X axis
-    private int scanX(short[] tmod, int x, int y, int z) {
-        int xlen = 0;
-        while (getSubblock(tmod, x+xlen, y, z)) { 
-            xlen++;
-        }
-        return xlen;
-    }
-    // Scan along Z axis for rows matching given x length
-    private int scanZ(short[] tmod, int x, int y, int z, int xlen) {
-        int zlen = 0;
-        while (scanX(tmod, x, y, z+zlen) >= xlen) {
-            zlen++;
-        }
-        return zlen;
-    }
-    // Scan along Y axis for layers matching given X and Z lengths
-    private int scanY(short[] tmod, int x, int y, int z, int xlen, int zlen) {
-        int ylen = 0;
-        while (scanZ(tmod, x, y+ylen, z, xlen) >= zlen) {
-            ylen++;
-        }
-        return ylen;
-    }
-    private void addSubblock(short[] tmod, int x, int y, int z, List<RenderPatch> list) {
-        // Find dimensions of cuboid
-        int xlen = scanX(tmod, x, y, z);
-        int zlen = scanZ(tmod, x, y, z, xlen);
-        int ylen = scanY(tmod, x, y, z, xlen, zlen);
-        // Add equivalent of boxblock
-        CustomRenderer.addBox(HDBlockModels.getPatchDefinitionFactory(), list, 
-                BLKSIZE * x, BLKSIZE * (x+xlen), 
-                BLKSIZE * y, BLKSIZE * (y+ylen),
-                BLKSIZE * z, BLKSIZE * (z+zlen), 
-                HDBlockModels.boxPatchList);
-        // And remove blocks from model (since we have them covered)
-        for (int xx = 0; xx < xlen; xx++) {
-            for (int yy = 0; yy < ylen; yy++) {
-                for (int zz = 0; zz < zlen; zz++) {
-                    tmod[MODELSCALE*MODELSCALE*(y+yy) + MODELSCALE*(z+zz) + (x+xx)] = 0;
-                }
-            }
-        }
-    }
-    private PatchDefinition[] getScaledModelAsPatches(short[] mod) {
-        ArrayList<RenderPatch> list = new ArrayList<RenderPatch>();
-        short[] tmod = Arrays.copyOf(mod, mod.length);  // Make copy
-        for (int y = 0; y < MODELSCALE; y++) {
-            for (int z = 0; z < MODELSCALE; z++) {
-                for (int x = 0; x < MODELSCALE; x++) {
-                    if (getSubblock(tmod, x, y, z)) {   // If occupied, try to add to list
-                        addSubblock(tmod, x, y, z, list);
-                    }
-                }
-            }
-        }
-        PatchDefinition[] pd = new PatchDefinition[list.size()];
-        for (int i = 0; i < pd.length; i++) {
-            pd[i] = (PatchDefinition) list.get(i);
-        }
-        return pd;
     }
     
     private String updateGroup(int grpIndex, String newgroup) {

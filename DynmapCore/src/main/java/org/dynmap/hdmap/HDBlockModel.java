@@ -14,6 +14,14 @@ public abstract class HDBlockModel {
      */
     protected HDBlockModel(DynmapBlockState bstate, BitSet databits, String blockset) {
         this.blockset = blockset;
+        register(bstate, databits);
+    }
+
+    protected HDBlockModel(String blockset) {
+        this.blockset = blockset;
+    }
+
+    protected final void register(DynmapBlockState bstate, BitSet databits) {
         DynmapBlockState bblk = bstate.baseState;
         if (bblk.isNotAir()) {
             for (int i = 0; i < bblk.getStateCount(); i++) {
