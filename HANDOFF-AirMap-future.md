@@ -54,6 +54,9 @@ RENDER_RESOURCES_DEFINE_OR_EXTEND_APPEARANCE = TRUE
 RESOURCE_PACKS_MAY_CHANGE_APPEARANCE = TRUE
 RESOURCE_PACKS_MAY_REDEFINE_MINECRAFT_IDENTITY = FALSE
 CONFIG_AND_CUSTOM_ARE_USER_CONTRACTS = TRUE
+
+UNREFERENCED_PLATFORM_TOOLS = FORBIDDEN
+TOOL_OR_GENERATOR_ASSET_REQUIRES_ACTIVE_BUILD_OR_MAINTENANCE_CONSUMER = TRUE
 ```
 
 ## MACHINE DECISION RULES
@@ -114,6 +117,11 @@ RULE_VERSION:
   Version-specific verification may name the version used as evidence.
   Minecraft semantics MUST come from Minecraft resources, the common
   Minecraft representation, or another explicitly resolved Minecraft source.
+
+RULE_TOOLS:
+  Do not add or restore platform-local tool, spreadsheet, formatting, or
+  generator assets unless an active build task or documented maintenance
+  workflow requires them.
 ```
 
 # CURRENT_VERIFIED_STATE @ a492c74
@@ -176,7 +184,23 @@ PAPER_26_3_BUILD = SUCCESS
 PAPER_26_3_RUNTIME_RENDER_AFTER_FIX = USER_CONFIRMED
 CORE_CHANGED_BY_PAPER_26_3_FIX = FALSE
 FABRIC_CHANGED_BY_PAPER_26_3_FIX = FALSE
+
+PAPER_TOOLS_DIRECTORY = REMOVED
+PAPER_TOOLS_RUNTIME_CONSUMERS = NONE
+PAPER_TOOLS_BUILD_CONSUMERS = NONE
 ```
+
+## PAPER TOOLS CLEANUP (2026-09-19)
+
+The unreferenced `paper/tools` directory was removed. `Biomes.ods` was a
+historical biome/color spreadsheet and `bukkit_formatting_profile.xml` was an
+old Eclipse formatting profile. Neither file had a runtime, build, source-set,
+code-generation, or documented maintenance consumer.
+
+Do not restore these files or introduce comparable platform-local tool or
+generator assets unless the repository has a concrete active consumer for
+them. Gradle-owned output under `paper/build/generated` is unrelated and
+continues to be produced from the Paper build configuration.
 
 ## PAPER 26.3 NBT PALETTE FIX (2026-09-19)
 
