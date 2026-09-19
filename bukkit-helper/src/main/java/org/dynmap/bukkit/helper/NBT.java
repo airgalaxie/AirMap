@@ -1,6 +1,8 @@
 package org.dynmap.bukkit.helper;
 
 import net.minecraft.nbt.Tag;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import org.dynmap.common.chunk.GenericBitStorage;
 import org.dynmap.common.chunk.GenericNBTCompound;
 import org.dynmap.common.chunk.GenericNBTList;
@@ -9,6 +11,8 @@ import java.util.Set;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.util.SimpleBitStorage;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class NBT {
 
@@ -121,11 +125,41 @@ public class NBT {
 		}
 		@Override
 		public String getString(int idx) {
-			return obj.getString(idx).orElse("");
+			return obj.getString(idx).orElseGet(() -> obj.getCompound(idx)
+					.filter(compound -> compound.size() == 1)
+					.map(compound -> compound.get(""))
+					.flatMap(Tag::asString)
+					.orElse(""));
 		}
 		@Override
 		public GenericNBTCompound getCompound(int idx) {
-			return new NBTCompound(obj.getCompoundOrEmpty(idx));
+			CompoundTag compound = obj.getCompound(idx).orElse(null);
+			if (compound != null) {
+				Tag wrapped = compound.size() == 1 ? compound.get("") : null;
+				if (wrapped != null) {
+					return scalarBlockState(wrapped.asString().orElse(null));
+				}
+				return new NBTCompound(compound);
+			}
+			return scalarBlockState(obj.getString(idx).orElse(null));
+		}
+		private static GenericNBTCompound scalarBlockState(String blockName) {
+			CompoundTag stateTag = new CompoundTag();
+			if (blockName == null) {
+				return new NBTCompound(stateTag);
+			}
+			stateTag.putString("Name", blockName);
+			Identifier id = Identifier.tryParse(blockName);
+			Block block = id != null ? BuiltInRegistries.BLOCK.getValue(id) : null;
+			if (block != null) {
+				BlockState state = block.defaultBlockState();
+				CompoundTag properties = new CompoundTag();
+				state.getValues().forEach(value -> properties.putString(value.property().getName(), value.valueName()));
+				if (!properties.isEmpty()) {
+					stateTag.put("Properties", properties);
+				}
+			}
+			return new NBTCompound(stateTag);
 		}
 		public String toString() {
 			return obj.toString();
@@ -134,7 +168,22 @@ public class NBT {
 	public static class OurBitStorage implements GenericBitStorage {
 		private final SimpleBitStorage bs;
 		public OurBitStorage(int bits, int count, long[] data) {
-			bs = new SimpleBitStorage(bits, count, data);
+			bs = new SimpleBitStorage(serializedBits(bits, count, data.length), count, data);
+		}
+		private static int serializedBits(int requestedBits, int count, int dataLength) {
+			if (count != 64 || dataLength == 0) {
+				return requestedBits;
+			}
+			// Biome containers have 64 entries.  Their on-disk longs pack only whole
+			// values, so four longs represent 3-bit values (21 per long), not 4-bit
+			// values.  Recover the serialized width before exposing them to Core.
+			for (int bits = 1; bits <= 32; bits++) {
+				int valuesPerLong = 64 / bits;
+				if ((count + valuesPerLong - 1) / valuesPerLong == dataLength) {
+					return bits;
+				}
+			}
+			return requestedBits;
 		}
 		@Override
 		public int get(int idx) {

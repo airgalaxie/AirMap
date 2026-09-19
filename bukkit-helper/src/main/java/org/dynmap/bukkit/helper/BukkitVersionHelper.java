@@ -175,13 +175,7 @@ public class BukkitVersionHelper {
 
     /** Get humidity from biomebase */
     public float getBiomeBaseHumidity(Object bb) {
-    	String vals = ((Biome)bb).climateSettings.toString();	// Sleazy
-    	float humidity = 0.5F;
-    	int idx = vals.indexOf("downfall=");
-    	if (idx >= 0) {
-        	humidity = Float.parseFloat(vals.substring(idx+9, vals.indexOf(']', idx)));
-    	}
-    	return humidity;
+        return ((Biome)bb).climateSettings.downfall();
     }
 
     public Polygon getWorldBorder(World world) {

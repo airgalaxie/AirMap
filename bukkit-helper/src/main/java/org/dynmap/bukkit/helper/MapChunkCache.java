@@ -54,7 +54,8 @@ public class MapChunkCache extends GenericMapChunkCache {
                 }
                 return compound == null ? null : parseChunkFromNBT(new NBT.NBTCompound(compound));
             };
-        } catch (InvocationTargetException | IllegalAccessException ignored) {
+        } catch (InvocationTargetException | IllegalAccessException exception) {
+            org.dynmap.Log.severe(String.format("Error requesting chunk: %d,%d", chunk.x, chunk.z), exception);
             return () -> null;
         }
     }

@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.storage.SerializableChunkData;
 import org.bukkit.craftbukkit.CraftWorld;
+import org.dynmap.Log;
 import org.dynmap.MapManager;
 
 import java.lang.reflect.InvocationTargetException;
@@ -24,7 +25,14 @@ public class AsyncChunkProvider {
     public CompletableFuture<CompoundTag> getChunk(ServerLevel world, int x, int y) throws InvocationTargetException, IllegalAccessException {
         CompletableFuture<CompoundTag> future = new CompletableFuture<>();
         MoonriseRegionFileIO.loadDataAsync(world, x, y, MoonriseRegionFileIO.RegionFileType.CHUNK_DATA,
-                                           (nbt, exception) -> future.complete(nbt), true,
+                                           (nbt, exception) -> {
+                                               if (exception != null) {
+                                                   Log.severe("Error reading chunk: " + x + "," + y, exception);
+                                                   future.completeExceptionally(exception);
+                                               } else {
+                                                   future.complete(nbt);
+                                               }
+                                           }, true,
                                            Priority.LOWEST);
         return future;
     }
