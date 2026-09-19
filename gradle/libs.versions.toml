@@ -8,7 +8,7 @@ dynmap = "3.8"
 airmapPaper = "2.0.0-26.3"
 # Paper-Plattform: zentrale Versionsdefinition für den Adapter
 paper = "26.3.build.+"
-paperweightUserdev = "2.0.0-beta.21"
+paperweightUserdev = "2.0.0-beta.23"
 pluginYmlPaper = "0.9.0"
 # Fabric
 minecraft = "26.3"
