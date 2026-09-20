@@ -4,7 +4,7 @@ version: 0.20
 #  Uses the HDMap renderer with view from the SE with the "hires" resolution (16 pixels per block edge), with resolution boosted
 #  tiles rendered at 'xhires' resolution (64 pixels perblock edge)
 #
-#   This file MAY need to be replaced during an upgrade - rename file to 'custom-normal-hi_boost_xhi.txt' if you wish to customize it
+#   This file MAY need to be replaced during an upgrade - rename file to 'custom-normal-hi_boost_xhi.yaml' if you wish to customize it
 #
 templates:
   # Template for normal world (HDMap hires with vhires boost)

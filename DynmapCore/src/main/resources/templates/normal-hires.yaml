@@ -1,13 +1,13 @@
 version: 0.20
 #
-# Default template for "The End" environment worlds (deftemplatesuffix="hires")
+# Default template for "Normal" environment worlds (deftemplatesuffix="lhires")
 #  Uses the HDMap renderer with view from the SE with the "hires" resolution (16 pixels per block edge)
 #
-#   This file MAY need to be replaced during an upgrade - rename file to 'custom-the_end-hires.txt' if you wish to customize it
+#   This file MAY need to be replaced during an upgrade - rename file to 'custom-normal-hires.yaml' if you wish to customize it
 #
 templates:
-  # The End world template (HDMap hires)
-  the_end-hires:
+  # Template for normal world (HDMap hires)
+  normal-hires:
     enabled: true
     # Number of extra zoom-out levels for world (each level is twice as big as the previous one)
     extrazoomout: 2
@@ -22,14 +22,21 @@ templates:
         prefix: flat
         perspective: iso_S_90_lowres
         shader: stdtexture
-        lighting: brightnight
+        lighting: shadows
         mapzoomin: 1
       - class: org.dynmap.hdmap.HDMap
-        name: the_end
+        name: surface
         title: "Surface"
-        prefix: st
+        prefix: t
         perspective: iso_SE_30_hires
         shader: stdtexture
-        lighting: brightnight
+        lighting: shadows
         mapzoomin: 1
-            
+      - class: org.dynmap.hdmap.HDMap
+        name: cave
+        title: "Cave"
+        prefix: ct
+        perspective: iso_SE_60_lowres
+        shader: cave
+        lighting: default
+        mapzoomin: 3

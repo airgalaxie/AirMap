@@ -26,8 +26,8 @@ public class HDMapManager {
         /* Update mappings, if needed */
         TexturePack.handleBlockAlias();
 
-        File f = new File(core.getDataFolder(), "shaders.txt");
-        if(!core.updateUsingDefaultResource("/shaders.txt", f, "shaders")) {
+        File f = DynmapCore.getYamlConfigurationFile(core.getDataFolder(), "shaders");
+        if(!core.updateUsingDefaultResource("/shaders.yaml", f, "shaders")) {
             return;
         }
         ConfigurationNode shadercfg = new ConfigurationNode(f);
@@ -38,8 +38,8 @@ public class HDMapManager {
             shaders.put(shader.getName(), shader);
         }
         /* Load custom shaders, if file is defined - or create empty one if not */
-        f = new File(core.getDataFolder(), "custom-shaders.txt");
-        core.createDefaultFileFromResource("/custom-shaders.txt", f);
+        f = DynmapCore.getYamlConfigurationFile(core.getDataFolder(), "custom-shaders");
+        core.createDefaultFileFromResource("/custom-shaders.yaml", f);
         if(f.exists()) {
             ConfigurationNode customshadercfg = new ConfigurationNode(f);
             customshadercfg.load();
@@ -56,8 +56,8 @@ public class HDMapManager {
         // Update mappings, if needed
         HDBlockModels.handleBlockAlias();
         
-        File f = new File(core.getDataFolder(), "perspectives.txt");
-        if(!core.updateUsingDefaultResource("/perspectives.txt", f, "perspectives")) {
+        File f = DynmapCore.getYamlConfigurationFile(core.getDataFolder(), "perspectives");
+        if(!core.updateUsingDefaultResource("/perspectives.yaml", f, "perspectives")) {
             return;
         }
         ConfigurationNode perspectivecfg = new ConfigurationNode(f);
@@ -67,8 +67,8 @@ public class HDMapManager {
             perspectives.put(perspective.getName(), perspective);
         }
         /* Load custom perspectives, if file is defined - or create empty one if not */
-        f = new File(core.getDataFolder(), "custom-perspectives.txt");
-        core.createDefaultFileFromResource("/custom-perspectives.txt", f);
+        f = DynmapCore.getYamlConfigurationFile(core.getDataFolder(), "custom-perspectives");
+        core.createDefaultFileFromResource("/custom-perspectives.yaml", f);
         if(f.exists()) {
             perspectivecfg = new ConfigurationNode(f);
             perspectivecfg.load();
@@ -82,8 +82,8 @@ public class HDMapManager {
     
     public void loadHDLightings(DynmapCore core) {
         Log.verboseinfo("Loading lightings...");
-        File f = new File(core.getDataFolder(), "lightings.txt");
-        if(!core.updateUsingDefaultResource("/lightings.txt", f, "lightings")) {
+        File f = DynmapCore.getYamlConfigurationFile(core.getDataFolder(), "lightings");
+        if(!core.updateUsingDefaultResource("/lightings.yaml", f, "lightings")) {
             return;
         }
         ConfigurationNode lightingcfg = new ConfigurationNode(f);
@@ -94,8 +94,8 @@ public class HDMapManager {
             lightings.put(lighting.getName(), lighting);
         }
         /* Load custom lightings, if file is defined - or create empty one if not */
-        f = new File(core.getDataFolder(), "custom-lightings.txt");
-        core.createDefaultFileFromResource("/custom-lightings.txt", f);
+        f = DynmapCore.getYamlConfigurationFile(core.getDataFolder(), "custom-lightings");
+        core.createDefaultFileFromResource("/custom-lightings.yaml", f);
         if(f.exists()) {
             lightingcfg = new ConfigurationNode(f);
             lightingcfg.load();

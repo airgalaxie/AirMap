@@ -98,7 +98,9 @@ public class DynmapCore implements DynmapCommonAPI {
             }
         }
     }
-    private static final String MAIN_CONFIGURATION_FILE = "configuration.txt";
+    private static final String MAIN_CONFIGURATION_NAME = "configuration";
+    private static final String MAIN_CONFIGURATION_FILE = MAIN_CONFIGURATION_NAME + ".yaml";
+    private static final String LEGACY_MAIN_CONFIGURATION_FILE = MAIN_CONFIGURATION_NAME + ".txt";
     private static final String MAIN_WEB_INDEX_FILE = "index.html";
     private static final String MAIN_WEB_INDEX_PATH = "web/" + MAIN_WEB_INDEX_FILE;
 
@@ -107,7 +109,7 @@ public class DynmapCore implements DynmapCommonAPI {
      */
     public static abstract class EnableCoreCallbacks {
         /**
-         * Called during enableCore to report that configuration.txt is loaded
+         * Called during enableCore to report that the main configuration is loaded
          */
         public abstract void configurationLoaded();
     }
@@ -341,46 +343,56 @@ public class DynmapCore implements DynmapCommonAPI {
         }
     }
     /* Table of default templates - all are resources in dynmap.jar unnder templates/, and go in templates directory when needed */
-    private static final String[] stdtemplates = { "normal.txt", "nether.txt", "normal-lowres.txt", 
-        "nether-lowres.txt", "normal-hires.txt", "nether-hires.txt",
-        "normal-vlowres.txt", "nether-vlowres.txt", "the_end.txt", "the_end-vlowres.txt",
-        "the_end-lowres.txt", "the_end-hires.txt",
-        "normal-low_boost_hi.txt", "normal-hi_boost_vhi.txt", "normal-hi_boost_xhi.txt", 
-        "nether-low_boost_hi.txt", "nether-hi_boost_vhi.txt", "nether-hi_boost_xhi.txt",
-        "the_end-low_boost_hi.txt", "the_end-hi_boost_vhi.txt", "the_end-hi_boost_xhi.txt"
+    private static final String[] stdtemplates = { "normal", "nether", "normal-lowres",
+        "nether-lowres", "normal-hires", "nether-hires",
+        "normal-vlowres", "nether-vlowres", "the_end", "the_end-vlowres",
+        "the_end-lowres", "the_end-hires",
+        "normal-low_boost_hi", "normal-hi_boost_vhi", "normal-hi_boost_xhi",
+        "nether-low_boost_hi", "nether-hi_boost_vhi", "nether-hi_boost_xhi",
+        "the_end-low_boost_hi", "the_end-hi_boost_vhi", "the_end-hi_boost_xhi"
     };
     
     private static final String CUSTOM_PREFIX = "custom-";
     /* Load templates from template folder */
-    private void loadTemplates() {
+    void loadTemplates() {
         File templatedir = new File(dataDirectory, "templates");
         templatedir.mkdirs();
         /* First, prime the templates directory with default standard templates, if needed */
         for(String stdtemplate : stdtemplates) {
-            File f = new File(templatedir, stdtemplate);
-            updateVersionUsingDefaultResource("/templates/" + stdtemplate, f);
+            File f = getYamlConfigurationFile(templatedir, stdtemplate);
+            updateVersionUsingDefaultResource("/templates/" + stdtemplate + ".yaml", f);
         }
         /* Now process files */
         String[] templates = templatedir.list();
+        if (templates == null) {
+            return;
+        }
+        Set<String> templateNames = new TreeSet<String>();
+        for (String tname : templates) {
+            if (tname.endsWith(".yaml")) {
+                templateNames.add(tname.substring(0, tname.length() - 5));
+            }
+            else if (tname.endsWith(".txt")) {
+                templateNames.add(tname.substring(0, tname.length() - 4));
+            }
+        }
         /* Go through list - process all ones not starting with 'custom' first */
-        for(String tname: templates) {
-            /* If matches naming convention */
-            if(tname.endsWith(".txt") && (!tname.startsWith(CUSTOM_PREFIX))) {
-                File tf = new File(templatedir, tname);
+        for(String tname: templateNames) {
+            if(!tname.startsWith(CUSTOM_PREFIX)) {
+                File tf = getYamlConfigurationFile(templatedir, tname);
                 ConfigurationNode cn = new ConfigurationNode(tf);
                 cn.load();
-                /* Supplement existing values (don't replace), since configuration.txt is more custom than these */
+                /* Supplement existing values (don't replace), since the main configuration is more custom than these */
                 mergeConfigurationBranch(cn, "templates", false, false);
             }
         }
         /* Go through list again - this time do custom- ones */
-        for(String tname: templates) {
-            /* If matches naming convention */
-            if(tname.endsWith(".txt") && tname.startsWith(CUSTOM_PREFIX)) {
-                File tf = new File(templatedir, tname);
+        for(String tname: templateNames) {
+            if(tname.startsWith(CUSTOM_PREFIX)) {
+                File tf = getYamlConfigurationFile(templatedir, tname);
                 ConfigurationNode cn = new ConfigurationNode(tf);
                 cn.load();
-                /* This are overrides - replace even configuration.txt content */
+                /* These are overrides - replace even main configuration content */
                 mergeConfigurationBranch(cn, "templates", true, false);
             }
         }
@@ -400,13 +412,13 @@ public class DynmapCore implements DynmapCommonAPI {
         /* Load plugin version info */
         loadVersion();
         
-        /* Initialize confguration.txt if needed */
-        File f = new File(dataDirectory, MAIN_CONFIGURATION_FILE);
-        if(!createDefaultFileFromResource("/configuration.txt", f)) {
+        /* Initialize main configuration if needed */
+        File f = getYamlConfigurationFile(dataDirectory, MAIN_CONFIGURATION_NAME);
+        if(!createDefaultFileFromResource("/" + MAIN_CONFIGURATION_FILE, f)) {
             return false;
         }
         
-        /* Load configuration.txt */
+        /* Load main configuration */
         configuration = new ConfigurationNode(f);
         configuration.load();
         acceptMinecraftClientDownload = configuration.getBoolean("accept-minecraft-client-download", false);
@@ -588,9 +600,9 @@ public class DynmapCore implements DynmapCommonAPI {
             throw exception;
         }
         
-        /* Now, process worlds.txt - merge it in as an override of existing values (since it is only user supplied values) */
-        File f = new File(dataDirectory, "worlds.txt");
-        if(!createDefaultFileFromResource("/worlds.txt", f)) {
+        /* Process worlds configuration as an override of existing values (since it is only user supplied values) */
+        File f = getYamlConfigurationFile(dataDirectory, "worlds");
+        if(!createDefaultFileFromResource("/worlds.yaml", f)) {
             return false;
         }
         world_config = new ConfigurationNode(f);
@@ -1952,6 +1964,20 @@ public class DynmapCore implements DynmapCommonAPI {
     public static void setIgnoreChunkLoads(boolean ignore) {
         ignore_chunk_loads = ignore;
     }
+
+    /** Resolve a YAML configuration, preferring the new extension while retaining the legacy one. */
+    public static File getYamlConfigurationFile(File directory, String name) {
+        File yaml = new File(directory, name + ".yaml");
+        File txt = new File(directory, name + ".txt");
+        if (yaml.exists()) {
+            if (txt.exists()) {
+                Log.warning("Both " + yaml.getPath() + " and " + txt.getPath() + " exist; using " + yaml.getName());
+            }
+            return yaml;
+        }
+        return txt.exists() ? txt : yaml;
+    }
+
     /* Uses resource to create default file, if file does not yet exist */
     public boolean createDefaultFileFromResource(String resourcename, File deffile) {
         if(deffile.canRead())
@@ -2069,7 +2095,7 @@ public class DynmapCore implements DynmapCommonAPI {
      */
     public MarkerAPI getMarkerAPI() {
         if(markerapi == null) {
-            Log.warning("Marker API has been requested, but is not enabled.  Uncomment or add 'markers' component to configuration.txt.");
+            Log.warning("Marker API has been requested, but is not enabled. Uncomment or add the 'markers' component to configuration.yaml (or legacy configuration.txt).");
         }
         return markerapi;
     }
@@ -2563,7 +2589,7 @@ public class DynmapCore implements DynmapCommonAPI {
                 while ((line = br.readLine()) != null) {
                     if (line.length() == 0) continue;
                     if (line.startsWith("#")) continue;
-                    if (MAIN_CONFIGURATION_FILE.equals(line)) {
+                    if (MAIN_CONFIGURATION_FILE.equals(line) || LEGACY_MAIN_CONFIGURATION_FILE.equals(line)) {
                         continue;
                     }
                     if (MAIN_WEB_INDEX_PATH.equals(line)) {
@@ -2595,7 +2621,7 @@ public class DynmapCore implements DynmapCommonAPI {
                 	continue;
                 }
                 n = n.substring("extracted/".length());
-                if (MAIN_CONFIGURATION_FILE.equals(n)) {
+                if (MAIN_CONFIGURATION_FILE.equals(n) || LEGACY_MAIN_CONFIGURATION_FILE.equals(n)) {
                     continue;
                 }
                 // If file is going to web path, redirect it to the configured web

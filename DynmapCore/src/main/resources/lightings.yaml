@@ -1,7 +1,7 @@
 version: ${version}
 #
 # This file contains default standard lighting profiles.  The contents of this file CAN need to be replaced and updated
-# during upgrades, so new or updated lighting definitions should be done in the custom-lightings.txt file
+# during upgrades, so new or updated lighting definitions should be done in the custom-lightings.yaml file
 #
 lightings:
     # Default lighting - no effects, shadows, day/night

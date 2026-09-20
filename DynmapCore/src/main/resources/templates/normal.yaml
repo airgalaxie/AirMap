@@ -1,12 +1,12 @@
 version: 1.9
 #
-# Default template for "The End" environment worlds
+# Default template for "Normal" environment worlds
 #
-#   This file MAY need to be replaced during an upgrade - rename file to 'custom-the_end-vlowres.txt' if you wish to customize it
+#   This file MAY need to be replaced during an upgrade - rename file to 'custom-normal-vlowres.yaml' if you wish to customize it
 #
 templates:
-  # The End world template
-  the_end:
+  # Template for normal world
+  normal:
     enabled: true
     # Number of extra zoom-out levels for world (each level is twice as big as the previous one)
     extrazoomout: 2
@@ -25,12 +25,20 @@ templates:
         # Adjust extra zoom in levels - default is 2
         mapzoomin: 2
       - class: org.dynmap.hdmap.HDMap
-        name: the_end
+        name: surface
         title: "Surface"
-        prefix: st
+        prefix: t
         perspective: iso_SE_60_vlowres
         shader: defaultscheme
         lighting: default
         # Adjust extra zoom in levels - default is 2
         mapzoomin: 2
-            
+      - class: org.dynmap.hdmap.HDMap
+        name: cave
+        title: "Cave"
+        prefix: ct
+        perspective: iso_SE_60_vlowres
+        shader: cave
+        lighting: default
+        # Adjust extra zoom in levels - default is 2
+        mapzoomin: 2

@@ -46,9 +46,9 @@ tasks {
             listOf(
             "core.yml",
             "airmap-minecraft-version.properties",
-            "lightings.txt",
-            "perspectives.txt",
-            "shaders.txt",
+            "lightings.yaml",
+            "perspectives.yaml",
+            "shaders.yaml",
             "extracted/web/version.js",
             "extracted/web/index.html"
                 )) {

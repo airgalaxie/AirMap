@@ -1,7 +1,7 @@
 ### ---------------------------------------------------------------------------
 ### BASE PATHS
 ### ---------------------------------------------------------------------------
-### All paths in this configuration file are relative to Dynmap's data-folder: minecraft_server/plugins/dynmap/
+### All paths in this configuration file are relative to Fabric AirMap's data folder: minecraft_server/AirMap/
 
 ### The path where the tile-files are placed.
 tilespath: web/tiles
@@ -28,17 +28,17 @@ importpath: import
 ### ---------------------------------------------------------------------------
 ### All map templates are defined in the templates directory
 ### To use the HDMap very-low-res (2 ppb) map templates as world defaults, set value to vlowres
-###   The definitions of these templates are in normal-vlowres.txt, nether-vlowres.txt, and the_end-vlowres.txt
+###   The definitions of these templates are in normal-vlowres.yaml, nether-vlowres.yaml, and the_end-vlowres.yaml
 ### To use the HDMap low-res (4 ppb) map templates as world defaults, set value to lowres
-###   The definitions of these templates are in normal-lowres.txt, nether-lowres.txt, and the_end-lowres.txt
+###   The definitions of these templates are in normal-lowres.yaml, nether-lowres.yaml, and the_end-lowres.yaml
 ### To use the HDMap hi-res (16 ppb) map templates (these can take a VERY long time for initial fullrender), set value to hires
-###   The definitions of these templates are in normal-hires.txt, nether-hires.txt, and the_end-hires.txt
+###   The definitions of these templates are in normal-hires.yaml, nether-hires.yaml, and the_end-hires.yaml
 ### To use the HDMap low-res (4 ppb) map templates, with support for boosting resolution selectively to hi-res (16 ppb), set value to low_boost_hi
-###   The definitions of these templates are in normal-low_boost_hi.txt, nether-low_boost_hi.txt, and the_end-low_boost_hi.txt
+###   The definitions of these templates are in normal-low_boost_hi.yaml, nether-low_boost_hi.yaml, and the_end-low_boost_hi.yaml
 ### To use the HDMap hi-res (16 ppb) map templates, with support for boosting resolution selectively to vhi-res (32 ppb), set value to hi_boost_vhi
-###   The definitions of these templates are in normal-hi_boost_vhi.txt, nether-hi_boost_vhi.txt, and the_end-hi_boost_vhi.txt
+###   The definitions of these templates are in normal-hi_boost_vhi.yaml, nether-hi_boost_vhi.yaml, and the_end-hi_boost_vhi.yaml
 ### To use the HDMap hi-res (16 ppb) map templates, with support for boosting resolution selectively to xhi-res (64 ppb), set value to hi_boost_xhi
-###   The definitions of these templates are in normal-hi_boost_xhi.txt, nether-hi_boost_xhi.txt, and the_end-hi_boost_xhi.txt
+###   The definitions of these templates are in normal-hi_boost_xhi.yaml, nether-hi_boost_xhi.yaml, and the_end-hi_boost_xhi.yaml
 deftemplatesuffix: hires
 
 ### Set default tile scale (0 = 128px x 128x, 1 = 256px x 256px, 2 = 512px x 512px, 3 = 1024px x 1024px, 4 = 2048px x 2048px) - 0 is default
@@ -46,16 +46,13 @@ deftemplatesuffix: hires
 #defaulttilescale: 0
 
 ### Default image format for HDMaps (png, jpg, jpg-q75, jpg-q80, jpg-q85, jpg-q90, jpg-q95, jpg-q100, webp, webp-q75, webp-q80, webp-q85, webp-q90, webp-q95, webp-q100, webp-l),
-### A valid configured value is used exactly as set - AirMap does not optimize quality or prefer webp on its own.
-### Any webp format requires the external tools cwebp and dwebp (https://developers.google.com/speed/webp/download), found on the PATH
-### or configured below via cwebpPath/dwebpPath. If they are not available, AirMap logs a warning and falls back to the existing
-### 'png' format. There is no fallback format besides png.
-### This setting only applies to maps using 'image-format: default' - explicit per-map image-format settings are always respected.
+### Note: any webp format requires the presence of the 'webp command line tools' (cwebp, dwebp) (https://developers.google.com/speed/webp/download)
+### Has no effect on maps with explicit format settings
 ### Default active in this fork: webp-q80
 image-format: webp-q80
 
-### If cwebp and dwebp are not found on the PATH, set these to their full paths so webp can be used - both tools are required.
-### Do not use these settings if the tools are already on the PATH. For Windows, include .exe
+### If cwebp or dwebp are not on the PATH, use these settings to provide their full path.  Do not use these settings if the tools are on the PATH
+### For Windows, include .exe
 #cwebpPath: /usr/bin/cwebp
 #dwebpPath: /usr/bin/dwebp
 
@@ -109,7 +106,7 @@ storage:
 ### The TCP-port the internal static webserver will listen on.
 webserver-port: 8123
 
-### Maximum concurrent session on internal web server - limits resources used in Bukkit server
+### Maximum concurrent sessions on the internal web server
 max-sessions: 30
 
 ### Disables the internal static webserver. External web server deployments can set this to true.
@@ -357,6 +354,7 @@ grayplayerswhenhidden: true
 ### Use player permissions to order player list: first to last, players are ordered by first permission listed that they have
 ### That is, anyone with first listed permission goes before anyone with second, etc, with users with none of the nodes going last
 player-sort-permission-nodes:
+  ### Legacy example; replace with a permission node provided by the Fabric server's permission setup.
   - bukkit.command.op
 
 ### If true, make persistent record of IP addresses used by player logins, to support web IP to player matching
@@ -551,10 +549,8 @@ verbose: false
 ### Debug: dump blocks missing render data
 dump-missing-blocks: false
 
-### Have dynmap migrate old chunks to the new format for the current MC version (specifically, for migrating pre-1.13 chunks to 1.13 or 1.14).  This is needed
-### in order to render chunks on an upgraded server (due to various bugs/limitations in CB/spigot 1.13+).  This setting is NOT suggested to be enabled full time,
-### but only long enough to do a fullrender of a migrated world - it should be turned back off once worlds are migrated).  It is EXPERIMENTAL, so be sure to backup
-### your worlds before running with this setting enabled (set to true)
+### Legacy chunk-migration option retained for configuration compatibility.
+### Do not enable it on Fabric unless the current platform adapter explicitly documents support.
 #migrate-chunks: true
 
 ### Log4J defense: string substituted for attempts to use macros in web chat

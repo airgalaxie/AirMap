@@ -92,7 +92,7 @@ public final class MinecraftClientResources {
     private static void requireDownloadPermission(String requiredVersion, boolean acceptDownload) throws IOException {
         if (acceptDownload) return;
         String message = "Minecraft client download requires explicit permission. "
-                + "Set 'accept-minecraft-client-download: true' in configuration.txt "
+                + "Set 'accept-minecraft-client-download: true' in configuration.yaml "
                 + "to permit AirMap to download the required Minecraft client resources "
                 + "from the official Mojang/Microsoft source. "
                 + "The required Minecraft client " + requiredVersion + " is missing or unusable.";

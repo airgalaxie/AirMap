@@ -104,16 +104,17 @@ etc) - Removal of Postgres and S3 storage types
 
 ## Configuration and Platform Notes
 
--   **Configuration:** Dynmap's configuration is primarily managed
-    through `configuration.txt` and related files in the platform data
-    folder. General upstream configuration guidance still applies, with
+-   **Configuration:** AirMap's configuration is primarily managed
+    through `configuration.yaml` and related YAML files in the platform data
+    folder. Existing `.txt` configuration files remain supported. General
+    upstream configuration guidance still applies, with
     the canonical world-ID and storage-migration differences documented
     below.
 -   **Minecraft client resources:** AirMap uses Minecraft client resources
     for current Vanilla models and textures. New installations contain
     `accept-minecraft-client-download: false`; setting it to `true` permits
     AirMap to download the resources required by this build from the official
-    Mojang/Microsoft source. Existing `configuration.txt` files are not
+    Mojang/Microsoft source. Existing configuration files are not
     automatically extended with new options, so operators upgrading an older
     installation must explicitly add the key when a download is needed. A
     missing key means that download permission has not been granted. A matching
@@ -234,7 +235,7 @@ Existing configuration remains supported, but deployments that directly
 reference historical world-derived filenames or tile directories must
 account for the storage-ID migration. Advanced deployments that route
 live data through a reverse proxy or another endpoint can override these
-URLs in `configuration.txt`:
+URLs in `configuration.yaml`:
 
 ``` yaml
 url:

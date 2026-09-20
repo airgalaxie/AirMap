@@ -1,14 +1,14 @@
 version: 0.20
 #
-# Default template for "The End" environment worlds (deftemplatesuffix="hi_boost_xhi")
+# Default template for "The End" environment worlds (deftemplatesuffix="hi_boost_vhi")
 #  Uses the HDMap renderer with view from the SE with the "hires" resolution (16 pixels per block edge), with resolution boosted
-#  tiles rendered at 'xhires' resolution (64 pixels perblock edge)
+#  tiles rendered at 'vhires' resolution (32 pixels perblock edge)
 #
-#   This file MAY need to be replaced during an upgrade - rename file to 'custom-the_end-hi_boost_vhi.txt' if you wish to customize it
+#   This file MAY need to be replaced during an upgrade - rename file to 'custom-the_end-hi_boost_vhi.yaml' if you wish to customize it
 #
 templates:
-  # The End world template (HDMap hires with xhires boost)
-  the_end-hi_boost_xhi:
+  # The End world template (HDMap hires with vhires boost)
+  the_end-hi_boost_vhi:
     enabled: true
     # Number of extra zoom-out levels for world (each level is twice as big as the previous one)
     extrazoomout: 2
@@ -20,7 +20,7 @@ templates:
         perspective: iso_S_90_lowres
         shader: stdtexture
         lighting: brightnight
-        mapzoomin: 5
+        mapzoomin: 4
       - class: org.dynmap.hdmap.HDMap
         name: the_end
         title: "Surface"
@@ -28,6 +28,6 @@ templates:
         perspective: iso_SE_30_hires
         shader: stdtexture
         lighting: brightnight
-        mapzoomin: 3
-        boostzoom: 2
+        mapzoomin: 2
+        boostzoom: 1
         

@@ -15,18 +15,18 @@ minecraft = "26.3"
 # Versionskennung, die der Ziel-Server zur Laufzeit meldet (Fabric Loader); abweichend zur Build-Version erlaubt
 minecraftRuntime = "26.3"
 fabricLoader = "0.19.5"
-fabricApi = "0.160.6+26.3"
+fabricApi = "0.161.0+26.3"
 fabricLoom = "1.18+"
 jsr305 = "3.0.2"
 fabricPermissionsApi = "0.7.0"
-snakeYaml = "2.6" # upgrade From 1.23
+snakeYaml = "2.7" # upgrade From 1.23
 owaspHtmlSanitizer = "20260313.1"
 gson = "2.14.0"
 luckperms = "5.5"
 vault = "1.7.1"
 groupManager = "2.10.1"
 mariadbJavaClient = "3.5.10"
-junit = "5.13.4"
+junit = "5.14.4"
 
 [libraries]
 fabricLoader = { group = "net.fabricmc", name = "fabric-loader", version.ref = "fabricLoader" }

@@ -3,7 +3,7 @@ version: 0.24
 # Default template for "Normal" environment worlds (deftemplatesuffix="vlowres")
 #  Uses the HDMap renderer with view from the SE with the "vlowres" resolution (2 pixels per block edge)
 #
-#   This file MAY need to be replaced during an upgrade - rename file to 'custom-normal-vlowres.txt' if you wish to customize it
+#   This file MAY need to be replaced during an upgrade - rename file to 'custom-normal-vlowres.yaml' if you wish to customize it
 #
 templates:
   # Template for normal world (HDMap vlowres)

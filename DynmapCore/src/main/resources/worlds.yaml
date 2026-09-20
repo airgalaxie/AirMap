@@ -2,7 +2,7 @@
 #
 # NOTES:
 #   All lines here are commented with the # symbol - delete the # symbol on copied lines you wish to enable
-#   Definitions of a world made here will superecede any world definition with the same name in configuration.txt
+#   Definitions of a world made here will superecede any world definition with the same name in configuration.yaml
 #   Deleting this file will result in a fresh copy being produced by dynmap.jar on the next startup.
 #   Use the canonical Minecraft registry ID without a leading slash (namespace:path).
 #   Names such as world, DIM-1 and DIM1 are legacy aliases and should not be used for new entries.
