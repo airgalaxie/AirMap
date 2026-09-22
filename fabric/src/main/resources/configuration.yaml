@@ -92,8 +92,8 @@ storage:
   #password: dynmap
   #prefix: ""
   #flags: "?allowReconnect=true"
-  ### Optional MariaDB JDBC driver loading.
-  #driver-jar: "drivers/mariadb-java-client-3.5.10.jar"
+  ### Optional MariaDB JDBC driver loading. Replace <version> with the filename shipped by the build or supplied locally.
+  #driver-jar: "drivers/mariadb-java-client-<version>.jar"
   #driver-class: "org.mariadb.jdbc.Driver"
 
 ### ---------------------------------------------------------------------------
