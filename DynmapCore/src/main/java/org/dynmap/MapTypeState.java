@@ -79,6 +79,20 @@ public class MapTypeState {
         }
         return match;
     }
+
+    /**
+     * Atomically take one active invalidation.  Invalidations arriving in the
+     * pending buffers while this method runs are deliberately left intact.
+     */
+    boolean popNextInvalidTileCoord(TileFlags.TileCoord coord) {
+        synchronized(invTileLock) {
+            if (!invTilesIter.next(coord)) {
+                return false;
+            }
+            invTiles.setFlag(coord.x, coord.y, false);
+            return true;
+        }
+    }
     
     public void validateTile(int tx, int ty) {
         synchronized(invTileLock) {

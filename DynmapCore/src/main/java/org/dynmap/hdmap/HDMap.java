@@ -230,13 +230,18 @@ public class HDMap extends MapType {
     }
 
     /* Get maps rendered concurrently with this map in this world */
+    boolean sharesRenderWork(HDMap other) {
+        return other.perspective == this.perspective && other.boostzoom == this.boostzoom
+                && other.tilescale == this.tilescale;
+    }
+
     @Override
     public List<MapType> getMapsSharingRender(DynmapWorld w) {
         ArrayList<MapType> maps = new ArrayList<>();
         for(MapType mt : w.maps) {
             if(mt instanceof HDMap) {
                 HDMap hdmt = (HDMap)mt;
-                if((hdmt.perspective == this.perspective) && (hdmt.boostzoom == this.boostzoom)) {  /* Same perspective */
+                if(sharesRenderWork(hdmt)) {
                     maps.add(hdmt);
                 }
             }
@@ -251,7 +256,7 @@ public class HDMap extends MapType {
         for(MapType mt : w.maps) {
             if(mt instanceof HDMap) {
                 HDMap hdmt = (HDMap)mt;
-                if((hdmt.perspective == this.perspective)  && (hdmt.boostzoom == this.boostzoom)) {  /* Same perspective */
+                if(sharesRenderWork(hdmt)) {
                     if(hdmt.lighting.isNightAndDayEnabled())
                         lst.add(hdmt.getName() + "(night/day)");
                     else

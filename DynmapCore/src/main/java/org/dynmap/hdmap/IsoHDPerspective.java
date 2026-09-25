@@ -15,7 +15,6 @@ import org.dynmap.Log;
 import org.dynmap.MapManager;
 import org.dynmap.MapTile;
 import org.dynmap.MapType;
-import org.dynmap.MapTypeState;
 import org.dynmap.hdmap.TexturePack.BlockTransparency;
 import org.dynmap.markers.impl.MarkerAPIImpl;
 import org.dynmap.renderer.DynmapBlockState;
@@ -1162,13 +1161,6 @@ public class IsoHDPerspective implements HDPerspective {
             isOpaque[i] = !shaderstate[i].getMap().getImageFormat().getEncoding().hasAlpha;
             bgday[i] = shaderstate[i].getMap().getBackgroundARGBDay();
             bgnight[i] = shaderstate[i].getMap().getBackgroundARGBNight();
-        }
-        // Mark the tiles we're going to render as validated
-        for (int i = 0; i < numshaders; i++) {
-            MapTypeState mts = world.getMapState(shaderstate[i].getMap());
-            if (mts != null && mts.type.isReadOnly() == false) {
-                mts.validateTile(tile.tx, tile.ty);
-            }
         }
         /* Create perspective state object */
         OurPerspectiveState ps = new OurPerspectiveState(mapiter, isnether, scaled);        

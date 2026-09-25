@@ -128,6 +128,7 @@ public class MapManager {
     /* Thread pool for processing renders */
     private DynmapScheduledThreadPoolExecutor render_pool;
     private static final int POOL_SIZE = 3;    
+    private final TileRenderCoordinator tileRenderCoordinator = new TileRenderCoordinator();
 
     /* Touch event queues */
     private static class TouchEvent {
@@ -792,8 +793,39 @@ public class MapManager {
         }
 
         private boolean processTile(MapTile tile, long tstart, int parallelcnt) {
+            if (tile0 != null) {
+                TileRenderCoordinator.UpdateResult coordinated = tileRenderCoordinator.executeUpdate(tile,
+                        () -> renderTile(tile, null, false));
+                if (coordinated.requeue) {
+                    tileQueue.push(tile);
+                }
+                return coordinated.result.continueRender;
+            }
+
+            boolean skipTile = isStoredResumeTile(tile);
+            TileRenderCoordinator.WorkResult result;
+            if (skipTile) {
+                result = renderTile(tile, mapname, true);
+            }
+            else {
+                result = tileRenderCoordinator.executeFull(tile, mapname,
+                        () -> renderTile(tile, mapname, false));
+            }
+            applyFullRenderResult(tile, result, skipTile, tstart);
+            return result.continueRender;
+        }
+
+        private boolean isStoredResumeTile(MapTile tile) {
+            if (!resume) return false;
+            String tileId = String.format("%s_%s_%d_%d", tile.world.getName(), map.getName(),
+                    tile.tileOrdinalX(), tile.tileOrdinalY());
+            return storedTileIds.contains(tileId);
+        }
+
+        private TileRenderCoordinator.WorkResult renderTile(MapTile tile, String renderMapName, boolean skipTile) {
             /* Get list of chunks required for tile */
             List<DynmapChunk> requiredChunks = tile.getRequiredChunks();
+            boolean insideRenderLimits = true;
             /* If we are doing radius limit render, see if any are inside limits */
             if(cxmin != Integer.MIN_VALUE) {
                 boolean good = false;
@@ -803,7 +835,10 @@ public class MapManager {
                         break;
                     }
                 }
-                if(!good) requiredChunks = Collections.emptyList();
+                if(!good) {
+                    requiredChunks = Collections.emptyList();
+                    insideRenderLimits = false;
+                }
             }
             /* Fetch chunk cache from server thread */
             MapChunkCache cache = core.getServer().createMapChunkCache(world, requiredChunks, tile.isBlockTypeDataNeeded(), 
@@ -812,93 +847,79 @@ public class MapManager {
             if(cache == null) {
                 /* If world unloaded, don't cancel */
                 if(world.isLoaded() == false) {
-                    return true;
+                    return new TileRenderCoordinator.WorkResult(true, false, false, false, 0L, false);
                 }
-                return false; /* Cancelled/aborted */
+                return new TileRenderCoordinator.WorkResult(false, false, false, false, 0L, false);
             }
-            /* Update stats */
-            chunk_caches_created.incrementAndGet();
-            for (MapChunkCache.ChunkStats cs : MapChunkCache.ChunkStats.values()) {
-                chunks_read[cs.ordinal()].addAndGet(cache.getChunksLoaded(cs));
-                chunks_read_times[cs.ordinal()].addAndGet(cache.getTotalRuntimeNanos(cs));
-            }
-
-            boolean skipTile = false;
-            if (resume) {
-                String tileId = String.format("%s_%s_%d_%d", tile.world.getName(), map.getName(), tile.tileOrdinalX(), tile.tileOrdinalY());
-                skipTile = storedTileIds.contains(tileId);
-            }
-
-            if(tile0 != null) {    /* Single tile? */
-                if(cache.isEmpty() == false) {
-                    if (skipTile) {
-                        skipcnt++;
-                    } else {
-                        tile.render(cache, null);
-                    }
+            try {
+                /* Update stats */
+                chunk_caches_created.incrementAndGet();
+                for (MapChunkCache.ChunkStats cs : MapChunkCache.ChunkStats.values()) {
+                    chunks_read[cs.ordinal()].addAndGet(cache.getChunksLoaded(cs));
+                    chunks_read_times[cs.ordinal()].addAndGet(cache.getTotalRuntimeNanos(cs));
                 }
+
+                boolean hasData = !cache.isEmpty();
+                boolean updated = false;
+                long renderNanos = 0L;
+                boolean renderCalled = false;
+                if (hasData && !skipTile) {
+                    long rt0 = System.nanoTime();
+                    updated = tile.render(cache, renderMapName);
+                    renderNanos = System.nanoTime() - rt0;
+                    renderCalled = true;
+                }
+                return new TileRenderCoordinator.WorkResult(true, !skipTile && insideRenderLimits,
+                        hasData, updated,
+                        renderNanos, renderCalled);
+            } finally {
+                cache.unloadChunks();
             }
-            else {
-        		/* Remove tile from tile queue, since we're processing it already */
-            	tileQueue.remove(tile);
-                /* Switch to not checking if rendered tile is blank - breaks us on skylands, where tiles can be nominally blank - just work off chunk cache empty */
-                if (cache.isEmpty() == false) {
-                    boolean upd;
-                    if (skipTile) {
-                        upd = false;
-                        skipcnt++;
-                    } else {
-                        long rt0 = System.nanoTime();
-                        upd = tile.render(cache, mapname);
-                        total_render_ns.addAndGet(System.nanoTime()-rt0);
-                        rendercalls.incrementAndGet();
-                    }
-                    synchronized(lock) {
-                        rendered.setFlag(tile.tileOrdinalX(), tile.tileOrdinalY(), true);
-                        if(upd || (!updaterender)) {    /* If updated or not an update render */
-                            /* Add adjacent unrendered tiles to queue */
-                            for (MapTile adjTile : map.getAdjecentTiles(tile)) {
-                                if (!found.getFlag(adjTile.tileOrdinalX(),adjTile.tileOrdinalY())) {
-                                    found.setFlag(adjTile.tileOrdinalX(), adjTile.tileOrdinalY(), true);
-                                    renderQueue.add(adjTile);
-                                }
-                            }
+        }
+
+        private void applyFullRenderResult(MapTile tile, TileRenderCoordinator.WorkResult result,
+                boolean skipTile, long tstart) {
+            if (!result.hasData) return;
+            if (skipTile) skipcnt++;
+            if (result.renderCalled) {
+                total_render_ns.addAndGet(result.renderNanos);
+                rendercalls.incrementAndGet();
+            }
+            synchronized(lock) {
+                rendered.setFlag(tile.tileOrdinalX(), tile.tileOrdinalY(), true);
+                if(result.updated || (!updaterender)) {
+                    for (MapTile adjTile : map.getAdjecentTiles(tile)) {
+                        if (!found.getFlag(adjTile.tileOrdinalX(),adjTile.tileOrdinalY())) {
+                            found.setFlag(adjTile.tileOrdinalX(), adjTile.tileOrdinalY(), true);
+                            renderQueue.add(adjTile);
                         }
                     }
                 }
-                synchronized(lock) {
-                    if(!cache.isEmpty()) {
-                        rendercnt++;
-                        timeaccum += System.currentTimeMillis() - tstart;
-                        if (((rendercnt % progressinterval) == 0) && (!quiet)) {
-                            int rndcalls = rendercalls.get();
-                            if (rndcalls == 0) rndcalls = 1;
-                            double rendtime = total_render_ns.doubleValue() * 0.000001 / rndcalls;
-                            double msecpertile = (double)timeaccum / (double)rendercnt / (double)activemapcnt;
-                            if(activemapcnt > 1) {
-                                if (skipcnt > 1)
-                                    sendMessage(String.format("%s of maps [%s] of '%s' in progress - %d tiles rendered each (%.2f msec/map-tile, %.2f msec per render) (%d tiles skipped)",
-                                            rendertype, activemaps, world.getName(), rendercnt, msecpertile, rendtime, skipcnt));
-                                else
-                                    sendMessage(String.format("%s of maps [%s] of '%s' in progress - %d tiles rendered each (%.2f msec/map-tile, %.2f msec per render)",
-                                            rendertype, activemaps, world.getName(), rendercnt, msecpertile, rendtime));
-                            } else {
-                                if (skipcnt > 1)
-                                    sendMessage(String.format("%s of map '%s' of '%s' in progress - %d tiles rendered (%.2f msec/tile, %.2f msec per render) (%d tiles skipped)",
-                                            rendertype, activemaps, world.getName(), rendercnt, msecpertile, rendtime, skipcnt));
-                                else
-                                    sendMessage(String.format("%s of map '%s' of '%s' in progress - %d tiles rendered (%.2f msec/tile, %.2f msec per render)",
-                                            rendertype, activemaps, world.getName(), rendercnt, msecpertile, rendtime));
-                            }
-                            skipcnt = 0;
-                        }
+                rendercnt++;
+                timeaccum += System.currentTimeMillis() - tstart;
+                if (((rendercnt % progressinterval) == 0) && (!quiet)) {
+                    int rndcalls = rendercalls.get();
+                    if (rndcalls == 0) rndcalls = 1;
+                    double rendtime = total_render_ns.doubleValue() * 0.000001 / rndcalls;
+                    double msecpertile = (double)timeaccum / (double)rendercnt / (double)activemapcnt;
+                    if(activemapcnt > 1) {
+                        if (skipcnt > 1)
+                            sendMessage(String.format("%s of maps [%s] of '%s' in progress - %d tiles rendered each (%.2f msec/map-tile, %.2f msec per render) (%d tiles skipped)",
+                                    rendertype, activemaps, world.getName(), rendercnt, msecpertile, rendtime, skipcnt));
+                        else
+                            sendMessage(String.format("%s of maps [%s] of '%s' in progress - %d tiles rendered each (%.2f msec/map-tile, %.2f msec per render)",
+                                    rendertype, activemaps, world.getName(), rendercnt, msecpertile, rendtime));
+                    } else {
+                        if (skipcnt > 1)
+                            sendMessage(String.format("%s of map '%s' of '%s' in progress - %d tiles rendered (%.2f msec/tile, %.2f msec per render) (%d tiles skipped)",
+                                    rendertype, activemaps, world.getName(), rendercnt, msecpertile, rendtime, skipcnt));
+                        else
+                            sendMessage(String.format("%s of map '%s' of '%s' in progress - %d tiles rendered (%.2f msec/tile, %.2f msec per render)",
+                                    rendertype, activemaps, world.getName(), rendercnt, msecpertile, rendtime));
                     }
+                    skipcnt = 0;
                 }
             }
-            /* And unload what we loaded */
-            cache.unloadChunks();
-            
-            return true;
         }
         
         public void cancelRender() {
@@ -1118,16 +1139,21 @@ public class MapManager {
                         continue;
                     }
 
-                    if(mts.getNextInvalidTileCoord(coord)) {
+                    if(mts.popNextInvalidTileCoord(coord)) {
                         mts.type.addMapTiles(tiles, w, coord.x, coord.y);
-                        mts.validateTile(coord.x, coord.y);
                     }
                 }
             }
             if(tiles.size() == 0) {
                 return;
             }
+            ArrayList<MapTile> queuedTiles = new ArrayList<MapTile>();
             for(MapTile mt : tiles) {
+                if (tileRenderCoordinator.requestUpdate(mt)) {
+                    queuedTiles.add(mt);
+                }
+            }
+            for (MapTile mt : queuedTiles) {
                 tileQueue.push(mt);
                 cnt--;
             }
@@ -1342,6 +1368,14 @@ public class MapManager {
                         if (mt.world != world) {
                             tileQueue.push(mt); // Push tiles for worlds other than the one we're purging
                         }
+                        else {
+                            tileRenderCoordinator.cancelUpdate(mt);
+                        }
+                    }
+                }
+                else {
+                    for (MapTile mt : popped) {
+                        tileRenderCoordinator.cancelUpdate(mt);
                     }
                 }
                 popped.clear();
@@ -1521,7 +1555,7 @@ public class MapManager {
                 for(ConfigurationNode tile : tiles) {
                     MapTile mt = MapTile.restoreTile(w, tile);  /* Restore tile, if possible */
                     if(mt != null) {
-                        if(tileQueue.push(mt)) {
+                        if(tileRenderCoordinator.requestUpdate(mt) && tileQueue.push(mt)) {
                             cnt++;
                         }
                     }
@@ -1587,6 +1621,9 @@ public class MapManager {
             }
             if (keepQueue) {
                 tileQueue.push(tile);
+            }
+            else {
+                tileRenderCoordinator.cancelUpdate(tile);
             }
         }
         int cnt = savedtiles.size();
