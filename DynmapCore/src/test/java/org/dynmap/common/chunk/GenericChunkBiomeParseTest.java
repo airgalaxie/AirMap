@@ -15,7 +15,11 @@ import org.dynmap.utils.MapChunkCache;
 import org.dynmap.utils.VisibilityLimit;
 import org.junit.jupiter.api.Test;
 
-/** Replicates 26.3-style chunk NBT (sections/block_states/biomes palettes) headlessly. */
+/**
+ * Replicates chunk NBT headlessly, covering the paletted container shapes of 26.3
+ * (sampled 4x4x4 "noise_biomes" only) and 26.4 (authoritative 16x16x16 "biomes"
+ * next to the noise sample).
+ */
 class GenericChunkBiomeParseTest {
     private static final DynmapWorld WORLD = new DynmapWorld("test", 384, 63, -64) {
         @Override public boolean isNether() { return false; }
@@ -156,6 +160,149 @@ class GenericChunkBiomeParseTest {
         assertNotNull(chunk, "chunk must parse");
         assertEquals(BiomeMap.PLAINS, chunk.getBiome(0, 72, 0), "even biome cells must be plains");
         assertEquals(BiomeMap.FOREST, chunk.getBiome(4, 72, 0), "odd biome cells must be forest");
+    }
+
+    @Test
+    void fullResolutionBiomeContainerIsSampledDownToFourByFourByFour() {
+        GenericMapChunkCache cache = cache();
+        // A two entry palette needs one bit, so 4096 cells occupy exactly 64 longs.
+        // Every fourth z layer gets the forest biome.
+        long[] data = new long[64];
+        for (int c = 0; c < 4096; c++) {
+            if ((c & 64) != 0) {
+                data[c >> 6] |= (1L << (c & 63));
+            }
+        }
+        FakeCompound biomes = biomePalette("minecraft:plains", "minecraft:forest");
+        biomes.put("data", data);
+        FakeCompound section = new FakeCompound().put("Y", (byte) 4)
+                .put("block_states", blockStatePalette("minecraft:stone"))
+                .put("biomes", biomes);
+        GenericChunk chunk = cache.parseChunkFromNBT(chunkNbt(section));
+        assertNotNull(chunk, "chunk must parse");
+        assertEquals(BiomeMap.PLAINS, chunk.getBiome(0, 72, 0), "z layer 0 must sample to plains");
+        assertEquals(BiomeMap.FOREST, chunk.getBiome(0, 72, 4), "z layer 1 must sample to forest");
+        assertEquals(BiomeMap.FOREST, chunk.getBiome(4, 72, 4), "z layer 1 must not depend on the x offset");
+        assertEquals(BiomeMap.PLAINS, chunk.getBiome(12, 72, 0), "z layer 0 must not depend on the x offset");
+    }
+
+    @Test
+    void fullResolutionBiomeContainerReadsWiderPalettes() {
+        GenericMapChunkCache cache = cache();
+        // Three bits over 4096 cells: 196 longs, which matches no 64 cell layout.
+        // Every 4x4x4 sample shares the palette index of its first block.
+        long[] data = new long[196];
+        for (int c = 0; c < 4096; c++) {
+            int bit = c * 3;
+            int value = (c >> 2) & 7;
+            data[bit >> 6] |= ((long) value) << (bit & 63);
+            if ((bit & 63) > 61) {
+                data[(bit >> 6) + 1] |= ((long) value) >>> (64 - (bit & 63));
+            }
+        }
+        FakeCompound biomes = biomePalette("minecraft:plains", "minecraft:forest", "minecraft:desert",
+                "minecraft:swamp", "minecraft:snowy_plains", "minecraft:taiga", "minecraft:jungle", "minecraft:savanna");
+        biomes.put("data", data);
+        FakeCompound section = new FakeCompound().put("Y", (byte) 4)
+                .put("block_states", blockStatePalette("minecraft:stone"))
+                .put("biomes", biomes);
+        GenericChunk chunk = cache.parseChunkFromNBT(chunkNbt(section));
+        assertNotNull(chunk, "chunk must parse");
+        assertEquals(BiomeMap.PLAINS, chunk.getBiome(0, 72, 0), "x column 0 must resolve to palette index 0");
+        assertEquals(BiomeMap.FOREST, chunk.getBiome(4, 72, 0), "x column 1 must resolve to palette index 1");
+        assertEquals(BiomeMap.DESERT, chunk.getBiome(8, 72, 0), "x column 2 must resolve to palette index 2");
+        assertEquals(BiomeMap.SWAMPLAND, chunk.getBiome(12, 72, 0), "x column 3 must resolve to palette index 3");
+    }
+
+    @Test
+    void fullResolutionBiomeContainerIsPreferredOverNoiseSample() {
+        GenericMapChunkCache cache = cache();
+        long[] sampled = new long[1];
+        for (int j = 0; j < 64; j++) {
+            if ((j & 1) == 1) sampled[0] |= (1L << j);
+        }
+        FakeCompound noiseBiomes = biomePalette("minecraft:plains", "minecraft:forest");
+        noiseBiomes.put("data", sampled);
+        FakeCompound biomes = biomePalette("minecraft:desert");
+        biomes.put("data", new long[64]);
+        FakeCompound section = new FakeCompound().put("Y", (byte) 4)
+                .put("block_states", blockStatePalette("minecraft:stone"))
+                .put("noise_biomes", noiseBiomes)
+                .put("biomes", biomes);
+        GenericChunk chunk = cache.parseChunkFromNBT(chunkNbt(section));
+        assertNotNull(chunk, "chunk must parse");
+        assertEquals(BiomeMap.DESERT, chunk.getBiome(0, 72, 0), "biomes must win over noise_biomes");
+        assertEquals(BiomeMap.DESERT, chunk.getBiome(4, 72, 0), "biomes must win over noise_biomes");
+    }
+
+    @Test
+    void noiseSampleIsUsedWhenFullResolutionIsAbsent() {
+        GenericMapChunkCache cache = cache();
+        long[] sampled = new long[1];
+        for (int j = 0; j < 64; j++) {
+            if ((j & 1) == 1) sampled[0] |= (1L << j);
+        }
+        FakeCompound noiseBiomes = biomePalette("minecraft:plains", "minecraft:forest");
+        noiseBiomes.put("data", sampled);
+        FakeCompound section = new FakeCompound().put("Y", (byte) 4)
+                .put("block_states", blockStatePalette("minecraft:stone"))
+                .put("noise_biomes", noiseBiomes);
+        GenericChunk chunk = cache.parseChunkFromNBT(chunkNbt(section));
+        assertNotNull(chunk, "chunk must parse");
+        assertEquals(BiomeMap.PLAINS, chunk.getBiome(0, 72, 0), "noise_biomes must be used on its own");
+        assertEquals(BiomeMap.FOREST, chunk.getBiome(4, 72, 0), "noise_biomes must be used on its own");
+    }
+
+    @Test
+    void noiseSampleIsUsedWhenFullResolutionIsUnreadable() {
+        GenericMapChunkCache cache = cache();
+        // Seven longs match neither layout of a one bit palette, so the full resolution
+        // container is reported as unreadable and the noise sample takes over.
+        FakeCompound biomes = biomePalette("minecraft:plains", "minecraft:forest");
+        biomes.put("data", new long[7]);
+        long[] sampled = new long[1];
+        for (int j = 0; j < 64; j++) {
+            if ((j & 1) == 1) sampled[0] |= (1L << j);
+        }
+        FakeCompound noiseBiomes = biomePalette("minecraft:desert", "minecraft:snowy_plains");
+        noiseBiomes.put("data", sampled);
+        FakeCompound section = new FakeCompound().put("Y", (byte) 4)
+                .put("block_states", blockStatePalette("minecraft:stone"))
+                .put("noise_biomes", noiseBiomes)
+                .put("biomes", biomes);
+        GenericChunk chunk = cache.parseChunkFromNBT(chunkNbt(section));
+        assertNotNull(chunk, "chunk must parse");
+        assertEquals(BiomeMap.DESERT, chunk.getBiome(0, 72, 0), "unreadable biomes must fall back to noise_biomes");
+        assertEquals(BiomeMap.SNOWY_PLAINS, chunk.getBiome(4, 72, 0), "unreadable biomes must fall back to noise_biomes");
+    }
+
+    @Test
+    void paletteIndexOutOfRangeFallsBackToFirstEntry() {
+        GenericMapChunkCache cache = cache();
+        // Three entries need two bits, so the storage can legitimately hold index 3.
+        long[] data = new long[2];
+        data[0] = 3;
+        FakeCompound biomes = biomePalette("minecraft:plains", "minecraft:forest", "minecraft:desert");
+        biomes.put("data", data);
+        FakeCompound section = new FakeCompound().put("Y", (byte) 4)
+                .put("block_states", blockStatePalette("minecraft:stone"))
+                .put("biomes", biomes);
+        GenericChunk chunk = cache.parseChunkFromNBT(chunkNbt(section));
+        assertNotNull(chunk, "chunk must parse");
+        assertEquals(BiomeMap.PLAINS, chunk.getBiome(0, 72, 0), "index past the palette must not resolve to a null biome");
+    }
+
+    @Test
+    void unreadableBiomeLayoutIsReportedNotCrashing() {
+        GenericMapChunkCache cache = cache();
+        // Seven longs match neither the 64 nor the 4096 cell layout of a one bit palette.
+        FakeCompound biomes = biomePalette("minecraft:plains", "minecraft:forest");
+        biomes.put("data", new long[7]);
+        FakeCompound section = new FakeCompound().put("Y", (byte) 4)
+                .put("block_states", blockStatePalette("minecraft:stone"))
+                .put("biomes", biomes);
+        GenericChunk chunk = cache.parseChunkFromNBT(chunkNbt(section));
+        assertNotNull(chunk, "chunk with an unreadable biome container must still parse");
     }
 
     @Test

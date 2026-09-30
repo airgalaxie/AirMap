@@ -53,22 +53,18 @@ public class FabricMapChunkCache extends GenericMapChunkCache {
     }
 
     protected GenericChunk getLoadedChunk(DynmapChunk chunk) {
-        GenericChunk gc = null;
         if ((cps != null) && cps.hasChunk(chunk.x, chunk.z)) {
-            CompoundTag nbt = null;
             try {
                 LevelChunk levelChunk = cps.getChunkNow(chunk.x, chunk.z);
                 if (levelChunk != null) {
-                    nbt = SerializableChunkData.copyOf((ServerLevel) w, levelChunk).write();
+                    CompoundTag nbt = SerializableChunkData.copyOf((ServerLevel) w, levelChunk).write();
+                    return parseChunkFromNBT(new NBT.NBTCompound(nbt));
                 }
-            } catch (NullPointerException e) {
-                Log.severe("SerializableChunkData.copyOf threw a NullPointerException", e);
-            }
-            if (nbt != null) {
-            	gc = parseChunkFromNBT(new NBT.NBTCompound(nbt));
+            } catch (RuntimeException e) {
+                Log.severe(String.format("Error snapshotting loaded chunk: %d,%d", chunk.x, chunk.z), e);
             }
         }
-        return gc;
+        return null;
     }
 
     private CompoundTag readChunk(int x, int z) {
@@ -89,12 +85,15 @@ public class FabricMapChunkCache extends GenericMapChunkCache {
     }
 
     protected GenericChunk loadChunk(DynmapChunk chunk) {
-        GenericChunk gc = null;
         CompoundTag nbt = readChunk(chunk.x, chunk.z);
-        // If read was good
-        if (nbt != null) {
-            gc = parseChunkFromNBT(new NBT.NBTCompound(nbt));
+        if (nbt == null) {
+            return null;
         }
-        return gc;
+        try {
+            return parseChunkFromNBT(new NBT.NBTCompound(nbt));
+        } catch (RuntimeException e) {
+            Log.severe(String.format("Error parsing stored chunk: %d,%d", chunk.x, chunk.z), e);
+            return null;
+        }
     }
 }

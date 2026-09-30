@@ -34,7 +34,25 @@ public class NBT {
 		}
 		@Override
 		public boolean contains(String s, int i) {
-			return obj.contains(s);
+			String key = resolveKey(s);
+			Tag tag = obj.get(key);
+			if (tag == null) {
+				return false;
+			}
+			int type = tag.getId();
+			if (type == i) {
+				return true;
+			}
+			if (i != TAG_ANY_NUMERIC) {
+				return false;
+			}
+			return type >= TAG_BYTE && type <= TAG_DOUBLE;
+		}
+		private String resolveKey(String s) {
+			if ("Properties".equals(s) && obj.contains("properties")) {
+				return "properties";
+			}
+			return s;
 		}
 		@Override
 		public byte getByte(String s) {

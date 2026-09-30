@@ -22,9 +22,10 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Feeds a real Minecraft 26.3 region-file chunk through GenericMapChunkCache.parseChunkFromNBT
- * and verifies that surface grass resolves to grass_block[snowy=false] with a resolvable
- * (non-NULL) biome - the production failure mode behind snow-looking untinted grass.
+ * Feeds a real Minecraft region-file chunk (26.3 or 26.4) through
+ * GenericMapChunkCache.parseChunkFromNBT and verifies that surface grass resolves to
+ * grass_block[snowy=false] with a resolvable (non-NULL) biome - the production failure
+ * mode behind snow-looking untinted grass.
  */
 class Real263ChunkParseTest {
 
@@ -203,6 +204,17 @@ class Real263ChunkParseTest {
         }
     }
 
+    /** The status key was written as "Status" up to 26.3 and as "status" from 26.4 on. */
+    private static String getStringIgnoreCase(Map<String, Object> root, String name) {
+        for (Map.Entry<String, Object> entry : root.entrySet()) {
+            if (name.equalsIgnoreCase(entry.getKey())) {
+                Object v = entry.getValue();
+                return (v instanceof NbtString s) ? s.value() : String.valueOf(v);
+            }
+        }
+        return null;
+    }
+
     @Test
     void realChunkKeepsGrassUntintedStateAndResolvableBiomes() throws Exception {
         Assumptions.assumeTrue(REGION != null && !REGION.isBlank(), "AIRMAP_REAL_REGION_FILE not set");
@@ -257,8 +269,7 @@ class Real263ChunkParseTest {
                 if (data == null) continue;
                 Map<String, Object> root;
                 try { root = readRoot(data); } catch (Exception e) { continue; }
-                Object stv = root.get("Status");
-                String status = (stv instanceof NbtString s) ? s.value() : String.valueOf(stv);
+                String status = getStringIgnoreCase(root, "Status");
                 lastStatus = status;
                 if (!status.endsWith(":full")) continue;
                 GenericChunk chunk = cache.parseChunkFromNBT(new MapCompound(root));

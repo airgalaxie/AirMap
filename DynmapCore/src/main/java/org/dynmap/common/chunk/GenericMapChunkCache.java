@@ -1060,6 +1060,138 @@ public abstract class GenericMapChunkCache extends MapChunkCache {
 
 	private static final String litStates[] = { "light", "spawn", "heightmaps", "full" };
 
+	/**
+	 * Read a tag by name, ignoring case. The chunk status was written as "Status" up
+	 * to 26.3 and as "status" from 26.4 on, and the light heuristics below depend on
+	 * recognizing it.
+	 */
+	private static String getStringIgnoreCase(GenericNBTCompound nbt, String name) {
+		for (String key : nbt.getAllKeys()) {
+			if (key.equalsIgnoreCase(name)) {
+				return nbt.getString(key);
+			}
+		}
+		return "";
+	}
+
+	/** Number of biome cells in a sampled (4x4x4) biome container */
+	private static final int BIOME_CELLS = 64;
+	/** Number of biome cells in a full resolution (16x16x16) biome container */
+	private static final int BIOME_CELLS_FULL = 4096;
+
+	private static int storageLength(int bits, int count) {
+		int valuesPerLong = Long.SIZE / bits;
+		return (count + valuesPerLong - 1) / valuesPerLong;
+	}
+
+	/**
+	 * Decode a paletted biome container into 64 palette indices in YZX order.
+	 *
+	 * A section carries up to two containers since 26.4: "biomes" holds the
+	 * authoritative per-block data and "noise_biomes" the noise generator sample.
+	 * Their cell counts follow the encoding strategy Minecraft builds them with -
+	 * "biomes" uses four bits per axis (16x16x16, 4096 cells) and "noise_biomes"
+	 * two (4x4x4, 64 cells). Both shapes have to be understood here, and the full
+	 * resolution container is sampled down to the 4x4x4 grid the builder expects.
+	 *
+	 * The on-disk format carries no bit width, so it is derived from the palette
+	 * size: both strategies only use linear configurations up to four bits, and
+	 * for those the stored width is exactly ceil(log2(palette size)). The entry
+	 * count is not stored either and is recovered from the length of the long
+	 * array, which is unambiguous because the two shapes never need the same
+	 * number of longs for the same width.
+	 *
+	 * Returns null if the container cannot be decoded, so the caller can try the
+	 * other container or report it.
+	 */
+	private static int[] decodeBiomeIndices(GenericNBTCompound container, int paletteSize, int cx, int cz) {
+		if (paletteSize <= 0) return null;
+		int bits = Integer.SIZE - Integer.numberOfLeadingZeros(paletteSize - 1);
+		long[] data = container.getLongArray("data");
+		if ((bits == 0) || (data.length == 0)) {
+			// Single entry palette: Minecraft omits the data array entirely
+			return new int[BIOME_CELLS];
+		}
+		int count;
+		if (storageLength(bits, BIOME_CELLS) == data.length) {
+			count = BIOME_CELLS;
+		}
+		else if (storageLength(bits, BIOME_CELLS_FULL) == data.length) {
+			count = BIOME_CELLS_FULL;
+		}
+		else {
+			Log.severe(String.format("Biome container of chunk (%d,%d) has unknown layout: %d longs, %d bit palette",
+					cx, cz, data.length, bits));
+			return null;
+		}
+
+		GenericBitStorage storage;
+		try {
+			storage = container.makeBitStorage(bits, count, data);
+		} catch (RuntimeException e) {
+			Log.severe(String.format("Biome container of chunk (%d,%d) is unreadable: %d longs, %d bit palette",
+					cx, cz, data.length, bits), e);
+			return null;
+		}
+
+		int[] indices = new int[BIOME_CELLS];
+		for (int y = 0; y < 4; y++) {
+			for (int z = 0; z < 4; z++) {
+				for (int x = 0; x < 4; x++) {
+					// A full resolution container stores one cell per block, so every axis is
+					// sampled four times further apart. Both offsets mirror the YZX layout of
+					// Strategy.getIndex, (y << 2 * bitsPerAxis) | (z << bitsPerAxis) | x.
+					int source = (count == BIOME_CELLS) ? ((y << 4) | (z << 2) | x) : ((y << 10) | (z << 6) | (x << 2));
+					indices[(y << 4) | (z << 2) | x] = storage.get(source);
+				}
+			}
+		}
+		return indices;
+	}
+
+	/**
+	 * Read the biome palette of one section into the builder. "biomes" is the
+	 * authoritative container and is preferred; "noise_biomes" is only used when it
+	 * is absent or cannot be decoded, so an unexpected full resolution layout still
+	 * leaves the section tinted from the noise sample.
+	 * Returns false when the section carries no readable biome container, so the
+	 * caller can fall back to the legacy formats.
+	 */
+	private static boolean readSectionBiomes(GenericChunkSection.Builder sbld, GenericNBTCompound sec, int x, int z) {
+		int[] indices = null;
+		GenericNBTList bpalette = null;
+		for (String key : new String[] { "biomes", "noise_biomes" }) {
+			if (!sec.contains(key, GenericNBTCompound.TAG_COMPOUND)) {
+				continue;
+			}
+			GenericNBTCompound container = sec.getCompound(key);
+			if (!container.contains("palette", GenericNBTCompound.TAG_LIST)) {
+				continue;
+			}
+			GenericNBTList candidate = container.getList("palette", GenericNBTCompound.TAG_STRING);
+			int[] decoded = decodeBiomeIndices(container, candidate.size(), x, z);
+			if (decoded != null) {
+				indices = decoded;
+				bpalette = candidate;
+				break;
+			}
+		}
+		if ((indices == null) || (bpalette == null)) {
+			return false;
+		}
+		int paletteSize = bpalette.size();
+		for (int j = 0; j < BIOME_CELLS; j++) {
+			int b = indices[j];
+			// An index outside the palette resolves to BiomeMap.NULL, which zeroes
+			// the grass color multiplier and shades the whole area flat grey.
+			if ((b < 0) || (b >= paletteSize)) {
+				b = 0;
+			}
+			sbld.xyzBiome(j & 0x3, (j & 0x30) >> 4, (j & 0xC) >> 2, BiomeMap.byBiomeResourceLocation(bpalette.getString(b)));
+		}
+		return true;
+	}
+
 	static DynmapBlockState getPaletteBlockState(GenericNBTCompound tc) {
 		String nameKey = tc.contains("id") ? "id" : "Name";
 		String propertiesKey = tc.contains("properties") ? "properties" : "Properties";
@@ -1086,7 +1218,7 @@ public abstract class GenericMapChunkCache extends MapChunkCache {
 			nbt = nbt.getCompound("Level");
 		}
 		if (nbt == null) return null;
-		String status = nbt.getString("Status");
+		String status = getStringIgnoreCase(nbt, "Status");
 		int version = orignbt.getInt("DataVersion");
 		boolean lit = nbt.getBoolean("isLightOn");
 		boolean hasLitState = false;
@@ -1227,12 +1359,18 @@ public abstract class GenericMapChunkCache extends MapChunkCache {
         			int bitsperblock = (statelist.length * 64) / 4096;
         			int expectedStatelistLength = (4096 + (64 / bitsperblock) - 1) / (64 / bitsperblock);
         			if (statelist.length == expectedStatelistLength) {
-        				db = nbt.makeBitStorage(bitsperblock, 4096, statelist);
+        				try {
+        					db = nbt.makeBitStorage(bitsperblock, 4096, statelist);
+        				} catch (RuntimeException e) {
+        					Log.severe(String.format("Block state storage of chunk (%d,%d) is unreadable: %d longs, %d bits",
+        							x, z, statelist.length, bitsperblock), e);
+        				}
         			}
         			else {
 		            	bitsperblock = (statelist.length * 64) / 4096;
-	            		dbp = new DataBitsPacked(bitsperblock, 4096, statelist);
+	            	dbp = new DataBitsPacked(bitsperblock, 4096, statelist);
         			}
+
 					sbld.xyzBlockStatePalette(palette);	// Set palette
 					if (db != null) {
 						// Loop through section (yzx order)
@@ -1257,22 +1395,11 @@ public abstract class GenericMapChunkCache extends MapChunkCache {
             	sbld.skyLight(sec.getByteArray("SkyLight"));
             	hasLight = true;
             }
-			// If section biome palette
-			if (sec.contains("biomes")) {
+			// Section biome palette. 1.18+ uses paletted containers, and 26.4 splits
+			// them into the per-block "biomes" and the sampled "noise_biomes".
+			if (readSectionBiomes(sbld, sec, x, z)) {
 				sawBiomeData = true;
-                GenericNBTCompound nbtbiomes = sec.getCompound("biomes");
-                long[] bdataPacked = nbtbiomes.getLongArray("data");
-                GenericNBTList bpalette = nbtbiomes.getList("palette", 8);
-                GenericBitStorage bdata = null;
-                if (bdataPacked.length > 0) {
-                	int valsPerLong = (64 / bdataPacked.length);
-                    bdata = nbt.makeBitStorage((64 + valsPerLong - 1) / valsPerLong, 64, bdataPacked);
-                }
-                for (int j = 0; j < 64; j++) {
-                    int b = bdata != null ? bdata.get(j) : 0;
-                    sbld.xyzBiome(j & 0x3, (j & 0x30) >> 4, (j & 0xC) >> 2, BiomeMap.byBiomeResourceLocation(bpalette.getString(b)));
-                }
-            }
+			}
 			else {	// Else, apply legacy biomes
 				if (old3d != null) {
 					BiomeMap m[] = old3d.get((secnum > 0) ? ((secnum < old3d.size()) ? secnum : old3d.size()-1) : 0);

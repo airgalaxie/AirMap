@@ -167,23 +167,10 @@ public class NBT {
 	}
 	public static class OurBitStorage implements GenericBitStorage {
 		private final SimpleBitStorage bs;
+		// The caller owns the bit width. NBT does not store it, and it is not always a
+		// divisor of 64, so it must not be guessed from the array length here.
 		public OurBitStorage(int bits, int count, long[] data) {
-			bs = new SimpleBitStorage(serializedBits(bits, count, data.length), count, data);
-		}
-		private static int serializedBits(int requestedBits, int count, int dataLength) {
-			if (count != 64 || dataLength == 0) {
-				return requestedBits;
-			}
-			// Biome containers have 64 entries.  Their on-disk longs pack only whole
-			// values, so four longs represent 3-bit values (21 per long), not 4-bit
-			// values.  Recover the serialized width before exposing them to Core.
-			for (int bits = 1; bits <= 32; bits++) {
-				int valuesPerLong = 64 / bits;
-				if ((count + valuesPerLong - 1) / valuesPerLong == dataLength) {
-					return bits;
-				}
-			}
-			return requestedBits;
+			bs = new SimpleBitStorage(bits, count, data);
 		}
 		@Override
 		public int get(int idx) {
