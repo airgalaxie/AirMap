@@ -63,7 +63,7 @@ paper {
     provides = listOf("dynmap")
     main = "org.dynmap.bukkit.DynmapPlugin"
 
-    // Das Plugin behält intern die originale, saubere Version ohne Datums-Suffix
+    // The plugin keeps the original, clean version internally, without a date suffix
     version = "${project.version}"
 
     apiVersion = paperApiVersion

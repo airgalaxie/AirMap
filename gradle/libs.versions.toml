@@ -7,16 +7,16 @@ javaBuild = "26"
 javaTarget = "25"
 shadow = "9.6.1"
 dynmap = "3.8"
-# Versionsbezeichnung des eigenständigen Paper-Adapters (JAR-Name + paper-plugin.yml)
+# Version string of the standalone Paper adapter (JAR name + paper-plugin.yml)
 airmapPaper = "2.0.1-26.3"
-# Paper-Plattform: zentrale Versionsdefinition für den Adapter
+# Paper platform: central version definition for the adapter
 paper = "26.3.build.+"
 paperweightUserdev = "2.0.0-beta.23"
 pluginYmlPaper = "0.9.0"
 # Fabric
 minecraft = "26.4-snapshot-2"
-# Versionskennung, die der Ziel-Server zur Laufzeit meldet (Fabric Loader); abweichend zur Build-Version erlaubt
-minecraftRuntime = "26.4-alpha.2" # -alpha.x: Kennung des Alpha-Builds
+# Version id the target server reports at runtime (Fabric Loader); may differ from the build version
+minecraftRuntime = "26.4-alpha.2" # -alpha.x: id of the alpha build
 fabricLoader = "0.19.5"
 fabricApi = "0.161.2+26.4"
 fabricLoom = "1.18+"
