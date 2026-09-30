@@ -423,6 +423,17 @@ public class DynmapCore implements DynmapCommonAPI {
         configuration.load();
         acceptMinecraftClientDownload = configuration.getBoolean("accept-minecraft-client-download", false);
 
+        // Resolve consent and required client resources before starting storage,
+        // web, renderer, or map-manager initialization.
+        try {
+            getMinecraftResourceProvider();
+        } catch (IllegalStateException exception) {
+            if (exception.getCause() instanceof MinecraftClientResources.DownloadNotPermittedException) {
+                return false;
+            }
+            throw exception;
+        }
+
         // Read web path
         webpath = configuration.getString("webpath", "web");
         // And whether to disable web file update

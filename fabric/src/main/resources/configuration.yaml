@@ -15,6 +15,8 @@ update-webpath-files: true
 
 # Allow AirMap to download the required Minecraft client resources
 # from the official Mojang/Microsoft source.
+# If the resources required by this build are missing and this stays false,
+# AirMap reports the reason and disables itself instead of starting.
 accept-minecraft-client-download: false
 
 ### The path were the /dynmapexp command exports OBJ ZIP files

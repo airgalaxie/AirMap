@@ -81,7 +81,9 @@ implementations remain in the core.
     installation must explicitly add the key when a download is needed. A
     missing key means that download permission has not been granted. A matching
     local client resource that passes the existing validation is reused
-    regardless of this setting.
+    regardless of this setting. When the required resources are missing and no
+    download permission has been granted, AirMap reports the reason and disables
+    itself instead of starting with incomplete models and textures.
 -   **Webserver Default:** The Dynmap webserver configuration is
     present, and the bundled default configuration follows the original
     Dynmap default with `disable-webserver: false`. Deploy the generated
