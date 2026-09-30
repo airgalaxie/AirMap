@@ -62,6 +62,7 @@ public class DynmapPlugin {
     DynmapCore core;
     private PermissionProvider permissions;
     private boolean core_enabled;
+    private boolean configurationInitialized;
     public GenericChunkCache sscache;
     public PlayerList playerList;
     MapManager mapManager;
@@ -247,7 +248,7 @@ public class DynmapPlugin {
 
     private void serverStarted(MinecraftServer server) {
         this.onStart();
-        if (core != null) {
+        if (core_enabled) {
             core.serverStarted();
         }
     }
@@ -390,6 +391,7 @@ public class DynmapPlugin {
     }
 
     public void onEnable() {
+        configurationInitialized = false;
         /* Get MC version */
         String mcver = SharedConstants.getCurrentVersion().id();
 
@@ -452,6 +454,7 @@ public class DynmapPlugin {
         File filepermexample = new File(core.getDataFolder(), "permissions.yml.example");
         core.createDefaultFileFromResource("/permissions.yml.example", filepermexample);
 
+        configurationInitialized = true;
         DynmapCommonAPIListener.apiInitialized(core);
     }
 
@@ -474,6 +477,9 @@ public class DynmapPlugin {
     }
 
     public void onStart() {
+        if (!configurationInitialized) {
+            return;
+        }
         initializeBlockStates();
         /* Enable core */
         if (!core.enableCore(null)) {
@@ -534,14 +540,21 @@ public class DynmapPlugin {
         //	metrics = null;
         //}
         /* Save worlds */
-        saveLevels();
+        if (core != null && core.getMapManager() != null) {
+            saveLevels();
+        }
 
         /* Purge tick queue */
-        fserver.clearTaskQueue();
+        if (fserver != null) {
+            fserver.clearTaskQueue();
+        }
 
         /* Disable core */
-        core.disableCore();
+        if (core != null) {
+            core.disableCore();
+        }
         core_enabled = false;
+        configurationInitialized = false;
 
         if (sscache != null) {
             sscache.cleanup();
