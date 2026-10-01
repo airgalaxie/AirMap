@@ -132,6 +132,39 @@ class GenericChunkBiomeParseTest {
         return cache;
     }
 
+    private static void setNibble(byte[] data, int x, int y, int z, int value) {
+        int index = (y << 8) | (z << 4) | x;
+        int byteIndex = index >> 1;
+        if ((index & 1) == 0) {
+            data[byteIndex] = (byte) ((data[byteIndex] & 0xF0) | value);
+        }
+        else {
+            data[byteIndex] = (byte) ((data[byteIndex] & 0x0F) | (value << 4));
+        }
+    }
+
+    @Test
+    void namespacedFullStatusPreservesPersistedSkyAndBlockLight() {
+        GenericMapChunkCache cache = cache();
+        byte[] skyLight = new byte[2048];
+        byte[] blockLight = new byte[2048];
+        setNibble(skyLight, 3, 8, 5, 2);
+        setNibble(blockLight, 3, 8, 5, 11);
+        FakeCompound section = new FakeCompound().put("Y", (byte) 4)
+                .put("block_states", blockStatePalette("minecraft:stone"))
+                .put("biomes", biomePalette("minecraft:plains"))
+                .put("SkyLight", skyLight)
+                .put("BlockLight", blockLight);
+        FakeCompound nbt = chunkNbt(section).put("isLightOn", true);
+
+        GenericChunk chunk = cache.parseChunkFromNBT(nbt);
+
+        assertNotNull(chunk, "chunk must parse");
+        assertEquals("minecraft:full", chunk.chunkStatus, "status metadata must remain unchanged");
+        assertEquals(2, chunk.getBlockSkyLight(3, 72, 5), "persisted sky light must not be regenerated");
+        assertEquals(11, chunk.getBlockEmittedLight(3, 72, 5), "propagated block light must remain available");
+    }
+
     @Test
     void singleBiomePaletteResolvesEverywhere() {
         GenericMapChunkCache cache = cache();

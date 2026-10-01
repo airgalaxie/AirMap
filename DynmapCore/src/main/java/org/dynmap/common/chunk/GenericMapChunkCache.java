@@ -1074,6 +1074,11 @@ public abstract class GenericMapChunkCache extends MapChunkCache {
 		return "";
 	}
 
+	private static String getRegistryPath(String key) {
+		int colon = key.indexOf(':');
+		return (colon >= 0) ? key.substring(colon + 1) : key;
+	}
+
 	/** Number of biome cells in a sampled (4x4x4) biome container */
 	private static final int BIOME_CELLS = 64;
 	/** Number of biome cells in a full resolution (16x16x16) biome container */
@@ -1223,8 +1228,9 @@ public abstract class GenericMapChunkCache extends MapChunkCache {
 		boolean lit = nbt.getBoolean("isLightOn");
 		boolean hasLitState = false;
 		if (status != null) {
+			String statusPath = getRegistryPath(status);
 			for (String litState : litStates) {
-				if (status.equals(litState)) {
+				if (statusPath.equals(litState)) {
 					hasLitState = true;
 				}
 			}
