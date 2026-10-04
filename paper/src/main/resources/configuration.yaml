@@ -236,9 +236,14 @@ components:
     use-player-login-ip: false
     require-player-login-ip: false
     block-banned-player-chat: true
-    hideifshadow: 0
-    hideifundercover: 0
+    ### Optional - make players hidden when they are inside/underground/in shadows (#=light level: 0=full shadow,15=sky)
+    hideifshadow: 4
+    ### Optional - make player hidden when they are under cover (#=sky light level,0=underground,15=open to sky)
+    hideifundercover: 14
+    ### (Optional) if true, players that are crouching/sneaking will be hidden
     hideifsneaking: false
+    ### optional, if true, players that are in spectator mode will be hidden
+    hideifspectator: false
     ### Web-to-server chat is disabled; these options are retained for configuration compatibility.
     webchat-requires-login: false
     ### If web-to-server chat is reintroduced, users would need dynmap.webchat permission when this is true.

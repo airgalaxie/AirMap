@@ -10,6 +10,9 @@ import org.dynmap.utils.LightLevels;
 
 public class ShadowHDLighting extends DefaultHDLighting {
 
+    private static final int BLOCK_LIGHT_FACTOR_NUMERATOR = 14;
+    private static final int BLOCK_LIGHT_FACTOR_DENOMINATOR = 10;
+
     protected final int   defLightingTable[];  /* index=skylight level, value = 256 * scaling value */
     protected final int   lightscale[];   /* scale skylight level (light = lightscale[skylight] */
     protected final boolean night_and_day;    /* If true, render both day (prefix+'-day') and night (prefix) tiles */
@@ -94,43 +97,40 @@ public class ShadowHDLighting extends DefaultHDLighting {
     private void applySmoothedLightToColor(Color out, Color incolor,
             LightLevels ll0, LightLevels ll1, LightLevels ll2,
             boolean useambient, int w1, int w2, int scale, int[] shadowscale) {
-        int lv0 = getLightLevel(ll0, useambient);
-        int lv1 = getLightLevel(ll1, useambient);
-        int weight = 0;
-        if(lv1 < lv0) weight -= w1;
-        else if(lv1 > lv0) weight += w1;
-        int lv2 = getLightLevel(ll2, useambient);
-        if(lv2 < lv0) weight -= w2;
-        else if(lv2 > lv0) weight += w2;
+        int c0 = getLightScale(ll0, useambient, shadowscale);
+        int c1 = getLightScale(ll1, useambient, shadowscale);
+        int c2 = getLightScale(ll2, useambient, shadowscale);
         out.setColor(incolor);
-        int cscale = computeSmoothedCscale(lv0, weight, scale, shadowscale);
+        int cscale = computeSmoothedCscale(c0, c1, c2, w1, w2, scale);
         if(cscale < 256) {
             out.scaleRGB(cscale);
         }
     }
 
-    /** Interpolate the shadow scale for a light level, blending toward the adjacent level by weight/scale. */
-    private int computeSmoothedCscale(int ll0, int weight, int scale, int[] shadowscale) {
-        if(weight == 0) {
-            return shadowscale[ll0];
-        }
-        if(weight < 0) {
-            weight = -weight;
-            return (ll0 > 0)
-                ? (shadowscale[ll0] * (scale - weight) + shadowscale[ll0 - 1] * weight) / scale
-                : shadowscale[ll0];
-        }
-        return (ll0 < 15)
-            ? (shadowscale[ll0] * (scale - weight) + shadowscale[ll0 + 1] * weight) / scale
-            : shadowscale[ll0];
+    /** Interpolate the complete light contribution from the two sampled neighbors. */
+    private int computeSmoothedCscale(int c0, int c1, int c2, int w1, int w2, int scale) {
+        int result = c0 + ((c1 - c0) * w1 + (c2 - c0) * w2) / scale;
+        return Math.max(0, Math.min(256, result));
     }
 
-    private int getLightLevel(final LightLevels ll, boolean useambient) {
-        int lightlevel = useambient ? lightscale[ll.sky] : ll.sky;
-        if(lightlevel < 15) {
-            lightlevel = Math.max(ll.emitted, lightlevel);
-        }
-        return lightlevel;
+    private int getLightScale(final LightLevels ll, boolean useambient, int[] shadowscale) {
+        int skylight = useambient ? lightscale[ll.sky] : ll.sky;
+        return computeLightScale(ll.emitted, skylight, shadowscale);
+    }
+
+    /**
+     * Combine sky and block light as a deterministic scalar approximation of
+     * Minecraft's lightmap: one ambient base plus separate sky and block
+     * contributions. The stable part of Minecraft's block-light factor is 1.4;
+     * client tint, flicker, and gamma are deliberately absent.
+     */
+    static int computeLightScale(int emitted, int skylight, int[] lightingTable) {
+        int ambient = lightingTable[0];
+        int skyContribution = Math.max(0, lightingTable[skylight] - ambient);
+        int blockContribution = Math.max(0, lightingTable[emitted] - ambient);
+        int boostedBlock = (blockContribution * BLOCK_LIGHT_FACTOR_NUMERATOR
+                + BLOCK_LIGHT_FACTOR_DENOMINATOR / 2) / BLOCK_LIGHT_FACTOR_DENOMINATOR;
+        return Math.min(256, ambient + skyContribution + boostedBlock);
     }
 
     /* Apply lighting to given pixel colors (1 outcolor if normal, 2 if night/day) */
@@ -148,27 +148,20 @@ public class ShadowHDLighting extends DefaultHDLighting {
         /* Non-smooth: fetch light levels and apply flat shadow */
         LightLevels ll = ps.getCachedLightLevels(0);
         ps.getLightLevels(ll);
-        int lightlevel = lightscale[ll.sky];   // apply ambient scale immediately
-        int lightlevel_day = ll.sky;
-        if((lightlevel < 15) || (lightlevel_day < 15)) {
-            int emitted = ll.emitted;
-            lightlevel     = Math.max(emitted, lightlevel);
-            lightlevel_day = Math.max(emitted, lightlevel_day);
-        }
+        int lightscaleNight = computeLightScale(ll.emitted, lightscale[ll.sky], shadowscale);
+        int lightscaleDay = computeLightScale(ll.emitted, ll.sky, shadowscale);
         outcolor[0].setColor(incolor);
-        if(lightlevel < 15) {
-            int s = shadowscale[lightlevel];
-            if(s < 256) outcolor[0].scaleRGB(s);
+        if(lightscaleNight < 256) {
+            outcolor[0].scaleRGB(lightscaleNight);
         }
         if(outcolor.length > 1) {
-            if(lightlevel_day == lightlevel) {
+            if(lightscaleDay == lightscaleNight) {
                 outcolor[1].setColor(outcolor[0]);
             }
             else {
                 outcolor[1].setColor(incolor);
-                if(lightlevel_day < 15) {
-                    int s = shadowscale[lightlevel_day];
-                    if(s < 256) outcolor[1].scaleRGB(s);
+                if(lightscaleDay < 256) {
+                    outcolor[1].scaleRGB(lightscaleDay);
                 }
             }
         }
