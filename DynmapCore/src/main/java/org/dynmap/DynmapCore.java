@@ -145,7 +145,7 @@ public class DynmapCore implements DynmapCommonAPI {
     private int perTickLimit = 50;   // 50 ms
     private boolean dumpMissing = false;
         
-    private int     config_hashcode;    /* Used to signal need to reload web configuration (world changes, config update, etc) */
+    private int     config_hashcode;    /* Used to signal changed web configuration (world changes, config update, etc) */
     private int fullrenderplayerlimit;  /* Number of online players that will cause fullrender processing to pause */
     private int updateplayerlimit;  /* Number of online players that will cause update processing to pause */
     private String publicURL;	// If set, public HRL for accessing dynmap (declared by administrator)
@@ -166,8 +166,6 @@ public class DynmapCore implements DynmapCommonAPI {
     private boolean did_cwebpPath_warn = false;
     private boolean did_dwebpPath_warn = false;
     
-    /* Flag to let code know that we're doing reload - make sure we don't double-register event handlers */
-    public boolean is_reload = false;
     public static boolean ignore_chunk_loads = false; /* Flag keep us from processing our own chunk loads */
 
     private MarkerAPIImpl   markerapi;
@@ -1624,11 +1622,7 @@ public class DynmapCore implements DynmapCommonAPI {
                 } else {
                     sender.sendMessage("World name is required");
                 }
-            } /*else if (c.equals("reload") && checkPlayerPermission(sender, "reload")) {
-                sender.sendMessage("Reloading AirMap...");
-                getServer().reload();
-                sender.sendMessage("AirMap reloaded");
-            } */else if (c.equals("stats") && checkPlayerPermission(sender, "stats")) {
+            } else if (c.equals("stats") && checkPlayerPermission(sender, "stats")) {
                 if(args.length == 1)
                     mapManager.printStats(sender, null);
                 else

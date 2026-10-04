@@ -281,7 +281,7 @@ public class MapManager {
                         }
                     }
                 });
-            } catch (RejectedExecutionException rxe) {  /* Pool shutdown - nominal for reload or unload */
+            } catch (RejectedExecutionException rxe) {  /* Pool shutdown - nominal for unload */
             }    
         }
         @Override
@@ -300,7 +300,7 @@ public class MapManager {
                     }
                 }, delay, unit);
             } catch (RejectedExecutionException rxe) {
-                return null;    /* Pool shut down when we reload or unload */
+                return null;    /* Pool shut down during unload */
             }
         }
     }
@@ -584,7 +584,7 @@ public class MapManager {
                 }
                 else if(pausedforworld) {
                     pausedforworld = false;
-                    Log.info("Unpaused " + rendertype + " for world '" + world.getName() + "' - world reloaded");
+                    Log.info("Unpaused " + rendertype + " for world '" + world.getName() + "' - world available again");
                 }
                 /* If render queue is empty, start next map */
                 if(renderQueue.isEmpty()) {
