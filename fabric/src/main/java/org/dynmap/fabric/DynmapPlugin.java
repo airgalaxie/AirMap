@@ -174,7 +174,9 @@ public class DynmapPlugin {
                 int lightAtten = bs.getLightDampening();
                 // Fill in base attributes
                 bld.setBaseState(basebs).setStateIndex(stateIndex).setBlockName(bn).setStateName(statename).setLegacyBlockID(idx).setAttenuatesLight(lightAtten);
-                if (bs.getSoundType() != null) { bld.setMaterial(bs.getSoundType().toString()); }
+                bld.setMaterial(bs.getSounds()
+                        .map(soundKey -> soundKey.identifier().toString())
+                        .orElse(""));
 				if (bs.isSolid()) { bld.setSolid(); }
 				if (bs.isAir()) { bld.setAir(); }
 				if (bs.is(BlockTags.LOGS)) { bld.setLog(); }
