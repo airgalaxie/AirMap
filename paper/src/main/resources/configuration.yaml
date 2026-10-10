@@ -408,6 +408,20 @@ skin-url: "http://skins.minecraft.net/MinecraftSkins/%player%.png"
 ### ---------------------------------------------------------------------------
 ### RENDERING / PERFORMANCE
 ### ---------------------------------------------------------------------------
+### Automatically tune AirMap renderer throughput for the available machine
+### and current server load. The controller considers TPS, process CPU load,
+### heap use and online player count. It only changes AirMap renderer limits
+### in memory and never rewrites this configuration file.
+### Values: conservative, normal, aggressive, true, false
+###   conservative: keeps more capacity available for Minecraft and recovers slowly
+###   normal: balanced default; dynamically increases or reduces renderer throughput
+###   aggressive: allows higher throughput and accepts a smaller performance reserve
+###   true: backward-compatible alias for normal
+###   false: disables runtime tuning and uses the configured performance values below
+### If this setting is absent or invalid, normal is used.
+### If a manual setting below is commented out, its built-in default is used.
+render-performance-auto: normal
+
 ### How often a tile gets rendered (in seconds).
 renderinterval: 1
 

@@ -52,6 +52,10 @@ mod.
 - **Rendering compatibility:** Palette data accepts both the legacy
   `Name`/`Properties` form and the current `id`/`properties` form. Tint
   handling distinguishes biome-tinted, constant-color and untinted leaves.
+- **Adaptive rendering performance:** AirMap can adjust renderer throughput at
+  runtime from server TPS, process CPU load, heap use, online player count and
+  the available processors. Conservative, normal and aggressive profiles let
+  operators choose how much capacity remains available for Minecraft.
 - **Web and storage maintenance:** Bundled web assets and SQL storage paths
   have been updated while preserving the external-server workflow.
 
@@ -94,6 +98,32 @@ implementations remain in the core.
     against the targets selected in the central catalog. Target changes can
     require source, mapping or API adaptations and must be verified on both
     platforms.
+
+## Automatic render performance
+
+New Paper and Fabric installations use the balanced runtime controller by
+default:
+
+``` yaml
+render-performance-auto: normal
+```
+
+The controller samples server TPS, AirMap's process CPU load, JVM heap use and
+the online player count. It adjusts tile queue timing, concurrent update-tile
+capacity, full-render delay and chunk loading in memory. Under critical load it
+also pauses full renders and zoom-out processing until the server recovers. It
+does not rewrite `configuration.yaml`.
+
+Available values are `conservative`, `normal`, `aggressive`, `true` and
+`false`. `true` is an alias for `normal`. Use `conservative` to retain more
+capacity for Minecraft, or `aggressive` to permit higher rendering throughput
+with a smaller reserve. Set the option to `false` to disable automatic tuning
+and use the manual rendering performance settings in `configuration.yaml`.
+
+Existing installations are not automatically given new configuration keys.
+When this option is absent, AirMap uses `normal`; add
+`render-performance-auto: false` when upgrading if the existing manual limits
+must remain authoritative.
 
 ## Dynmap compatibility documentation
 

@@ -1,6 +1,8 @@
 package org.dynmap;
 
 import java.io.File;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -57,8 +59,8 @@ public class MapManager {
     private final Map<String, DynmapWorld> worldAliasesLookup = new HashMap<String, DynmapWorld>();
     private final Set<String> ambiguousWorldAliases = new HashSet<String>();
     private DynmapCore core;
-    private long timeslice_int = 0; /* In milliseconds */
-    private int max_chunk_loads_per_tick = DEFAULT_CHUNKS_PER_TICK;
+    private volatile long timeslice_int = 0; /* In milliseconds */
+    private volatile int max_chunk_loads_per_tick = DEFAULT_CHUNKS_PER_TICK;
     private int parallelrendercnt = 0;
     private int progressinterval = 100;
     private int tileupdatedelay = 30;
@@ -77,9 +79,11 @@ public class MapManager {
     private double tpslimit_updaterenders = 18.0;
     private double tpslimit_fullrenders = 18.0;
     private double tpslimit_zoomout = 18.0;
-    private boolean tpspauseupdaterenders = false;
-    private boolean tpspausefullrenders = false;
-    private boolean tpspausezoomout = false;
+    private volatile boolean tpspauseupdaterenders = false;
+    private volatile boolean tpspausefullrenders = false;
+    private volatile boolean tpspausezoomout = false;
+    private final boolean automaticRenderPerformance;
+    private final RendererPerformanceController performanceController;
 
     // User enter/exit processing
     private static final int DEFAULT_ENTEREXIT_PERIOD = 1000;	// 1 second
@@ -1163,6 +1167,16 @@ public class MapManager {
     public MapManager(DynmapCore core, ConfigurationNode configuration) {
         this.core = core;
         mapman = this;
+        String performanceProfileValue = configuration.getString("render-performance-auto", "normal");
+        RendererPerformanceController.Profile performanceProfile =
+                RendererPerformanceController.Profile.fromConfig(performanceProfileValue);
+        if (!RendererPerformanceController.Profile.isValidConfigValue(performanceProfileValue)) {
+            Log.warning("Invalid render-performance-auto value '" + performanceProfileValue
+                    + "'; using 'normal'");
+        }
+        automaticRenderPerformance = performanceProfile != RendererPerformanceController.Profile.OFF;
+        performanceController = automaticRenderPerformance
+                ? new RendererPerformanceController(Runtime.getRuntime().availableProcessors(), performanceProfile) : null;
         
         chunks_read = new AtomicInteger[MapChunkCache.ChunkStats.values().length];
         chunks_read_times = new AtomicLong[MapChunkCache.ChunkStats.values().length];
@@ -1260,6 +1274,10 @@ public class MapManager {
         timeslice_int = (long)(configuration.getDouble("timesliceinterval", 0.0) * 1000);
         max_chunk_loads_per_tick = configuration.getInteger("maxchunkspertick", DEFAULT_CHUNKS_PER_TICK);
         if(max_chunk_loads_per_tick < 5) max_chunk_loads_per_tick = 5;
+        if (automaticRenderPerformance) {
+            applyAutomaticPerformanceSettings(performanceController.initialSettings(), false);
+            Log.info("Automatic render performance tuning enabled");
+        }
         /* Get zoomout processing periond in seconds */
         zoomout_period = configuration.getInteger("zoomoutperiod", DEFAULT_ZOOMOUT_PERIOD);
         if(zoomout_period < 5) zoomout_period = 5;
@@ -2078,12 +2096,57 @@ public class MapManager {
     }
     
     public void updateTPS(double tps) {
+        if (automaticRenderPerformance) {
+            long now = System.nanoTime();
+            if (!performanceController.shouldSample(now)) {
+                return;
+            }
+            RendererPerformanceController.Settings settings = performanceController.update(now, tps,
+                    getProcessCpuLoad(), getHeapUsage(), core.getServer().getCurrentPlayers());
+            if (settings != null) {
+                applyAutomaticPerformanceSettings(settings, true);
+            }
+            return;
+        }
         // Pause if needed for update renders
         tpspauseupdaterenders = (tps < tpslimit_updaterenders);
         // Pause if needed for fullrenders
         tpspausefullrenders = (tps < tpslimit_fullrenders);
         // Pause if needed for zoom out
         tpspausezoomout = (tps < tpslimit_zoomout);
+    }
+
+    private void applyAutomaticPerformanceSettings(RendererPerformanceController.Settings settings, boolean logChange) {
+        tileQueue.setPerformanceLimits(settings.renderIntervalMillis,
+                settings.acceleratedIntervalMillis, settings.updateTiles);
+        timeslice_int = settings.fullRenderIntervalMillis;
+        max_chunk_loads_per_tick = settings.chunksPerTick;
+        tpspauseupdaterenders = false;
+        tpspausefullrenders = settings.pauseFullRender;
+        tpspausezoomout = settings.pauseZoomOut;
+        if (logChange) {
+            Log.info("Automatic render performance level: " + settings.level.toString().toLowerCase()
+                    + " (update tiles=" + settings.updateTiles
+                    + ", fullrender delay=" + settings.fullRenderIntervalMillis + " ms"
+                    + ", chunks/tick=" + settings.chunksPerTick + ")");
+        }
+    }
+
+    private static double getHeapUsage() {
+        MemoryUsage heap = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+        long maximum = heap.getMax();
+        if (maximum <= 0) {
+            maximum = Runtime.getRuntime().maxMemory();
+        }
+        return maximum > 0 ? (double) heap.getUsed() / maximum : -1.0;
+    }
+
+    private static double getProcessCpuLoad() {
+        java.lang.management.OperatingSystemMXBean bean = ManagementFactory.getOperatingSystemMXBean();
+        if (bean instanceof com.sun.management.OperatingSystemMXBean) {
+            return ((com.sun.management.OperatingSystemMXBean) bean).getProcessCpuLoad();
+        }
+        return -1.0;
     }
     
     public boolean getTPSFullRenderPause() {

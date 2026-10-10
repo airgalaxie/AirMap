@@ -12,11 +12,11 @@ public class AsynchronousQueue<T> {
     private LinkedBlockingQueue<T> queue = new LinkedBlockingQueue<T>();
     private Set<T> set = new HashSet<T>();
     private Handler<T> handler;
-    private int dequeueTime;
-    private int accelDequeueTime;
+    private volatile int dequeueTime;
+    private volatile int accelDequeueTime;
     public int accelDequeueThresh;
     private int pendingcnt;
-    private int pendinglimit;
+    private volatile int pendinglimit;
     private boolean normalprio;
     
     public AsynchronousQueue(Handler<T> handler, int dequeueTime, int accelDequeueThresh, int accelDequeueTime, int pendinglimit, boolean normalprio) {
@@ -63,6 +63,15 @@ public class AsynchronousQueue<T> {
 
     public int size() {
         return set.size();
+    }
+
+    public void setPerformanceLimits(int dequeueTime, int accelDequeueTime, int pendinglimit) {
+        this.dequeueTime = Math.max(0, dequeueTime);
+        this.accelDequeueTime = Math.max(0, accelDequeueTime);
+        this.pendinglimit = Math.max(1, pendinglimit);
+        synchronized (lock) {
+            lock.notifyAll();
+        }
     }
 
     public List<T> popAll() {
