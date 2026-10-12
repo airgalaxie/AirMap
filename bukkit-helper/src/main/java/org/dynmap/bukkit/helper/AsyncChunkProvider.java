@@ -37,19 +37,26 @@ public class AsyncChunkProvider {
         return future;
     }
 
-    public synchronized Supplier<CompoundTag> getLoadedChunk(CraftWorld world, int x, int z) {
+    public Supplier<CompoundTag> getLoadedChunk(CraftWorld world, int x, int z) {
         if (!world.isChunkLoaded(x, z)) return () -> null;
         LevelChunk c = world.getHandle().getChunkIfLoaded(x, z);
         if (c == null) return () -> null;
-        if (currTick != MinecraftServer.currentTick) {
-            currTick = MinecraftServer.currentTick;
-            currChunks = 0;
+
+        boolean throttle;
+        synchronized (this) {
+            if (currTick != MinecraftServer.currentTick) {
+                currTick = MinecraftServer.currentTick;
+                currChunks = 0;
+            }
+            throttle = ++currChunks > MapManager.mapman.getMaxChunkLoadsPerTick();
         }
-        //we shouldn't stress main thread
-        if (++currChunks > MapManager.mapman.getMaxChunkLoadsPerTick()) {
+
+        if (throttle) {
             try {
-                Thread.sleep(25); //hold the lock so other threads also won't stress main thread
-            } catch (InterruptedException ignored) {}
+                Thread.sleep(25);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
         CompoundTag nbt = SerializableChunkData.copyOf(world.getHandle(), c).write();
         return () -> nbt;

@@ -13,9 +13,13 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 
 import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.plugin.configuration.PluginMeta;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
@@ -42,7 +46,6 @@ import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.block.LeavesDecayEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerBedLeaveEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -88,6 +91,9 @@ import org.dynmap.utils.VisibilityLimit;
 
 @SuppressWarnings("UnstableApiUsage")
 public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
+    private static final LegacyComponentSerializer LEGACY_COMPONENT_SERIALIZER = LegacyComponentSerializer.legacySection();
+    private static final PlainTextComponentSerializer PLAIN_TEXT_COMPONENT_SERIALIZER = PlainTextComponentSerializer.plainText();
+
     DynmapCore core;
     private PermissionProvider permissions;
     private String version;
@@ -268,9 +274,9 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
                 case PLAYER_CHAT:
                     pm.registerEvents(new Listener() {
                         @EventHandler(priority=EventPriority.MONITOR, ignoreCancelled=true)
-                        public void onPlayerChat(AsyncPlayerChatEvent evt) {
+                        public void onPlayerChat(AsyncChatEvent evt) {
                             final Player p = evt.getPlayer();
-                            final String msg = evt.getMessage();
+                            final String msg = PLAIN_TEXT_COMPONENT_SERIALIZER.serialize(evt.message());
                             getServer().getScheduler().scheduleSyncDelayedTask(DynmapPlugin.this, new Runnable() {
                                 public void run() {
                                     DynmapPlayer dp = null;
@@ -300,7 +306,9 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
                         public void onSignChange(SignChangeEvent evt) {
                             Block b = evt.getBlock();
                             Location l = b.getLocation();
-                            String[] lines = evt.getLines();    /* Note: changes to this change event - intentional */
+                            String[] lines = evt.lines().stream()
+                                    .map(LEGACY_COMPONENT_SERIALIZER::serialize)
+                                    .toArray(String[]::new);    /* Note: changes to this change event - intentional */
                             DynmapPlayer dp = null;
                             Player p = evt.getPlayer();
                             if(p != null) dp = new BukkitPlayer(p);
@@ -308,7 +316,10 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
                                 getWorld(l.getWorld()).getName(), l.getBlockX(), l.getBlockY(), l.getBlockZ(), lines, dp);
 
                             for (int i = 0; i < 4; i++) {
-                                evt.setLine(i, lines[i]);
+                                Component line = lines[i] == null
+                                        ? Component.empty()
+                                        : LEGACY_COMPONENT_SERIALIZER.deserialize(lines[i]);
+                                evt.line(i, line);
                             }
                         }
                     }, DynmapPlugin.this);
@@ -426,6 +437,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
         public BukkitPlayer(OfflinePlayer p) {
             super(null);
             offplayer = p;
+            uuid = p.getUniqueId();
         }
         @Override
         public boolean isConnected() {

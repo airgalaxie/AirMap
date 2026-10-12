@@ -222,24 +222,19 @@ public class BukkitWorld extends DynmapWorld {
                 if(!rf.getName().endsWith(".mca")) {
                     continue;
                 }
-                String[] parts = rf.getName().split("\\.");
-                if((!parts[0].equals("r")) && (parts.length != 4)) continue;
-                
-                RandomAccessFile rfile = null;
+                String[] parts = rf.getName().split("\\.", -1);
+                if((parts.length != 4) || (!parts[0].equals("r"))) continue;
+
                 int x = 0, z = 0;
-                try {
+                Arrays.fill(hdr, (byte) 0);
+                try (RandomAccessFile rfile = new RandomAccessFile(rf, "r")) {
                     x = Integer.parseInt(parts[1]);
                     z = Integer.parseInt(parts[2]);
-                    rfile = new RandomAccessFile(rf, "r");
-                    rfile.read(hdr, 0, hdr.length);
+                    rfile.readFully(hdr);
                 } catch (IOException iox) {
                     Arrays.fill(hdr,  (byte)0);
                 } catch (NumberFormatException nfx) {
                     Arrays.fill(hdr,  (byte)0);
-                } finally {
-                    if(rfile != null) {
-                        try { rfile.close(); } catch (IOException iox) {}
-                    }
                 }
                 for (int i = 0; i < 1024; i++) {
                     int v = hdr[4*i] | hdr[4*i + 1] | hdr[4*i + 2] | hdr[4*i + 3];
