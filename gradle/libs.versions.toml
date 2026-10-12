@@ -3,18 +3,18 @@
 # part of this name: it is declared by minecraftRuntime in fabric.mod.json, so the
 # 26.x suffix marks a runtime range rather than a build target.
 airmap = "2.1.0-26.x"
+# Version string of the standalone Paper adapter (JAR name + paper-plugin.yml)
+airmapPaper = "2.1.0-26.3"
 javaBuild = "26"
 javaTarget = "25"
 shadow = "9.6.1"
-dynmap = "3.9-SNAPSHOT"
-# Version string of the standalone Paper adapter (JAR name + paper-plugin.yml)
-airmapPaper = "2.1.0-26.3"
+dynmap = "3.9-SNAPSHOT" # Dynmap last version use by runtime
+minecraft = "26.4-snapshot-3" # Minecraft last Dev Version
 # Paper platform: central version definition for the adapter
 paper = "26.3.build.+"
 paperweightUserdev = "2.0.0-beta.23"
 pluginYmlPaper = "0.9.0"
 # Fabric
-minecraft = "26.4-snapshot-3"
 # Version id the target server reports at runtime (Fabric Loader); may differ from the build version
 minecraftRuntime = "26.4-alpha.3" # -alpha.x: id of the alpha build
 fabricLoader = "0.19.5"
