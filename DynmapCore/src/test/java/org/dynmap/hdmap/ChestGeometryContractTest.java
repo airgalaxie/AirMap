@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.Set;
 import org.dynmap.DynmapCore;
 import org.dynmap.renderer.DynmapBlockState;
+import org.dynmap.renderer.RenderPatchFactory.SideVisible;
 import org.dynmap.resources.MinecraftClientResources;
 import org.dynmap.utils.BlockStep;
 import org.dynmap.utils.PatchDefinition;
@@ -79,8 +80,8 @@ class ChestGeometryContractTest {
         switch (facing) {
             case "north": assertEquals(0.0, minZ(p), TOL, "north lock flush on north face"); break;
             case "south": assertEquals(1.0, maxZ(p), TOL, "south lock flush on south face"); break;
-            case "east":  assertEquals(0.0, minX(p), TOL, "east lock flush on east face"); break;
-            case "west":  assertEquals(1.0, maxX(p), TOL, "west lock flush on west face"); break;
+            case "east":  assertEquals(1.0, maxX(p), TOL, "east lock flush on east face"); break;
+            case "west":  assertEquals(0.0, minX(p), TOL, "west lock flush on west face"); break;
             default: throw new AssertionError(facing);
         }
     }
@@ -113,9 +114,20 @@ class ChestGeometryContractTest {
         assertEquals(5, normals.size(), label + " double-chest half must omit exactly its interior seam face");
     }
 
+    /*
+     * The renderer derives the shaded face direction from both fields: a patch whose texture basis
+     * is wound opposite to Minecraft's face winding keeps its U oriented normally and carries
+     * sidevis=BOTTOM; IsoHDPerspective.handlePatch then shades it with step.opposite(). Count the
+     * effective (visibly oriented) normal, exactly like the renderer does, so the contract reflects
+     * Minecraft's real presentation instead of raw step alone.
+     */
     private static Set<BlockStep> distinctNormals(PatchDefinition[] p) {
         Set<BlockStep> normals = new HashSet<>();
-        for (PatchDefinition pd : p) normals.add(pd.step);
+        for (PatchDefinition pd : p) {
+            BlockStep step = pd.step;
+            if (pd.sidevis == SideVisible.BOTTOM) step = step.opposite();
+            normals.add(step);
+        }
         return normals;
     }
 

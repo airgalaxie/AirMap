@@ -20,7 +20,6 @@ dependencies {
 
     // Standard-Abhängigkeiten im unverschlüsselten Namespace
     implementation(libs.fabricLoader)
-    implementation(libs.fabricApi)
 
     implementation(project(":DynmapCore"))
 //    implementation(project(":dynmap-api"))
@@ -44,14 +43,10 @@ loom {
 tasks.processResources {
     inputs.property("version", project.version)
     inputs.property("minecraftRuntime", libs.versions.minecraftRuntime.get())
-    inputs.property("fabricLoaderVersion", libs.versions.fabricLoader.get())
-    inputs.property("fabricApiVersion", libs.versions.fabricApi.get())
     filesMatching("fabric.mod.json") {
         expand(
             "version" to project.version,
-            "minecraftRuntime" to libs.versions.minecraftRuntime.get(),
-            "fabricLoaderVersion" to libs.versions.fabricLoader.get(),
-            "fabricApiVersion" to libs.versions.fabricApi.get()
+            "minecraftRuntime" to libs.versions.minecraftRuntime.get()
         )
     }
 }

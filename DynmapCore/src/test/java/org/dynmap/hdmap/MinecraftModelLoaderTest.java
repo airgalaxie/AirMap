@@ -49,6 +49,20 @@ class MinecraftModelLoaderTest {
     }
 
     @Test
+    void modelRotationIncludesBlockstateZWithoutChangingIndependentOrientations() {
+        var applied = new MinecraftModelLoader.AppliedModel("minecraft:block/example", 90, 180, 270, false);
+
+        assertArrayEquals(new int[] {90, 180, 270},
+                MinecraftModelLoader.layerRotation("model_rotation", null, applied));
+        assertArrayEquals(new int[] {0, 180, 0},
+                MinecraftModelLoader.layerRotation("chest_facing", "north", applied));
+        assertArrayEquals(new int[] {0, 90, 0},
+                MinecraftModelLoader.layerRotation("horizontal_facing", "east", applied));
+        assertArrayEquals(new int[] {0, 0, 90},
+                MinecraftModelLoader.layerRotation("facing", "west", applied));
+    }
+
+    @Test
     void rotatesSouthBakedChestTowardEveryFacing() {
         assertFacing("south", 0.0, 1.0);
         assertFacing("east", 1.0, 0.0);

@@ -5,7 +5,6 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import org.dynmap.DynmapCore;
 import org.dynmap.Log;
-import org.dynmap.fabric.event.PlayerEvents;
 
 import java.io.File;
 import java.net.URISyntaxException;
@@ -43,8 +42,6 @@ public class DynmapMod implements ModInitializer {
         ver = MOD_CONTAINER.getMetadata().getVersion().getFriendlyString();
 
         Log.setLogger(new FabricLogger());
-        PlayerEvents.registerFabricEvents();
-
         plugin = new DynmapPlugin();
     }
 }

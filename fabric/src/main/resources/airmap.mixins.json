@@ -5,8 +5,12 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [
     "BiomeEffectsAccessor",
+    "ChunkStatusTasksMixin",
+    "CommandsMixin",
     "MinecraftServerMixin",
+    "PlayerManagerMixin",
     "ProtoChunkMixin",
+    "ServerPlayNetworkHandlerMixin",
     "ServerPlayerEntityMixin",
     "WorldChunkMixin"
   ],

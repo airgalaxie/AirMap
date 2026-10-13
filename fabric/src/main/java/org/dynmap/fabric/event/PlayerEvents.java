@@ -1,30 +1,12 @@
 package org.dynmap.fabric.event;
 
-import net.fabricmc.fabric.api.event.Event;
-import net.fabricmc.fabric.api.event.EventFactory;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.level.ServerPlayer;
 
 public class PlayerEvents {
-    private static boolean fabricEventsRegistered;
-
     private PlayerEvents() {
     }
 
-    public static synchronized void registerFabricEvents() {
-        if (fabricEventsRegistered) {
-            return;
-        }
-
-        ServerPlayConnectionEvents.JOIN.register((listener, sender, server) ->
-                PLAYER_LOGGED_IN.invoker().onPlayerLoggedIn(listener.player));
-        ServerPlayConnectionEvents.DISCONNECT.register((listener, server) ->
-                PLAYER_LOGGED_OUT.invoker().onPlayerLoggedOut(listener.player));
-
-        fabricEventsRegistered = true;
-    }
-
-    public static Event<PlayerLoggedIn> PLAYER_LOGGED_IN = EventFactory.createArrayBacked(PlayerLoggedIn.class,
+    public static final SimpleEvent<PlayerLoggedIn> PLAYER_LOGGED_IN = new SimpleEvent<>(PlayerLoggedIn.class,
             (listeners) -> (player) -> {
                 for (PlayerLoggedIn callback : listeners) {
                     callback.onPlayerLoggedIn(player);
@@ -32,7 +14,7 @@ public class PlayerEvents {
             }
     );
 
-    public static Event<PlayerLoggedOut> PLAYER_LOGGED_OUT = EventFactory.createArrayBacked(PlayerLoggedOut.class,
+    public static final SimpleEvent<PlayerLoggedOut> PLAYER_LOGGED_OUT = new SimpleEvent<>(PlayerLoggedOut.class,
             (listeners) -> (player) -> {
                 for (PlayerLoggedOut callback : listeners) {
                     callback.onPlayerLoggedOut(player);
@@ -40,7 +22,7 @@ public class PlayerEvents {
             }
     );
 
-    public static Event<PlayerChangedDimension> PLAYER_CHANGED_DIMENSION = EventFactory.createArrayBacked(PlayerChangedDimension.class,
+    public static final SimpleEvent<PlayerChangedDimension> PLAYER_CHANGED_DIMENSION = new SimpleEvent<>(PlayerChangedDimension.class,
             (listeners) -> (player) -> {
                 for (PlayerChangedDimension callback : listeners) {
                     callback.onPlayerChangedDimension(player);
@@ -48,7 +30,7 @@ public class PlayerEvents {
             }
     );
 
-    public static Event<PlayerRespawn> PLAYER_RESPAWN = EventFactory.createArrayBacked(PlayerRespawn.class,
+    public static final SimpleEvent<PlayerRespawn> PLAYER_RESPAWN = new SimpleEvent<>(PlayerRespawn.class,
             (listeners) -> (player) -> {
                 for (PlayerRespawn callback : listeners) {
                     callback.onPlayerRespawn(player);

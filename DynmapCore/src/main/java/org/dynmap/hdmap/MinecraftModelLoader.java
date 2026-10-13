@@ -168,7 +168,7 @@ final class MinecraftModelLoader {
             int weight = integer(object, "weight", 1);
             if (weight <= 0) throw new IllegalArgumentException("Model weight must be positive");
             models.add(new AppliedModel(qualify(object.get("model").getAsString(), namespace),
-                    integer(object, "x", 0), integer(object, "y", 0),
+                    integer(object, "x", 0), integer(object, "y", 0), integer(object, "z", 0),
                     object.has("uvlock") && object.get("uvlock").getAsBoolean()));
             weights.add(weight);
         }
@@ -233,13 +233,14 @@ final class MinecraftModelLoader {
                     double[] uv = face.has("uv") ? vector(face, "uv", null) : null;
                     int rotation = integer(face, "rotation", 0);
                     ModelBlockModel.SideRotation sideRotation = ModelBlockModel.SideRotation.valueOf("DEG" + rotation);
-                    if (applied.uvlock) sideRotation = uvLockedRotation(sideRotation, applied.x, applied.y, side);
+                    if (applied.uvlock) sideRotation = uvLockedRotation(
+                            sideRotation, applied.x, applied.y, applied.z, side);
                     PatchDefinition patch = patches.getModelFace(
                             from, to, side, uv, sideRotation, shade, shadeDirection, textureIndex);
                     if (patch == null) continue;
                     if (element.has("rotation")) patch = rotateElement(patch, element.getAsJsonObject("rotation"));
-                    if (patch != null && (applied.x != 0 || applied.y != 0))
-                        patch = patches.getPatch(patch, applied.x, applied.y, 0, textureIndex);
+                    if (patch != null && (applied.x != 0 || applied.y != 0 || applied.z != 0))
+                        patch = patches.getPatch(patch, applied.x, applied.y, applied.z, textureIndex);
                     if (patch != null) {
                         result.add(patch);
                         // Coverage is additive: a transparent overlay cannot remove an already
@@ -515,7 +516,7 @@ final class MinecraftModelLoader {
     }
 
     static int[] layerRotation(String orientation, String facing, AppliedModel applied) {
-        if (orientation.equals("model_rotation")) return new int[] {applied.x, applied.y, 0};
+        if (orientation.equals("model_rotation")) return new int[] {applied.x, applied.y, applied.z};
         if (facing == null) return new int[] {0, 0, 0};
         // ChestRenderer uses -Direction.toYRot() around the block center.  The baked chest
         // layer faces south before that transform, unlike the other horizontal model layers.
@@ -579,9 +580,11 @@ final class MinecraftModelLoader {
 
     /** Combines the JSON face rotation with vanilla's per-face inverse blockstate rotation. */
     static ModelBlockModel.SideRotation uvLockedRotation(ModelBlockModel.SideRotation rotation,
-            int xRotation, int yRotation, BlockSide side) {
-        int turns = UV_LOCK_TURNS[Math.floorMod(xRotation, 360) / 90]
-                [Math.floorMod(yRotation, 360) / 90][faceIndex(side)];
+            int xRotation, int yRotation, int zRotation, BlockSide side) {
+        int index = (Math.floorMod(xRotation, 360) / 90) * 16
+                + (Math.floorMod(yRotation, 360) / 90) * 4
+                + Math.floorMod(zRotation, 360) / 90;
+        int turns = UV_LOCK_TURNS[index][faceIndex(side)];
         return ModelBlockModel.SideRotation.values()[(rotation.ordinal() + turns) & 3];
     }
 
@@ -597,12 +600,26 @@ final class MinecraftModelLoader {
         };
     }
 
-    /* Quarter-turns counter-clockwise in atlas UV space, indexed by x, y, then face. */
-    private static final int[][][] UV_LOCK_TURNS = {
-        {{0,0,0,0,0,0}, {3,1,0,0,0,0}, {2,2,0,0,0,0}, {1,3,0,0,0,0}},
-        {{0,2,2,0,3,1}, {0,2,1,1,3,1}, {0,2,0,2,3,1}, {0,2,3,3,3,1}},
-        {{0,0,2,2,2,2}, {1,3,2,2,2,2}, {2,2,2,2,2,2}, {3,1,2,2,2,2}},
-        {{2,0,2,0,1,3}, {2,0,3,3,1,3}, {2,0,0,2,1,3}, {2,0,1,1,1,3}}
+    /* Quarter-turns counter-clockwise in atlas UV space. The flattened index is x*16+y*4+z;
+     * each row is ordered down, up, north, south, west, east. Generated from Minecraft 26.4's
+     * BlockModelRotation.inverseFaceTransformation for all 64 XYZ quarter-turn combinations. */
+    private static final int[][] UV_LOCK_TURNS = {
+        {0,0,0,0,0,0}, {1,1,3,1,1,1}, {2,2,2,2,2,2}, {3,3,1,3,3,3},
+        {3,1,0,0,0,0}, {0,2,1,1,3,1}, {1,3,2,2,2,2}, {2,0,3,3,1,3},
+        {2,2,0,0,0,0}, {3,3,1,3,1,1}, {0,0,2,2,2,2}, {1,1,3,1,3,3},
+        {1,3,0,0,0,0}, {2,0,1,1,1,3}, {3,1,2,2,2,2}, {0,2,3,3,3,1},
+        {0,2,2,0,3,1}, {1,1,3,1,0,2}, {2,0,0,2,1,3}, {3,3,1,3,2,0},
+        {0,2,1,1,3,1}, {1,3,2,2,2,2}, {2,0,3,3,1,3}, {3,1,0,0,0,0},
+        {0,2,0,2,3,1}, {3,3,1,3,0,2}, {2,0,2,0,1,3}, {1,1,3,1,2,0},
+        {0,2,3,3,3,1}, {1,3,0,0,0,0}, {2,0,1,1,1,3}, {3,1,2,2,2,2},
+        {0,0,2,2,2,2}, {1,1,3,1,3,3}, {2,2,0,0,0,0}, {3,3,1,3,1,1},
+        {1,3,2,2,2,2}, {2,0,3,3,1,3}, {3,1,0,0,0,0}, {0,2,1,1,3,1},
+        {2,2,2,2,2,2}, {3,3,1,3,3,3}, {0,0,0,0,0,0}, {1,1,3,1,1,1},
+        {3,1,2,2,2,2}, {0,2,3,3,3,1}, {1,3,0,0,0,0}, {2,0,1,1,1,3},
+        {2,0,2,0,1,3}, {1,1,3,1,2,0}, {0,2,0,2,3,1}, {3,3,1,3,0,2},
+        {2,0,3,3,1,3}, {3,1,0,0,0,0}, {0,2,1,1,3,1}, {1,3,2,2,2,2},
+        {2,0,0,2,1,3}, {3,3,1,3,2,0}, {0,2,2,0,3,1}, {1,1,3,1,0,2},
+        {2,0,1,1,1,3}, {3,1,2,2,2,2}, {0,2,3,3,3,1}, {1,3,0,0,0,0}
     };
 
     /** True when every pixel of the sprite tied to a texture reference is opaque (unknown/missing = false). */
@@ -671,7 +688,7 @@ final class MinecraftModelLoader {
     private static String namespace(String id){return id.substring(0,id.indexOf(':'));} private static String path(String id){return id.substring(id.indexOf(':')+1);}
     private static String qualify(String id,String namespace){return id.indexOf(':')>=0?id:namespace+":"+id;}
     private static String modelResource(String id){return namespace(id)+":models/"+path(id)+".json";}
-    private record AppliedModel(String id,int x,int y,boolean uvlock){}
+    static record AppliedModel(String id,int x,int y,int z,boolean uvlock){}
     private record WeightedAppliedModels(List<AppliedModel> models, List<Integer> weights){}
     private record ModelGeometry(PatchDefinition[] patches, EnumSet<BlockStep> opaqueCubeFaces,
             boolean occluding){}

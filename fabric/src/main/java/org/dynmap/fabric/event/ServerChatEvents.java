@@ -1,14 +1,12 @@
 package org.dynmap.fabric.event;
 
-import net.fabricmc.fabric.api.event.Event;
-import net.fabricmc.fabric.api.event.EventFactory;
 import net.minecraft.server.level.ServerPlayer;
 
 public class ServerChatEvents {
     private ServerChatEvents() {
     }
 
-    public static Event<ServerChatCallback> EVENT = EventFactory.createArrayBacked(ServerChatCallback.class,
+    public static final SimpleEvent<ServerChatCallback> EVENT = new SimpleEvent<>(ServerChatCallback.class,
             (listeners) -> (player, message) -> {
                 for (ServerChatCallback callback : listeners) {
                     callback.onChatMessage(player, message);

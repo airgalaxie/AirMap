@@ -47,6 +47,10 @@ class MinecraftStaticModelIntegrationTest {
         DynmapBlockState brownMushroomDown = mushroomVariant(brownMushroomUp, false);
         DynmapBlockState torch = state("minecraft:torch", "", false);
         DynmapBlockState wallTorchEast = state("minecraft:wall_torch", "facing=east", false);
+        DynmapBlockState icicleDown = state("minecraft:icicle",
+                "attached=false,thickness=tip,vertical_direction=down", false);
+        DynmapBlockState icicleUp = variant(icicleDown, 1,
+                "attached=false,thickness=tip,vertical_direction=up");
 
         HDBlockStateTextureMap.initializeTable();
         TexturePack.resetFiles();
@@ -88,6 +92,10 @@ class MinecraftStaticModelIntegrationTest {
         assertEquals(10.0 / 16.0, maxY(patches(torch)), 1.0e-9, "standing torch height");
         assertTrue(maxX(patches(wallTorchEast)) > 0.25,
                 "east wall torch must lean away from its west wall into +X");
+        assertEquals(patches(icicleDown).length, patches(icicleUp).length,
+                "upward icicle keeps the complete model");
+        assertEquals(1.0 - meanY(patches(icicleDown)), meanY(patches(icicleUp)), 1.0e-9,
+                "blockstate z=180 reflects the downward icicle around the block center");
     }
 
     private static DynmapBlockState state(String name, String properties, boolean opaque) {
@@ -178,6 +186,14 @@ class MinecraftStaticModelIntegrationTest {
                 p.y0 + p.u.y * p.umax + p.v.y * p.vmin,
                 p.y0 + p.u.y * p.umin + p.v.y * p.vmax,
                 p.y0 + p.u.y * p.umax + p.v.y * p.vmax)).max().orElseThrow();
+    }
+
+    private static double meanY(org.dynmap.utils.PatchDefinition[] patches) {
+        return java.util.Arrays.stream(patches).flatMapToDouble(p -> java.util.stream.DoubleStream.of(
+                p.y0 + p.u.y * p.umin + p.v.y * p.vmin,
+                p.y0 + p.u.y * p.umax + p.v.y * p.vmin,
+                p.y0 + p.u.y * p.umin + p.v.y * p.vmax,
+                p.y0 + p.u.y * p.umax + p.v.y * p.vmax)).average().orElseThrow();
     }
 
     private static double minZ(org.dynmap.utils.PatchDefinition[] patches) {

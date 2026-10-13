@@ -1,7 +1,5 @@
 package org.dynmap.fabric.event;
 
-import net.fabricmc.fabric.api.event.Event;
-import net.fabricmc.fabric.api.event.EventFactory;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.BlockPos;
@@ -11,7 +9,7 @@ public class BlockEvents {
     private BlockEvents() {
     }
 
-    public static Event<BlockCallback> BLOCK_EVENT = EventFactory.createArrayBacked(BlockCallback.class,
+    public static final SimpleEvent<BlockCallback> BLOCK_EVENT = new SimpleEvent<>(BlockCallback.class,
             (listeners) -> (world, pos) -> {
                 for (BlockCallback callback : listeners) {
                     callback.onBlockEvent(world, pos);
@@ -19,7 +17,7 @@ public class BlockEvents {
             }
     );
 
-    public static Event<SignChangeCallback> SIGN_CHANGE_EVENT = EventFactory.createArrayBacked(SignChangeCallback.class,
+    public static final SimpleEvent<SignChangeCallback> SIGN_CHANGE_EVENT = new SimpleEvent<>(SignChangeCallback.class,
             (listeners) -> (world, pos, lines, player, front) -> {
                 for (SignChangeCallback callback : listeners) {
                     callback.onSignChange(world, pos, lines, player, front);

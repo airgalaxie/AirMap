@@ -23,8 +23,7 @@
   "accessWidener" : "airmap.accesswidener",
 
   "depends": {
-    "fabricloader": ">=${fabricLoaderVersion}",
-    "fabric-api": ">=${fabricApiVersion}",
+    "fabricloader": "*",
     "minecraft": "${minecraftRuntime}"
   }
 }

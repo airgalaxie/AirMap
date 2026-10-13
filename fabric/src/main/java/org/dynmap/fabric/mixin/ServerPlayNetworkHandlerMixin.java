@@ -22,12 +22,12 @@ public abstract class ServerPlayNetworkHandlerMixin {
     public ServerPlayer player;
 
     @Inject(
-            method = "handleDecoratedMessage",
+            method = "broadcastChatMessage",
             at = @At(
                     value = "HEAD"
             )
     )
-    public void onGameMessage(PlayerChatMessage signedMessage, CallbackInfo ci) {
+    private void airmap$onGameMessage(PlayerChatMessage signedMessage, CallbackInfo ci) {
         ServerChatEvents.EVENT.invoker().onChatMessage(player, signedMessage.signedContent());
     }
 
@@ -35,7 +35,7 @@ public abstract class ServerPlayNetworkHandlerMixin {
             method = "handleSignUpdate",
             at = @At("HEAD")
     )
-    public void onSignUpdate(ServerboundSignUpdatePacket packet, CallbackInfo ci) {
+    private void airmap$onSignUpdate(ServerboundSignUpdatePacket packet, CallbackInfo ci) {
         ServerLevel serverLevel = player.level();
         BlockPos blockPos = packet.pos();
         String[] rawTexts = packet.lines().toArray(String[]::new);

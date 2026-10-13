@@ -15,18 +15,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(PlayerList.class)
 public class PlayerManagerMixin {
-    @Inject(method = "onPlayerConnect", at = @At("TAIL"))
-    public void onPlayerConnect(Connection connection, ServerPlayer player, CommonListenerCookie ccd, CallbackInfo info) {
+    @Inject(method = "placeNewPlayer", at = @At("TAIL"))
+    private void airmap$afterPlayerConnect(Connection connection, ServerPlayer player, CommonListenerCookie cookie, CallbackInfo info) {
         PlayerEvents.PLAYER_LOGGED_IN.invoker().onPlayerLoggedIn(player);
     }
 
     @Inject(method = "remove", at = @At("HEAD"))
-    public void remove(ServerPlayer player, CallbackInfo info) {
+    private void airmap$beforePlayerRemove(ServerPlayer player, CallbackInfo info) {
         PlayerEvents.PLAYER_LOGGED_OUT.invoker().onPlayerLoggedOut(player);
     }
 
-    @Inject(method = "respawnPlayer", at = @At("RETURN"))
-    public void respawnPlayer(ServerPlayer player, boolean alive, Entity.RemovalReason removalReason, CallbackInfoReturnable<ServerPlayer> info) {
+    @Inject(method = "respawn", at = @At("RETURN"))
+    private void airmap$afterPlayerRespawn(ServerPlayer player, boolean alive, Entity.RemovalReason removalReason, CallbackInfoReturnable<ServerPlayer> info) {
         PlayerEvents.PLAYER_RESPAWN.invoker().onPlayerRespawn(info.getReturnValue());
     }
 }

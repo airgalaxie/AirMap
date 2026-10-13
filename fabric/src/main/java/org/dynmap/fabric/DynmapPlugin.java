@@ -2,10 +2,6 @@ package org.dynmap.fabric;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
 import net.minecraft.world.level.block.Block;
@@ -43,7 +39,6 @@ import org.dynmap.fabric.command.DynmapCommand;
 import org.dynmap.fabric.command.DynmapExpCommand;
 import org.dynmap.fabric.event.BlockEvents;
 import org.dynmap.fabric.event.CustomServerChunkEvents;
-import org.dynmap.fabric.event.CustomServerLifecycleEvents;
 import org.dynmap.fabric.event.PlayerEvents;
 import org.dynmap.fabric.mixin.BiomeEffectsAccessor;
 import org.dynmap.fabric.permissions.*;
@@ -78,7 +73,6 @@ public class DynmapPlugin {
     private FabricWorld last_fworld;
     private Map<String, FabricPlayer> players = new HashMap<String, FabricPlayer>();
     private FabricServer fserver;
-    private boolean tickregistered = false;
     // TPS calculator
     double tps;
     long lasttick;
@@ -87,17 +81,12 @@ public class DynmapPlugin {
     long perTickLimit = (50000000); // 50 ms
     private boolean useSaveFolder = true;
 
-    private static final String[] TRIGGER_DEFAULTS = {"blockupdate", "chunkpopulate", "chunkgenerate"};
+    private static final String[] TRIGGER_DEFAULTS = {"blockupdate", "chunkpopulate", "chunkgenerated"};
 
     static final Pattern patternControlCode = Pattern.compile("(?i)\\u00A7[0-9A-FK-OR]");
 
     DynmapPlugin() {
         plugin = this;
-        // Fabric events persist between server instances
-        ServerLifecycleEvents.SERVER_STARTING.register(this::serverStart);
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> registerCommands(dispatcher));
-        CustomServerLifecycleEvents.SERVER_STARTED_PRE_WORLD_LOAD.register(this::serverStarted);
-        ServerLifecycleEvents.SERVER_STOPPING.register(this::serverStop);
     }
 
     int getSortWeight(String name) {
@@ -241,23 +230,38 @@ public class DynmapPlugin {
         return fserver;
     }
 
-    private void serverStart(MinecraftServer server) {
+    void serverStart(MinecraftServer server) {
+        if (this.server == server) {
+            return;
+        }
         // Set the server so we don't NPE during setup
         this.server = server;
         this.fserver = new FabricServer(this, server);
         this.onEnable();
     }
 
-    private void serverStarted(MinecraftServer server) {
+    void serverStarted(MinecraftServer server) {
+        if (this.server != server || core_enabled) {
+            return;
+        }
         this.onStart();
         if (core_enabled) {
             core.serverStarted();
         }
     }
 
-    private void serverStop(MinecraftServer server) {
+    void serverStop(MinecraftServer server) {
+        if (this.server != server) {
+            return;
+        }
         this.onDisable();
         this.server = null;
+    }
+
+    void serverTick(MinecraftServer server) {
+        if (this.server == server && core_enabled && fserver != null) {
+            fserver.tickEvent(server);
+        }
     }
 
     public boolean isOp(String player) {
@@ -496,12 +500,6 @@ public class DynmapPlugin {
         lasttick = System.nanoTime();
         tps = 20.0;
 
-        /* Register tick handler */
-        if (!tickregistered) {
-            ServerTickEvents.END_SERVER_TICK.register(server -> fserver.tickEvent(server));
-            tickregistered = true;
-        }
-
         playerList = core.playerList;
         sscache = new GenericChunkCache(core.getSnapShotCacheSize(), core.useSoftRefInSnapShotCache());
         /* Get map manager from core */
@@ -721,7 +719,7 @@ public class DynmapPlugin {
         // To trigger rendering.
         onblockchange = core.isTrigger("blockupdate");
         onchunkpopulate = core.isTrigger("chunkpopulate");
-        onchunkgenerate = core.isTrigger("chunkgenerate");
+        onchunkgenerate = core.isTrigger("chunkgenerated") || core.isTrigger("chunkgenerate");
         onblockchange_with_id = core.isTrigger("blockupdate-with-id");
         if (onblockchange_with_id)
             onblockchange = true;
@@ -733,9 +731,6 @@ public class DynmapPlugin {
         if (onblockchange) {
             BlockEvents.BLOCK_EVENT.register((world, pos) -> worldTracker.handleBlockEvent(world, pos));
         }
-
-        ServerLevelEvents.LOAD.register((server, world) -> worldTracker.handleLevelLoad(server, world));
-        ServerLevelEvents.UNLOAD.register((server, world) -> worldTracker.handleLevelUnload(server, world));
     }
 
     FabricWorld getLevelByName(String name) {
