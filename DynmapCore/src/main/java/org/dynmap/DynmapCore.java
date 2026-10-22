@@ -11,6 +11,11 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Writer;
 import java.lang.reflect.Constructor;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,6 +30,8 @@ import java.util.Scanner;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -103,6 +110,7 @@ public class DynmapCore implements DynmapCommonAPI {
     private static final String LEGACY_MAIN_CONFIGURATION_FILE = MAIN_CONFIGURATION_NAME + ".txt";
     private static final String MAIN_WEB_INDEX_FILE = "index.html";
     private static final String MAIN_WEB_INDEX_PATH = "web/" + MAIN_WEB_INDEX_FILE;
+    private static final Pattern WEB_ASSET_VERSION_PATTERN = Pattern.compile("(?<=\\?_=)[^&#\\\"'\\s<>]*");
 
     /**
      * Callbacks for core initialization - subclassed by platform plugins
@@ -2577,6 +2585,7 @@ public class DynmapCore implements DynmapCommonAPI {
             }
         }
         String curver = this.getDynmapCoreVersion();
+        boolean isVersionUpdate = isVersionUpdate(prevver, prevwebver, curver);
         /* If matched, we're good */
         if (prevver.equals(curver) && prevwebver.equals(curver) && (!curver.endsWith(("-Dev")))) {
             return;
@@ -2637,6 +2646,14 @@ public class DynmapCore implements DynmapCommonAPI {
                 	}
             		f = new File(wpath, n.substring("web/".length()));
                     if (MAIN_WEB_INDEX_PATH.equals(n) && f.canRead()) {
+                        if (isVersionUpdate) {
+                            try {
+                                updateWebIndexVersion(f, airMapVersion + "-" + airMapBuild);
+                            } catch (IOException iox) {
+                                Log.severe("Unable to update web asset versions in place in " + f.getPath()
+                                        + "; no replacement file was installed. Check write permissions and restore from index.html.old if necessary.", iox);
+                            }
+                        }
                         continue;
                     }
                 }
@@ -2713,6 +2730,25 @@ public class DynmapCore implements DynmapCommonAPI {
             Log.info("Extracted files upgraded (excluding webpath files)");
         }
     }
+
+    static boolean updateWebIndexVersion(File indexFile, String buildIdentifier) throws IOException {
+        if (!indexFile.isFile()) return false;
+
+        Path index = indexFile.toPath();
+        String existing = Files.readString(index, StandardCharsets.UTF_8);
+        String updated = WEB_ASSET_VERSION_PATTERN.matcher(existing)
+                .replaceAll(Matcher.quoteReplacement(buildIdentifier));
+        Path backupFile = index.resolveSibling(MAIN_WEB_INDEX_FILE + ".old");
+        Files.copy(index, backupFile, StandardCopyOption.REPLACE_EXISTING);
+        Files.writeString(index, updated, StandardCharsets.UTF_8,
+                StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+        return true;
+    }
+
+    static boolean isVersionUpdate(String dataVersion, String webVersion, String currentVersion) {
+        return !dataVersion.equals(currentVersion) || !webVersion.equals(currentVersion);
+    }
+
     // Server thread tick : nominally, once per 20 Hz tick
     public void serverTick(double tps) {
         if (this.mapManager != null) {
