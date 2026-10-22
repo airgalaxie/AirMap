@@ -3,4 +3,5 @@ dynmap-compatibility-version: "${version}"
 airmap-version: "${airmapversion}"
 airmap-build: "${buildnumber}"
 airmap-revision: "${revision}"
+mariadb-driver-version: "${mariadbdriverversion}"
 authors: [mikeprimm]

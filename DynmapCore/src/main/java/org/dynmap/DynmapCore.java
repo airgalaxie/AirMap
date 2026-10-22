@@ -128,6 +128,7 @@ public class DynmapCore implements DynmapCommonAPI {
     private String airMapVersion = "unknown";
     private String airMapBuild = "local";
     private String airMapRevision = "unknown";
+    private String mariaDbDriverVersion = "unknown";
     private String platform = null;
     private String platformVersion = null;
     public MapManager mapManager = null;
@@ -2204,6 +2205,10 @@ public class DynmapCore implements DynmapCommonAPI {
         return plugin_ver;
     }
 
+    public String getMariaDbDriverVersion() {
+        return mariaDbDriverVersion;
+    }
+
     public int triggerRenderOfBlock(String wid, int x, int y, int z) {
         if(mapManager != null)
             mapManager.touch(wid, x, y, z, "api");
@@ -2403,6 +2408,7 @@ public class DynmapCore implements DynmapCommonAPI {
             airMapVersion = (String)val.getOrDefault("airmap-version", "unknown");
             airMapBuild = (String)val.getOrDefault("airmap-build", "local");
             airMapRevision = (String)val.getOrDefault("airmap-revision", "unknown");
+            mariaDbDriverVersion = (String)val.getOrDefault("mariadb-driver-version", "unknown");
         }
     }
     

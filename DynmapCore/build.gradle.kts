@@ -35,6 +35,7 @@ tasks {
         inputs.property("buildNumber", project.parent!!.ext.get("buildNumber").toString())
         inputs.property("dynmapCompatibilityVersion", project.version.toString())
         inputs.property("minecraftVersion", libs.versions.minecraft.get())
+        inputs.property("mariaDbDriverVersion", libs.versions.mariadbJavaClient.get())
         inputs.property("revision", project.parent!!.ext.get("revision").toString())
 
         from(jdbcDrivers) {
@@ -58,6 +59,7 @@ tasks {
                     "airmapversion" to project.parent!!.ext.get("airMapVersion").toString(),
                     "minecraftversion" to libs.versions.minecraft.get(),
                     "minecraftcompatible" to libs.versions.minecraftRuntime.get(),
+                    "mariadbdriverversion" to libs.versions.mariadbJavaClient.get(),
                     "revision" to project.parent!!.ext.get("revision").toString(),
                     "version" to project.version
             )

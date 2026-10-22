@@ -322,7 +322,7 @@ public class MySQLMapStorage extends MapStorage {
         password = core.configuration.getString("storage/password", "dynmap");
         prefix = core.configuration.getString("storage/prefix", "");
         flags = core.configuration.getString("storage/flags", "?allowReconnect=true&autoReconnect=true");
-        driverJar = core.configuration.getString("storage/driver-jar", "");
+        driverJar = core.configuration.getString("storage/driver-jar", getDefaultDriverJar(core));
         driverClass = core.configuration.getString("storage/driver-class", "");
         tableTiles = prefix + "Tiles";
         tableMaps = prefix + "Maps";
@@ -339,6 +339,10 @@ public class MySQLMapStorage extends MapStorage {
             return false;
         }
         return writeConfigPHP(core);
+    }
+
+    protected String getDefaultDriverJar(DynmapCore core) {
+        return "";
     }
 
     protected boolean hasClass(String classname){

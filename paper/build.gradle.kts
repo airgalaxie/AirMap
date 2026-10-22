@@ -30,11 +30,15 @@ dependencies {
 
 tasks {
     processResources {
+        inputs.property("mariaDbDriverVersion", libs.versions.mariadbJavaClient.get())
         filesMatching("paper-plugin.yml") {
             expand(
                 "buildnumber" to buildMetadata,
                 "version" to project.version
             )
+        }
+        filesMatching("configuration.yaml") {
+            expand("mariadbdriverversion" to libs.versions.mariadbJavaClient.get())
         }
     }
 

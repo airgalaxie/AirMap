@@ -43,11 +43,15 @@ loom {
 tasks.processResources {
     inputs.property("version", project.version)
     inputs.property("minecraftRuntime", libs.versions.minecraftRuntime.get())
+    inputs.property("mariaDbDriverVersion", libs.versions.mariadbJavaClient.get())
     filesMatching("fabric.mod.json") {
         expand(
             "version" to project.version,
             "minecraftRuntime" to libs.versions.minecraftRuntime.get()
         )
+    }
+    filesMatching("configuration.yaml") {
+        expand("mariadbdriverversion" to libs.versions.mariadbJavaClient.get())
     }
 }
 

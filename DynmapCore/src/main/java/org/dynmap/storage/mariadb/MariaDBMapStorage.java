@@ -1,10 +1,16 @@
 package org.dynmap.storage.mariadb;
 
+import org.dynmap.DynmapCore;
 import org.dynmap.storage.mysql.MySQLMapStorage;
 
 public class MariaDBMapStorage extends MySQLMapStorage {
 
     public MariaDBMapStorage() {
+    }
+
+    @Override
+    protected String getDefaultDriverJar(DynmapCore core) {
+        return "drivers/mariadb-java-client-" + core.getMariaDbDriverVersion() + ".jar";
     }
 
     // MariaDB specific driver check
