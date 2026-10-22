@@ -12,6 +12,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.lang.reflect.Constructor;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -446,6 +447,9 @@ public class DynmapCore implements DynmapCommonAPI {
         // And whether to disable web file update
         updatewebpathfiles = configuration.getBoolean("update-webpath-files", true);
 
+        /* Update bundled files before storage initialization (including JDBC drivers) */
+        updateExtractedFiles();
+
         /* Prime the tiles directory */
         tilesDirectory = getFile(configuration.getString("tilespath", "web/tiles"));
         if (!tilesDirectory.isDirectory() && !tilesDirectory.mkdirs()) {
@@ -518,9 +522,6 @@ public class DynmapCore implements DynmapCommonAPI {
     }
     
     public boolean enableCore(EnableCoreCallbacks cb) {
-        /* Update extracted files, if needed */
-        updateExtractedFiles();
-
         // If storage serves web files, extract and publsh them
         if (defaultStorage.needsStaticWebFiles()) {
         	updateStaticWebToStorage();
@@ -2551,6 +2552,7 @@ public class DynmapCore implements DynmapCommonAPI {
 
     private void updateExtractedFiles() {
         if(jarfile == null) return;
+        boolean extractionSuccessful = true;
         File df = this.getDataFolder();
         if(df.exists() == false) df.mkdirs();
         File ver = new File(df, "version.txt");
@@ -2592,8 +2594,11 @@ public class DynmapCore implements DynmapCommonAPI {
         }
         String curver = this.getDynmapCoreVersion();
         boolean isVersionUpdate = isVersionUpdate(prevver, prevwebver, curver);
+        File bundledMariaDbDriver = new File(df,
+                "drivers/mariadb-java-client-" + mariaDbDriverVersion + ".jar");
         /* If matched, we're good */
-        if (prevver.equals(curver) && prevwebver.equals(curver) && (!curver.endsWith(("-Dev")))) {
+        if (prevver.equals(curver) && prevwebver.equals(curver) && (!curver.endsWith(("-Dev")))
+                && bundledMariaDbDriver.isFile()) {
             return;
         }
         // If doing update and web path update is disabled, send warning
@@ -2656,6 +2661,7 @@ public class DynmapCore implements DynmapCommonAPI {
                             try {
                                 updateWebIndexVersion(f, airMapVersion + "-" + airMapBuild);
                             } catch (IOException iox) {
+                                extractionSuccessful = false;
                                 Log.severe("Unable to update web asset versions in place in " + f.getPath()
                                         + "; no replacement file was installed. Check write permissions and restore from index.html.old if necessary.", iox);
                             }
@@ -2672,6 +2678,10 @@ public class DynmapCore implements DynmapCommonAPI {
                 else {
                 	try {
 	                    f.getParentFile().mkdirs();
+	                    if (n.startsWith("drivers/")) {
+	                        extractFileAtomically(zf, ze, f);
+	                        continue;
+	                    }
 	                    fos = new FileOutputStream(f);
 	                    ins = zf.getInputStream(ze);
 	                    int len;
@@ -2679,6 +2689,7 @@ public class DynmapCore implements DynmapCommonAPI {
 	                        fos.write(buf,  0,  len);
 	                    }
                 	} catch(IOException io) {
+                        extractionSuccessful = false;
                         Log.severe("Error updating file - " + f.getPath(), io);                		
                 	} finally {
                 		if (ins != null) {
@@ -2693,6 +2704,7 @@ public class DynmapCore implements DynmapCommonAPI {
                 }
             }
         } catch (IOException iox) {
+            extractionSuccessful = false;
             Log.severe("Error extracting file - " + n);
         } finally {
             if (ins != null) {
@@ -2707,6 +2719,11 @@ public class DynmapCore implements DynmapCommonAPI {
                 try { zf.close(); } catch (IOException iox) {}
                 zf = null;
             }
+        }
+
+        if (!extractionSuccessful) {
+            Log.severe("Extracted file update was incomplete; version markers were not updated");
+            return;
         }
         
         /* Finally, write new version cookie to both data folder and web folder*/
@@ -2734,6 +2751,23 @@ public class DynmapCore implements DynmapCommonAPI {
         }
         else {
             Log.info("Extracted files upgraded (excluding webpath files)");
+        }
+    }
+
+    private static void extractFileAtomically(ZipFile zipFile, ZipEntry entry, File destination) throws IOException {
+        Path target = destination.toPath();
+        Path temporary = Files.createTempFile(target.getParent(), destination.getName(), ".tmp");
+        try {
+            try (InputStream input = zipFile.getInputStream(entry)) {
+                Files.copy(input, temporary, StandardCopyOption.REPLACE_EXISTING);
+            }
+            try {
+                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
         }
     }
 
