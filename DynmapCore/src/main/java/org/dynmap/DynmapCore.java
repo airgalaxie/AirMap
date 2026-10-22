@@ -552,10 +552,7 @@ public class DynmapCore implements DynmapCommonAPI {
     			dwebpPath = null;
     		}
     	}
-        if ((cwebpPath != null) && (dwebpPath != null)) {
-        	Log.info("Found cwebp at " + cwebpPath + " and dwebp at " + dwebpPath + ": webp format enabled");
-        }
-        else {
+        if ((cwebpPath == null) || (dwebpPath == null)) {
         	cwebpPath = dwebpPath = null;
         }
         /* Get default image format */
@@ -609,7 +606,12 @@ public class DynmapCore implements DynmapCommonAPI {
         // Finalize block state
         DynmapBlockState.finalizeBlockStates();
         /* Load block models */
-        Log.verboseinfo("Loading models...");
+        String webpTools = fmt.enc == ImageEncoding.WEBP
+                ? " (cwebp=" + cwebpPath + ", dwebp=" + dwebpPath + ")"
+                : "";
+        Log.info("Preparing Minecraft render resources from JSON models and PNG textures; default map output: "
+                + def_image_format + webpTools);
+        long renderResourcesStarted = System.nanoTime();
         try {
             HDBlockModels.loadModels(this, configuration);
         } catch (IllegalStateException exception) {
@@ -618,6 +620,8 @@ public class DynmapCore implements DynmapCommonAPI {
             }
             throw exception;
         }
+        double renderResourcesSeconds = Math.round((System.nanoTime() - renderResourcesStarted) / 100_000_000.0) / 10.0;
+        Log.info("Minecraft render resources ready in " + renderResourcesSeconds + " seconds");
         
         /* Process worlds configuration as an override of existing values (since it is only user supplied values) */
         File f = getYamlConfigurationFile(dataDirectory, "worlds");

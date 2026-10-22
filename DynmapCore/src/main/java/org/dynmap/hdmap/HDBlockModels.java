@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.Set;
 import org.dynmap.ConfigurationNode;
 import org.dynmap.DynmapCore;
-import org.dynmap.Log;
 import org.dynmap.MapManager;
 import org.dynmap.renderer.DynmapBlockState;
 import org.dynmap.utils.PatchDefinitionFactory;
@@ -45,7 +44,6 @@ public final class HDBlockModels {
             for(HDBlockModel model:models_by_id_data) if(model instanceof HDBlockPatchModel p) maxPatches=Math.max(maxPatches,p.getMaximumPatchCount());
         } catch(IOException e) { throw new IllegalStateException("Cannot load Minecraft model resources",e); }
         scaledModels = null;
-        Log.info("Loaded block models directly from Minecraft JSON resources");
     }
 
     public static void handleBlockAlias() { Set<String> aliases=MapManager.mapman.getAliasedBlocks(); for(String from:aliases){String to=MapManager.mapman.getBlockAlias(from);if(!from.equals(to))remap(from,to);} }
