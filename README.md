@@ -99,6 +99,45 @@ implementations remain in the core.
     require source, mapping or API adaptations and must be verified on both
     platforms.
 
+## Render resource cache
+
+AirMap stores prepared Minecraft model geometry, weighted variants and texture
+registrations in a local file to avoid baking the same models on every start.
+Paper and Fabric use the following defaults, including when an existing
+`configuration.yaml` has no cache section:
+
+```yaml
+render-cache:
+  enabled: true
+  directory: render-cache
+```
+
+The directory is relative to AirMap's data folder, or can be an absolute path.
+The file is `render-cache/models.bin.gz` by default, independently of map storage
+(filetree or SQL). Only the current cache generation is retained. Set `enabled`
+to `false` to bypass cache reads and writes; delete the cache file while AirMap
+is stopped to force a rebuild. The Minecraft client download permission remains
+required when the source client resources are missing.
+
+Cache validity is checked on each load using SHA-256 identities of resource
+contents, ordered resource layers, AirMap Core/API code and bundled resources,
+and the block-state registry including baking-relevant properties. Changes to
+Minecraft resources, mods/overrides or AirMap therefore trigger rebuilding,
+including same-version content changes. Archive sources are hashed as whole
+files; other providers hash their complete listed asset set. Custom providers
+must enumerate all their assets or supply an equivalent content fingerprint.
+The current model baker has no configuration-dependent geometry settings;
+texture-pack pixel processing remains outside this cache.
+
+The first start after a change follows the normal model-loading path and saves
+a compressed snapshot through a temporary file and atomic replacement where
+supported. A matching snapshot restores models and texture mappings while
+initializing dynamic fluid renderers normally. Missing, corrupt or inaccessible
+cache files fall back to normal loading; incomplete model loads are not cached.
+The log reports hits, rebuilds and saved file size. Cache validation still reads
+source data, and decoded/scaled texture pixels are not persisted, so startup
+savings and disk usage depend on the installation and must be measured locally.
+
 ## Automatic render performance
 
 New Paper and Fabric installations use the balanced runtime controller by

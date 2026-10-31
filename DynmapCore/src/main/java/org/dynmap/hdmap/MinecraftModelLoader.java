@@ -52,6 +52,9 @@ final class MinecraftModelLoader {
     private final Map<String, JsonObject> modelLayers = new HashMap<>();
     private final Set<String> missingModelLayers = new java.util.HashSet<>();
     private final Map<String, Boolean> opaqueSprites = new HashMap<>();
+    private boolean complete = true;
+
+    boolean isComplete() { return complete; }
 
     MinecraftModelLoader(MinecraftResourceProvider resources, PatchDefinitionFactory patches) {
         this.resources = resources; this.patches = patches;
@@ -63,7 +66,7 @@ final class MinecraftModelLoader {
     }
 
     /** Fluids ship no element geometry in vanilla models, so install the shared fluid tessellator. */
-    private void registerFluids() {
+    void registerFluids() {
         // CLEARINSIDE op: internal fluid-fluid faces are culled (matchingBaseState /
         // waterFilled+onFace) and surviving faces fall through to COLORMOD_WATERTONED
         // inside readColor - this is what keeps water see-through to the floor.
@@ -128,6 +131,7 @@ final class MinecraftModelLoader {
         try {
             root = read(resource);
         } catch (Exception e) {
+            complete = false;
             Log.warning("Cannot read Minecraft blockstate " + resource + ": " + e.getMessage());
             return;
         }
@@ -137,6 +141,7 @@ final class MinecraftModelLoader {
                 List<WeightedAppliedModels> selected = select(root, state.stateName, namespace);
                 if (!selected.isEmpty()) install(state, selected);
             } catch (Exception e) {
+                complete = false;
                 Log.warning("Cannot load Minecraft blockstate " + resource + " [" + state.stateName + "]: " + e.getMessage());
             }
         }
@@ -677,6 +682,16 @@ final class MinecraftModelLoader {
     private int texture(String id) { return textureIds.computeIfAbsent(id, TexturePack::registerMinecraftTexture); }
     private int textureAtlas(String id) {
         return textureIds.computeIfAbsent("atlas\u0000" + id, ignored -> TexturePack.registerMinecraftTextureAtlas(id));
+    }
+    Map<String, Integer> registeredTextures() { return Map.copyOf(textureIds); }
+
+    void restoreTextures(Map<String, Integer> saved) throws IOException {
+        // Atlas and regular registrations may share a tile; preserve both registrations.
+        for (var entry : saved.entrySet().stream().sorted(Map.Entry.comparingByValue()).toList()) {
+            String id = entry.getKey();
+            int tile = id.startsWith("atlas\u0000") ? textureAtlas(id.substring(6)) : texture(id);
+            if (tile != entry.getValue()) throw new IOException("Cached texture registration differs: " + id);
+        }
     }
     private JsonObject read(String id) throws IOException { try (var in = resources.open(id); var reader = new InputStreamReader(in, StandardCharsets.UTF_8)) { return JsonParser.parseReader(reader).getAsJsonObject(); } }
     private static boolean matchesVariant(String key, Map<String,String> values) { if (key.isEmpty()) return true; for (String term:key.split(",")) { String[] p=term.split("=",2); if (p.length!=2 || !List.of(p[1].split("\\|")).contains(values.get(p[0]))) return false; } return true; }

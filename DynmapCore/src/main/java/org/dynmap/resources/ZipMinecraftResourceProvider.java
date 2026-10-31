@@ -18,6 +18,18 @@ public final class ZipMinecraftResourceProvider implements MinecraftResourceProv
     }
 
     @Override
+    public String fingerprint() throws IOException {
+        // Hash the archive once instead of reopening it for every model and texture.
+        try {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            try (var input = new java.security.DigestInputStream(java.nio.file.Files.newInputStream(archive), digest)) {
+                input.transferTo(java.io.OutputStream.nullOutputStream());
+            }
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+    }
+
+    @Override
     public Set<String> list(String pathPrefix, String suffix) throws IOException {
         String prefix = normalize(pathPrefix);
         Set<String> resources = new LinkedHashSet<>();

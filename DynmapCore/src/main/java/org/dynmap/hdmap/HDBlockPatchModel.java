@@ -103,6 +103,8 @@ public class HDBlockPatchModel extends HDBlockModel {
         return count;
     }
 
+    List<WeightedPatchGroup> getWeightedGroups() { return weightedGroups; }
+
     static long positionSeed(int x, int y, int z) {
         long seed = (long)(x * 3129871) ^ (long)z * 116129781L ^ y;
         return (seed * seed * 42317861L + seed * 11L) >> 16;
@@ -136,6 +138,18 @@ public class HDBlockPatchModel extends HDBlockModel {
             int maximum = 0;
             for (PatchDefinition[] alternative : alternatives) maximum = Math.max(maximum, alternative.length);
             return maximum;
+        }
+
+        PatchDefinition[][] alternatives() { return alternatives; }
+
+        List<Integer> weights() {
+            var weights = new java.util.ArrayList<Integer>();
+            int previous = 0;
+            for (int cumulative : cumulativeWeights) {
+                weights.add(cumulative - previous);
+                previous = cumulative;
+            }
+            return weights;
         }
     }
     /**

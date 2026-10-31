@@ -15,6 +15,16 @@ public final class LayeredMinecraftResourceProvider implements MinecraftResource
     }
 
     @Override
+    public String fingerprint() throws IOException {
+        StringBuilder identity = new StringBuilder();
+        for (MinecraftResourceProvider layer : layers) {
+            String value = layer.fingerprint();
+            identity.append(value.length()).append(':').append(value);
+        }
+        return identity.toString();
+    }
+
+    @Override
     public Set<String> list(String pathPrefix, String suffix) throws IOException {
         Set<String> resources = new LinkedHashSet<>();
         for (MinecraftResourceProvider layer : layers) resources.addAll(layer.list(pathPrefix, suffix));

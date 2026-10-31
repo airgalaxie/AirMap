@@ -19,6 +19,13 @@ update-webpath-files: true
 # AirMap reports the reason and disables itself instead of starting.
 accept-minecraft-client-download: false
 
+# Persist prepared Minecraft models and texture registrations between starts.
+# Relative directories are resolved inside AirMap's data folder; absolute paths are supported.
+# Invalid or outdated data is rebuilt automatically. Missing settings use these defaults.
+render-cache:
+  enabled: true
+  directory: render-cache
+
 ### The path were the /dynmapexp command exports OBJ ZIP files
 exportpath: export
 

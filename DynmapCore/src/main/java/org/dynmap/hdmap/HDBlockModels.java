@@ -35,12 +35,17 @@ public final class HDBlockModels {
         return scaledModels;
     }
 
-    public static synchronized void loadModels(DynmapCore core, ConfigurationNode ignored) {
+    static void resetModels() {
         maxPatches=6; models_by_id_data=new HDBlockModel[DynmapBlockState.getGlobalIndexMax()];
         changeIgnoredBlocks.clear(); customModelsRequestingTileData.clear(); pdf=new PatchDefinitionFactory();
         TexturePack.resetFiles(); HDBlockStateTextureMap.initializeTable();
+        scaledModels = null;
+    }
+
+    public static synchronized void loadModels(DynmapCore core, ConfigurationNode configuration) {
+        resetModels();
         try {
-            new MinecraftModelLoader(core.getMinecraftResourceProvider(), pdf).load();
+            RenderResourceCache.loadModels(core, configuration);
             for(HDBlockModel model:models_by_id_data) if(model instanceof HDBlockPatchModel p) maxPatches=Math.max(maxPatches,p.getMaximumPatchCount());
         } catch(IOException e) { throw new IllegalStateException("Cannot load Minecraft model resources",e); }
         scaledModels = null;
