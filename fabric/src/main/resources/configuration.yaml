@@ -429,6 +429,10 @@ skin-url: "http://skins.minecraft.net/MinecraftSkins/%player%.png"
 ### If a manual setting below is commented out, its built-in default is used.
 render-performance-auto: normal
 
+### Log automatic renderer adjustments during runtime (diagnostics).
+### The startup message is always shown when automatic tuning is enabled.
+render-performance-auto-log-changes: false
+
 ### How often a tile gets rendered (in seconds).
 renderinterval: 1
 

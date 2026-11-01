@@ -426,6 +426,8 @@ public class DynmapCore implements DynmapCommonAPI {
             return false;
         }
         
+        updateDefaultConfigurationTemplate();
+
         /* Load main configuration */
         configuration = new ConfigurationNode(f);
         configuration.load();
@@ -1995,6 +1997,39 @@ public class DynmapCore implements DynmapCommonAPI {
             return yaml;
         }
         return txt.exists() ? txt : yaml;
+    }
+
+    private void updateDefaultConfigurationTemplate() {
+        try (InputStream input = getClass().getResourceAsStream("/" + MAIN_CONFIGURATION_FILE)) {
+            if (input == null) {
+                throw new IOException("Missing embedded " + MAIN_CONFIGURATION_FILE);
+            }
+            writeDefaultConfigurationTemplate(dataDirectory.toPath().resolve("configuration.default.yaml"),
+                    plugin_ver, input.readAllBytes());
+        } catch (IOException exception) {
+            Log.warning("Unable to update configuration.default.yaml: " + exception.getMessage());
+        }
+    }
+
+    static void writeDefaultConfigurationTemplate(Path target, String buildVersion, byte[] defaults) throws IOException {
+        String header = "# AirMap " + buildVersion + " - default configuration reference\n"
+                + "# Automatically updated; this file is for comparison only and is not loaded.\n"
+                + "# Put your own settings in configuration.yaml (or existing configuration.txt).\n\n";
+        byte[] content = (header + new String(defaults, StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8);
+        if (Files.exists(target) && Arrays.equals(Files.readAllBytes(target), content)) {
+            return;
+        }
+        Path temporary = Files.createTempFile(target.getParent(), "configuration.default.", ".tmp");
+        try {
+            Files.write(temporary, content);
+            try {
+                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
     }
 
     /* Uses resource to create default file, if file does not yet exist */

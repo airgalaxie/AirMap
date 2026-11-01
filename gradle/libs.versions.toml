@@ -2,9 +2,9 @@
 # Fabric artifact version (JAR name + fabric.mod.json). The Minecraft version is not
 # part of this name: it is declared by minecraftRuntime in fabric.mod.json, so the
 # 26.x suffix marks a runtime range rather than a build target.
-airmap = "2.2.0-26.4.x"
+airmap = "2.2.1-26.x"
 # Version string of the standalone Paper adapter (JAR name + paper-plugin.yml)
-airmapPaper = "2.2.0-26.3"
+airmapPaper = "2.2.1-26.3"
 javaBuild = "26"
 javaTarget = "25"
 shadow = "9.6.1"

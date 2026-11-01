@@ -145,6 +145,7 @@ default:
 
 ``` yaml
 render-performance-auto: normal
+render-performance-auto-log-changes: false
 ```
 
 The controller samples server TPS, AirMap's process CPU load, JVM heap use and
@@ -163,6 +164,17 @@ Existing installations are not automatically given new configuration keys.
 When this option is absent, AirMap uses `normal`; add
 `render-performance-auto: false` when upgrading if the existing manual limits
 must remain authoritative.
+
+Automatic tuning reports its activation once at startup. Runtime adjustment
+messages are disabled by default; set `render-performance-auto-log-changes: true`
+to enable them for diagnostics.
+
+AirMap also writes `configuration.default.yaml` in its data folder as a comparison
+reference for the installed Paper or Fabric build. It includes the build version
+and is updated at startup only when its contents change. This file is not loaded
+as configuration and should not be edited. Existing `configuration.yaml` or legacy
+`configuration.txt` settings remain untouched; compare them with the reference to
+find new options.
 
 ## Dynmap compatibility documentation
 

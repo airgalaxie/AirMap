@@ -83,6 +83,7 @@ public class MapManager {
     private volatile boolean tpspausefullrenders = false;
     private volatile boolean tpspausezoomout = false;
     private final boolean automaticRenderPerformance;
+    private final boolean logAutomaticPerformanceChanges;
     private final RendererPerformanceController performanceController;
 
     // User enter/exit processing
@@ -1174,6 +1175,7 @@ public class MapManager {
             Log.warning("Invalid render-performance-auto value '" + performanceProfileValue
                     + "'; using 'normal'");
         }
+        logAutomaticPerformanceChanges = configuration.getBoolean("render-performance-auto-log-changes", false);
         automaticRenderPerformance = performanceProfile != RendererPerformanceController.Profile.OFF;
         performanceController = automaticRenderPerformance
                 ? new RendererPerformanceController(Runtime.getRuntime().availableProcessors(), performanceProfile) : null;
@@ -2104,7 +2106,7 @@ public class MapManager {
             RendererPerformanceController.Settings settings = performanceController.update(now, tps,
                     getProcessCpuLoad(), getHeapUsage(), core.getServer().getCurrentPlayers());
             if (settings != null) {
-                applyAutomaticPerformanceSettings(settings, true);
+                applyAutomaticPerformanceSettings(settings, logAutomaticPerformanceChanges);
             }
             return;
         }
