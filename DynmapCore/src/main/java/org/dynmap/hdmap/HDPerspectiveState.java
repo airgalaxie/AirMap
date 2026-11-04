@@ -19,6 +19,13 @@ public interface HDPerspectiveState {
      */
     void getLightLevelsAtStep(BlockStep step, LightLevels ll);
     /**
+     * Sample a diagonal neighbor in the face plane. Perspectives without this
+     * sampling capability retain the current face's light.
+     */
+    default void getLightLevelsAtStep(BlockStep first, BlockStep second, LightLevels ll) {
+        getLightLevels(ll);
+    }
+    /**
      * Get current block state
      * @return block 
      */
@@ -63,6 +70,10 @@ public interface HDPerspectiveState {
      * Get current patch shade setting (false = no shadows)
      */
     boolean getShade();
+    /** Local surface visibility for smooth lighting; independent of stored sky/block light. */
+    default double getAmbientOcclusion(int[] subblockCoordinates) {
+        return 1.0;
+    }
     /**
      * Return submodel alpha value (-1 if no submodel rendered)
      * @return alpha value

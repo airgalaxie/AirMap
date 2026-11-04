@@ -111,10 +111,13 @@ public class TexturePackHDShader implements HDShader {
         final boolean do_better_grass;
         DynLongHashMap ctm_cache;
         final int[] lightingTable;
+        final boolean flatLighting;
         
         protected ShaderState(MapIterator mapiter, HDMap map, MapChunkCache cache, int scale) {
             this.mapiter = mapiter;
             this.map = map;
+            this.flatLighting = map.getPerspective() instanceof IsoHDPerspective perspective
+                    && perspective.inclination == 90.0;
             this.lighting = map.getLighting();
             if(lighting.isNightAndDayEnabled()) {
                 color = new Color[] { new Color(), new Color() };
@@ -133,7 +136,11 @@ public class TexturePackHDShader implements HDShader {
             /* Biome raw data only works on normal worlds at this point */
             do_biome_shading = biome_shaded; // && (cache.getWorld().getEnvironment() == Environment.NORMAL);
             do_better_grass = bettergrass;
-            if (MapManager.mapman.useBrightnessTable()) {
+            if (flatLighting && lighting instanceof ShadowHDLighting) {
+                // The lighting profile overrides the global default for this flat map.
+                lightingTable = lighting.getBrightnessTable(cache.getWorld());
+            }
+            else if (MapManager.mapman.useBrightnessTable()) {
                 lightingTable = cache.getWorld().getBrightnessTable();
             }
             else {
@@ -212,7 +219,7 @@ public class TexturePackHDShader implements HDShader {
 	                            break;
 	                        case Y_MINUS:
 	                            // 95% for even
-	                            if((mapiter.getY() & 0x01) == 0) {
+	                            if(!flatLighting && (mapiter.getY() & 0x01) == 0) {
 	                                c.blendRGB(0xFFF3F3F3);
 	                            }
 	                            break;
@@ -237,6 +244,8 @@ public class TexturePackHDShader implements HDShader {
 	                            break;
 	                        case Y_MINUS:
 	                        case Y_PLUS:
+	                            // Flat relief comes from actual light, not alternating height bands.
+	                            if (flatLighting && ps.getShadeStep() == BlockStep.Y_MINUS) break;
 	                            /* 85% brightness for even, 90% for even*/
 	                            if((mapiter.getY() & 0x01) == 0)
 	                                c.blendRGB(0xFFD9D9D9);

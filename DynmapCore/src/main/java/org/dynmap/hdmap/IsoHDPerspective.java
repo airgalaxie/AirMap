@@ -203,6 +203,11 @@ public class IsoHDPerspective implements HDPerspective {
          */
         @Override
         public final void getLightLevelsAtStep(BlockStep step, LightLevels ll) {
+            if (inclination == 90.0 && (mapiter.getY() + step.yoff < mapiter.getWorldYMin()
+                    || mapiter.getY() + step.yoff >= worldheight)) {
+                getLightLevels(ll);
+                return;
+            }
             if(((step == BlockStep.Y_MINUS) && (y == 0)) ||
                     ((step == BlockStep.Y_PLUS) && (y == worldheight))) {
                 getLightLevels(ll);
@@ -211,9 +216,73 @@ public class IsoHDPerspective implements HDPerspective {
             BlockStep blast = laststep;
             mapiter.stepPosition(step);
             laststep = blast;
-            updateLightLevel(mapiter.getBlockType(), ll);
+            // A solid cell outside the neighboring face has no usable surface
+            // light. Interpolating its internal zero light into a visible flat
+            // face creates a second shadow at terrain steps. Reuse the visible
+            // face's light for this unavailable sample; real dark air remains dark.
+            boolean blockedFlatSample = inclination == 90.0
+                    && HDBlockStateTextureMap.getTransparency(mapiter.getBlockType()) == BlockTransparency.OPAQUE
+                    && HDBlockStateTextureMap.getTransparency(mapiter.getBlockTypeAt(blast.opposite())) == BlockTransparency.OPAQUE;
+            if (blockedFlatSample && sampleRaisedFlatSurface(ll)) {
+                blockedFlatSample = false;
+            } else if (!blockedFlatSample) {
+                updateLightLevel(mapiter.getBlockType(), ll);
+            }
             mapiter.unstepPosition(step);
             laststep = blast;
+            if (blockedFlatSample) {
+                getLightLevels(ll);
+            }
+        }
+
+        /** Read the exposed top of a one-block terrace, never the solid cell's internal light. */
+        private boolean sampleRaisedFlatSurface(LightLevels ll) {
+            if (laststep != BlockStep.Y_MINUS || mapiter.getY() + 2 >= worldheight) return false;
+            mapiter.stepPosition(BlockStep.Y_PLUS);
+            try {
+                if (HDBlockStateTextureMap.getTransparency(mapiter.getBlockTypeAt(BlockStep.Y_PLUS)) == BlockTransparency.OPAQUE) {
+                    return false;
+                }
+                int light = mapiter.getBlockLight(BlockStep.Y_PLUS);
+                ll.sky = light & 15;
+                ll.emitted = light >> 8;
+                return true;
+            } finally {
+                mapiter.unstepPosition(BlockStep.Y_PLUS);
+            }
+        }
+
+        @Override
+        public final void getLightLevelsAtStep(BlockStep first, BlockStep second, LightLevels ll) {
+            if (inclination != 90.0) {
+                getLightLevels(ll);
+                return;
+            }
+            int sampleY = mapiter.getY() + first.yoff + second.yoff;
+            if (sampleY < mapiter.getWorldYMin() || sampleY >= worldheight) {
+                getLightLevels(ll);
+                return;
+            }
+            BlockStep savedStep = laststep;
+            boolean blocked;
+            mapiter.stepPosition(first);
+            mapiter.stepPosition(second);
+            try {
+                blocked = HDBlockStateTextureMap.getTransparency(mapiter.getBlockType()) == BlockTransparency.OPAQUE
+                        && HDBlockStateTextureMap.getTransparency(mapiter.getBlockTypeAt(savedStep.opposite())) == BlockTransparency.OPAQUE;
+                if (blocked && sampleRaisedFlatSurface(ll)) {
+                    blocked = false;
+                } else if (!blocked) {
+                    updateLightLevel(mapiter.getBlockType(), ll);
+                }
+            } finally {
+                mapiter.unstepPosition(second);
+                mapiter.unstepPosition(first);
+                laststep = savedStep;
+            }
+            if (blocked) {
+                getLightLevels(ll);
+            }
         }
         /**
          * Get current block type ID
@@ -232,6 +301,41 @@ public class IsoHDPerspective implements HDPerspective {
          */
         @Override
         public final double getScale() { return modscale; }
+
+        @Override
+        public final double getAmbientOcclusion(int[] xyz) {
+            // Only full, upward-facing terrain surfaces in the flat projection.
+            // Partial/transparent models and other projections retain their light path.
+            if (inclination != 90.0 || laststep != BlockStep.Y_MINUS
+                    || HDBlockStateTextureMap.getTransparency(blocktype) != BlockTransparency.OPAQUE) {
+                return 1.0;
+            }
+            double u = (xyz[0] + 0.5) / modscale;
+            double v = (xyz[2] + 0.5) / modscale;
+            double center = getFlatShadeBrightness(0, 0);
+            double west = getFlatShadeBrightness(-1, 0);
+            double east = getFlatShadeBrightness(1, 0);
+            double north = getFlatShadeBrightness(0, -1);
+            double south = getFlatShadeBrightness(0, 1);
+            // Interpolate visibility over the whole face. The weak, world-fixed
+            // directional weighting distinguishes slopes without outlining every step.
+            double nw = (center + west + north + getFlatShadeBrightness(-1, -1)) * 0.25;
+            double ne = (center + east + north + getFlatShadeBrightness(1, -1)) * 0.25;
+            double sw = (center + west + south + getFlatShadeBrightness(-1, 1)) * 0.25;
+            double se = (center + east + south + getFlatShadeBrightness(1, 1)) * 0.25;
+            return (nw * (1 - u) + ne * u) * (1 - v) + (sw * (1 - u) + se * u) * v;
+        }
+
+        private double getFlatShadeBrightness(int xoff, int zoff) {
+            if (mapiter.getY() + 1 >= worldheight) return 1.0;
+            DynmapBlockState neighbor = mapiter.getBlockTypeAt(xoff, 1, zoff);
+            // Keep Minecraft sky/block light separate. Full-strength client AO
+            // outlines every terrace in a vertical map; use a restrained visibility
+            // contribution, lit from -X/-Z, with the same nine existing samples.
+            // World offsets make the result independent of tile bounds and rotation.
+            return HDBlockStateTextureMap.getTransparency(neighbor) == BlockTransparency.OPAQUE
+                    ? 1.0 - (0.2 + 0.1 * xoff + 0.1 * zoff) : 1.0;
+        }
         /**
          * Get start of current ray, in world coordinates
          */
@@ -948,6 +1052,11 @@ public class IsoHDPerspective implements HDPerspective {
 
     @Override
     public List<TileFlags.TileCoord> getTileCoords(DynmapWorld world, int x, int y, int z, int tilescale) {
+        if (inclination == 90.0) {
+            // Flat light/visibility also reads the adjacent block columns. A point
+            // update at a tile edge must invalidate their tiles, including diagonals.
+            return getTileCoords(world, x, y, z, x, y, z, tilescale);
+        }
         HashSet<TileFlags.TileCoord> tiles = new HashSet<>();
         Vector3D block = new Vector3D();
         block.x = x;
@@ -981,9 +1090,12 @@ public class IsoHDPerspective implements HDPerspective {
         blocks[0].x = minx - 1;
         blocks[0].y = miny - 1;
         blocks[0].z = minz - 1;
-        blocks[1].x = maxx + 1;
+        // Flat samples neighboring columns: include the far edge of the +1
+        // neighbor as well, especially for negative coordinates and rotated maps.
+        int upperPadding = inclination == 90.0 ? 2 : 1;
+        blocks[1].x = maxx + upperPadding;
         blocks[1].y = maxy + 1;
-        blocks[1].z = maxz + 1;
+        blocks[1].z = maxz + upperPadding;
         
         Vector3D corner = new Vector3D();
         Vector3D tcorner = new Vector3D();
@@ -1010,8 +1122,11 @@ public class IsoHDPerspective implements HDPerspective {
             }
         }
         /* Now, add the tiles for the ranges - not perfect, but it works (some extra tiles on corners possible) */
+        // The projected halo already covers Flat's dependencies. The extra row
+        // needed by the existing oblique path would just rerender unrelated tiles.
+        int firstTileY = inclination == 90.0 ? mintiley : mintiley - 1;
         for(int i = mintilex; i <= maxtilex; i++) {
-            for(int j = mintiley-1; j <= maxtiley; j++) {
+            for(int j = firstTileY; j <= maxtiley; j++) {
                 tiles.add(new TileFlags.TileCoord(i, j));
             }
         }

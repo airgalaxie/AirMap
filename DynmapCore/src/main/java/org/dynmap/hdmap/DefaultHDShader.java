@@ -104,7 +104,12 @@ public class DefaultHDShader implements HDShader {
                 color = new Color[] { new Color() };
                 tmpcolor = new Color[] { new Color() };
             }
-            if (MapManager.mapman.useBrightnessTable()) {
+            if (map.getPerspective() instanceof IsoHDPerspective perspective
+                    && perspective.inclination == 90.0 && lighting instanceof ShadowHDLighting) {
+                // The lighting profile overrides the global default for this flat map.
+                lightingTable = lighting.getBrightnessTable(cache.getWorld());
+            }
+            else if (MapManager.mapman.useBrightnessTable()) {
                 lightingTable = cache.getWorld().getBrightnessTable();
             }
             else {

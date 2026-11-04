@@ -118,6 +118,53 @@ public class ShadowHDLighting extends DefaultHDLighting {
         return computeLightScale(ll.emitted, skylight, shadowscale);
     }
 
+    /** Bilinear interpolation of Minecraft surface light, with pixel-center weights. */
+    private void applyFlatLighting(HDPerspectiveState ps, Color incolor, Color[] outcolor, int[] table) {
+        int[] xyz = ps.getSubblockCoord();
+        int axis1, axis2;
+        BlockStep negative1, negative2;
+        switch (ps.getShadeStep()) {
+            case X_MINUS, X_PLUS -> {
+                axis1 = 1; axis2 = 2;
+                negative1 = BlockStep.Y_MINUS; negative2 = BlockStep.Z_MINUS;
+            }
+            case Z_MINUS, Z_PLUS -> {
+                axis1 = 0; axis2 = 1;
+                negative1 = BlockStep.X_MINUS; negative2 = BlockStep.Y_MINUS;
+            }
+            default -> {
+                axis1 = 0; axis2 = 2;
+                negative1 = BlockStep.X_MINUS; negative2 = BlockStep.Z_MINUS;
+            }
+        }
+        double scale = ps.getScale();
+        double offset1 = (xyz[axis1] + 0.5) / scale - 0.5;
+        double offset2 = (xyz[axis2] + 0.5) / scale - 0.5;
+        BlockStep step1 = offset1 < 0 ? negative1 : negative1.opposite();
+        BlockStep step2 = offset2 < 0 ? negative2 : negative2.opposite();
+        double weight1 = Math.min(0.5, Math.abs(offset1));
+        double weight2 = Math.min(0.5, Math.abs(offset2));
+        LightLevels center = ps.getCachedLightLevels(0);
+        LightLevels along1 = ps.getCachedLightLevels(1);
+        LightLevels along2 = ps.getCachedLightLevels(2);
+        LightLevels diagonal = ps.getCachedLightLevels(3);
+        ps.getLightLevels(center);
+        ps.getLightLevelsAtStep(step1, along1);
+        ps.getLightLevelsAtStep(step2, along2);
+        ps.getLightLevelsAtStep(step1, step2, diagonal);
+        double occlusion = ps.getAmbientOcclusion(xyz);
+        for (int pass = 0; pass < outcolor.length; pass++) {
+            boolean ambient = pass == 0;
+            double near = getLightScale(center, ambient, table) * (1 - weight1)
+                    + getLightScale(along1, ambient, table) * weight1;
+            double far = getLightScale(along2, ambient, table) * (1 - weight1)
+                    + getLightScale(diagonal, ambient, table) * weight1;
+            int factor = (int) Math.round((near * (1 - weight2) + far * weight2) * occlusion);
+            outcolor[pass].setColor(incolor);
+            if (factor < 256) outcolor[pass].scaleRGB(factor);
+        }
+    }
+
     /**
      * Combine sky and block light as a deterministic scalar approximation of
      * Minecraft's lightmap: one ambient base plus separate sky and block
@@ -139,6 +186,13 @@ public class ShadowHDLighting extends DefaultHDLighting {
         int[] shadowscale = ss.getLightingTable();
         if(shadowscale == null) {
             shadowscale = defLightingTable;
+        }
+        HDMap map = ss.getMap();
+        if (smooth && ps.getShade() && map != null && map.getPerspective() instanceof IsoHDPerspective perspective
+                && perspective.inclination == 90.0) {
+            applyFlatLighting(ps, incolor, outcolor, shadowscale);
+            checkGrayscale(outcolor);
+            return;
         }
         if(smooth && ps.getShade()) {
             applySmoothLighting(ps, incolor, outcolor, shadowscale);
