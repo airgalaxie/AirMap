@@ -769,6 +769,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
     }
 
     private void doEnable() {
+        org.dynmap.bukkit.helper.MapChunkCache.startChunkSnapshots();
         /* Enable core */
         if(!core.enableCore(null)) {
             this.setEnabled(false);
@@ -796,6 +797,8 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
 
     @Override
     public void onDisable() {
+        // Release render workers before core shutdown waits for their executor.
+        org.dynmap.bukkit.helper.MapChunkCache.stopChunkSnapshots();
         /* Core is being disabled - notify API disable */
         DynmapCommonAPIListener.apiTerminated();
 
@@ -813,6 +816,8 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
 
     private void processTick() {
         cur_tick++;
+
+        org.dynmap.bukkit.helper.MapChunkCache.processChunkSnapshots();
 
         // Tick core
         if (core != null) {

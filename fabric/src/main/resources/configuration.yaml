@@ -415,22 +415,22 @@ skin-url: "http://skins.minecraft.net/MinecraftSkins/%player%.png"
 ### ---------------------------------------------------------------------------
 ### RENDERING / PERFORMANCE
 ### ---------------------------------------------------------------------------
-### Automatically tune AirMap renderer throughput for the available machine
-### and current server load. The controller considers TPS, process CPU load,
-### heap use and online player count. It only changes AirMap renderer limits
-### in memory and never rewrites this configuration file.
-### Values: conservative, normal, aggressive, true, false
-###   conservative: keeps more capacity available for Minecraft and recovers slowly
-###   normal: balanced default; dynamically increases or reduces renderer throughput
-###   aggressive: allows higher throughput and accepts a smaller performance reserve
-###   true: backward-compatible alias for normal
-###   false: disables runtime tuning and uses the configured performance values below
-### If this setting is absent or invalid, normal is used.
-### If a manual setting below is commented out, its built-in default is used.
+### Common Core controller for fullrender and update rendering.
+### It probes existing worker/rate/data limits and measures the resulting throughput.
+### CPU use and TPS alone never pause the adaptive renderer. Sustained severe heap
+### AND GC pressure pauses new work; recovery restarts with one worker.
+### Profiles control the measurement window: conservative=60s, normal=30s, aggressive=15s.
+### true is an alias for normal; false keeps manual limits and legacy TPS pauses.
 render-performance-auto: normal
 
-### Log automatic renderer adjustments during runtime (diagnostics).
-### The startup message is always shown when automatic tuning is enabled.
+### adaptive: apply measured capacity experiments (default)
+### observe: keep the previous automatic controller; log adaptive proposals without applying them
+### legacy: use only the previous automatic controller
+### Observe mode cannot validate the effect of changes it did not apply.
+render-performance-controller: adaptive
+
+### Log decisions, limits, throughput, data wait and render/output CPU share.
+### Render/output includes calculation, image encoding and storage; it is not pure render CPU.
 render-performance-auto-log-changes: false
 
 ### How often a tile gets rendered (in seconds).
@@ -479,7 +479,9 @@ maxchunkspertick: 200
 ### Progress report interval for fullrender/radiusrender, in tiles.  Must be 100 or greater
 progressloginterval: 100
 
-### Parallel fullrender: if defined, number of concurrent threads used for fullrender or radiusrender
+### In adaptive mode: optional upper bound for globally shared full/update workers.
+### If omitted, capacity is learned up to the available processor count.
+### In manual/legacy mode: number of concurrent fullrender or radiusrender threads
 ###   Note: setting this will result in much more intensive CPU use, some additional memory use.  Caution should be used when
 ###  setting this to equal or exceed the number of physical cores on the system.
 #parallelrendercnt: 4

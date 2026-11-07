@@ -85,6 +85,16 @@ public class MapManager {
     private final boolean automaticRenderPerformance;
     private final boolean logAutomaticPerformanceChanges;
     private final RendererPerformanceController performanceController;
+    private final AdaptiveRenderController adaptiveController;
+    private final AdaptiveRenderController.Mode performanceMode;
+    private final RenderAdmission renderAdmission = new RenderAdmission();
+    private final RenderPerformanceMetrics performanceMetrics = new RenderPerformanceMetrics(System.nanoTime());
+    private volatile AdaptiveRenderController.Settings adaptiveSettings;
+    private volatile double latestTps = -1;
+    private volatile long latestTpsNanos;
+    private long lastGcMillis = -1;
+    private long lastPerformanceSampleNanos;
+    private volatile String lastPerformanceDecision = "initializing";
 
     // User enter/exit processing
     private static final int DEFAULT_ENTEREXIT_PERIOD = 1000;	// 1 second
@@ -255,7 +265,8 @@ public class MapManager {
     
     private class DynmapScheduledThreadPoolExecutor extends ScheduledThreadPoolExecutor {
         DynmapScheduledThreadPoolExecutor() {
-            super(POOL_SIZE + parallelrendercnt);
+            // Every admitted batch has enough executor slots; admission never blocks a pool thread.
+            super(POOL_SIZE + (usesAdaptivePerformance() ? adaptiveController.maximumWorkers() : parallelrendercnt));
             this.setThreadFactory(new OurThreadFactory());
             /* Set shutdown policy to stop everything */
             setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
@@ -334,7 +345,7 @@ public class MapManager {
         /* Min and max limits for chunk coords (for radius limit) */
         int cxmin, cxmax, czmin, czmax;
         String rendertype;
-        boolean cancelled;
+        volatile boolean cancelled;
         boolean shutdown = false;
         boolean pausedforworld = false;
         boolean updaterender = false;
@@ -538,6 +549,32 @@ public class MapManager {
         }
         
         public void run() {
+            if (!usesAdaptivePerformance() || cancelled) {
+                if (cancelled) renderAdmission.cancel(this);
+                runAdmitted(Math.max(1, parallelrendercnt), null);
+                return;
+            }
+            AdaptiveRenderController.Settings limits = adaptiveSettings;
+            if (limits.paused()) {
+                scheduleDelayedJob(this, 1000);
+                return;
+            }
+            boolean full = tile0 == null;
+            int requested = 1;
+            if (full) {
+                synchronized (lock) { requested = Math.max(1, Math.min(limits.workers(), renderQueue.size())); }
+            }
+            int granted = renderAdmission.acquire(this, full, requested, limits.workers());
+            if (granted == 0) {
+                scheduleDelayedJob(this, 50);
+                return;
+            }
+            try (RenderAdmission.Reservation reservation = renderAdmission.reservation(full, granted)) {
+                runAdmitted(granted, reservation);
+            }
+        }
+
+        private void runAdmitted(int batchSize, RenderAdmission.Reservation reservation) {
             long tstart = System.currentTimeMillis();
             MapTile tile = null;
             List<MapTile> tileset = null;
@@ -704,9 +741,9 @@ public class MapManager {
                         }
                     }
                 }
-                if(parallelrendercnt > 1) { /* Doing parallel renders? */
+                if(batchSize > 1) { /* Doing parallel renders? */
                     tileset = new ArrayList<MapTile>();
-                    for(int i = 0; i < parallelrendercnt; i++) {
+                    for(int i = 0; i < batchSize; i++) {
                         tile = renderQueue.pollFirst();
                         if(tile != null)
                             tileset.add(tile);
@@ -734,12 +771,22 @@ public class MapManager {
                     final MapTile mt = tileset.get(i);
                     if((mapman != null) && (mapman.render_pool != null)) {
                         final long ts = tstart;
-                        Future<Boolean> future = mapman.render_pool.submit(new Callable<Boolean>() {
-                            public Boolean call() {
-                                return processTile(mt, ts, cnt);
-                            }
-                        });
-                        rslt.add(future);
+                        RenderAdmission.Reservation child = reservation == null ? null : reservation.split();
+                        try {
+                            Future<Boolean> future = mapman.render_pool.submit(new Callable<Boolean>() {
+                                public Boolean call() {
+                                    try {
+                                        return processTile(mt, ts, cnt);
+                                    } finally {
+                                        if (child != null) child.close();
+                                    }
+                                }
+                            });
+                            rslt.add(future);
+                        } catch (RuntimeException ex) {
+                            if (child != null) child.close();
+                            throw ex;
+                        }
                         
                     }
                 }
@@ -780,7 +827,11 @@ public class MapManager {
             if(notdone) {
                 if(tile0 == null) {    /* fullrender */
                     long tend = System.currentTimeMillis();
-                    if(timeslice_int > (tend-tstart)) { /* We were fast enough */
+                    if (usesAdaptivePerformance()) {
+                        // Adaptive pacing is an additional pause, including for expensive tiles.
+                        scheduleDelayedJob(this, adaptiveSettings.fullDelayMillis());
+                    }
+                    else if(timeslice_int > (tend-tstart)) { /* We were fast enough */
                         scheduleDelayedJob(this, timeslice_int - (tend-tstart));
                     }
                     else {  /* Schedule to run ASAP */
@@ -846,9 +897,15 @@ public class MapManager {
                 }
             }
             /* Fetch chunk cache from server thread */
-            MapChunkCache cache = core.getServer().createMapChunkCache(world, requiredChunks, tile.isBlockTypeDataNeeded(), 
-                                                      tile.isHightestBlockYDataNeeded(), tile.isBiomeDataNeeded(), 
-                                                      tile.isRawBiomeDataNeeded());
+            boolean measure = automaticRenderPerformance && performanceMode != AdaptiveRenderController.Mode.LEGACY;
+            long dataStart = measure ? System.nanoTime() : 0;
+            MapChunkCache cache;
+            try {
+                cache = core.getServer().createMapChunkCache(world, requiredChunks, tile.isBlockTypeDataNeeded(),
+                        tile.isHightestBlockYDataNeeded(), tile.isBiomeDataNeeded(), tile.isRawBiomeDataNeeded());
+            } finally {
+                if (measure) performanceMetrics.data(System.nanoTime() - dataStart);
+            }
             if(cache == null) {
                 /* If world unloaded, don't cancel */
                 if(world.isLoaded() == false) {
@@ -870,7 +927,18 @@ public class MapManager {
                 boolean renderCalled = false;
                 if (hasData && !skipTile) {
                     long rt0 = System.nanoTime();
-                    updated = tile.render(cache, renderMapName);
+                    long cpuStart = measure ? performanceMetrics.threadCpuTime() : -1;
+                    boolean completed = false;
+                    try {
+                        updated = tile.render(cache, renderMapName);
+                        completed = true;
+                    } finally {
+                        if (measure) {
+                            long cpuEnd = performanceMetrics.threadCpuTime();
+                            performanceMetrics.output(tile0 == null, System.nanoTime() - rt0,
+                                    cpuStart >= 0 && cpuEnd >= cpuStart ? cpuEnd - cpuStart : -1, completed);
+                        }
+                    }
                     renderNanos = System.nanoTime() - rt0;
                     renderCalled = true;
                 }
@@ -1177,6 +1245,16 @@ public class MapManager {
         }
         logAutomaticPerformanceChanges = configuration.getBoolean("render-performance-auto-log-changes", false);
         automaticRenderPerformance = performanceProfile != RendererPerformanceController.Profile.OFF;
+        String modeValue = configuration.getString("render-performance-controller", "adaptive");
+        performanceMode = AdaptiveRenderController.Mode.parse(modeValue);
+        if (!modeValue.equalsIgnoreCase("adaptive") && !modeValue.equalsIgnoreCase("observe")
+                && !modeValue.equalsIgnoreCase("legacy")) {
+            Log.warning("Invalid render-performance-controller '" + modeValue + "'; using adaptive");
+        }
+        adaptiveController = new AdaptiveRenderController(Runtime.getRuntime().availableProcessors(),
+                configuration.getInteger("parallelrendercnt", 0),
+                configuration.getInteger("maxchunkspertick", DEFAULT_CHUNKS_PER_TICK), performanceProfile);
+        adaptiveSettings = adaptiveController.initialSettings();
         performanceController = automaticRenderPerformance
                 ? new RendererPerformanceController(Runtime.getRuntime().availableProcessors(), performanceProfile) : null;
         
@@ -1277,8 +1355,10 @@ public class MapManager {
         max_chunk_loads_per_tick = configuration.getInteger("maxchunkspertick", DEFAULT_CHUNKS_PER_TICK);
         if(max_chunk_loads_per_tick < 5) max_chunk_loads_per_tick = 5;
         if (automaticRenderPerformance) {
-            applyAutomaticPerformanceSettings(performanceController.initialSettings(), false);
-            Log.info("Automatic render performance tuning enabled");
+            if (usesAdaptivePerformance()) applyAdaptivePerformanceSettings(adaptiveSettings);
+            else applyAutomaticPerformanceSettings(performanceController.initialSettings(), false);
+            Log.info("Automatic render performance tuning enabled (controller="
+                    + performanceMode.toString().toLowerCase(java.util.Locale.ROOT) + ")");
         }
         /* Get zoomout processing periond in seconds */
         zoomout_period = configuration.getInteger("zoomoutperiod", DEFAULT_ZOOMOUT_PERIOD);
@@ -1735,6 +1815,9 @@ public class MapManager {
     public void startRendering() {
         render_pool = new DynmapScheduledThreadPoolExecutor();
         tileQueue.start();
+        if (automaticRenderPerformance && performanceMode != AdaptiveRenderController.Mode.LEGACY) {
+            scheduleDelayedJob(new SampleRenderPerformance(), 5000);
+        }
         scheduleDelayedJob(new DoZoomOutProcessing(), 60000);
         scheduleDelayedJob(new CheckWorldTimes(), 5000);
         scheduleDelayedJob(new DoTouchProcessing(), 1000);
@@ -1839,6 +1922,9 @@ public class MapManager {
      */
     public void printStats(DynmapCommandSender sender, String prefix) {
         sender.sendMessage("Tile Render Statistics:");
+        if (automaticRenderPerformance && performanceMode != AdaptiveRenderController.Mode.LEGACY) {
+            sender.sendMessage("  Render controller " + performanceMode + ": " + lastPerformanceDecision);
+        }
         MapStats tot = new MapStats();
         int invcnt = 0;
         for(DynmapWorld dw : this.worlds) {
@@ -2096,8 +2182,18 @@ public class MapManager {
     public int getMaxChunkLoadsPerTick() {
         return max_chunk_loads_per_tick;
     }
+
+    /** Soft budget for adapters copying world data on a Minecraft execution context. */
+    public long getRenderDataBudgetNanos() {
+        return usesAdaptivePerformance()
+                ? Math.max(250_000L, Math.min(4_000_000L, max_chunk_loads_per_tick * 20_000L))
+                : 2_000_000L;
+    }
     
     public void updateTPS(double tps) {
+        latestTps = tps;
+        latestTpsNanos = System.nanoTime();
+        if (usesAdaptivePerformance()) return;
         if (automaticRenderPerformance) {
             long now = System.nanoTime();
             if (!performanceController.shouldSample(now)) {
@@ -2116,6 +2212,75 @@ public class MapManager {
         tpspausefullrenders = (tps < tpslimit_fullrenders);
         // Pause if needed for zoom out
         tpspausezoomout = (tps < tpslimit_zoomout);
+    }
+
+    private boolean usesAdaptivePerformance() {
+        return automaticRenderPerformance && performanceMode == AdaptiveRenderController.Mode.ADAPTIVE;
+    }
+
+    private void applyAdaptivePerformanceSettings(AdaptiveRenderController.Settings settings) {
+        adaptiveSettings = settings;
+        tileQueue.setPerformanceLimits(settings.updateIntervalMillis(),
+                settings.updateIntervalMillis() / 2, settings.workers());
+        max_chunk_loads_per_tick = settings.chunksPerTick();
+        tpspauseupdaterenders = settings.paused();
+        tpspausefullrenders = settings.paused();
+        tpspausezoomout = settings.paused();
+    }
+
+    private class SampleRenderPerformance implements Runnable {
+        @Override
+        public void run() {
+            try {
+                long now = System.nanoTime();
+                boolean fullPending;
+                synchronized (lock) { fullPending = !active_renders.isEmpty(); }
+                boolean updatesPending = tileQueue.size() > 0;
+                RenderPerformanceMetrics.Window work = performanceMetrics.sample(now, renderAdmission.active(),
+                        fullPending || updatesPending);
+                long gcMillis = 0;
+                boolean gcKnown = false;
+                for (java.lang.management.GarbageCollectorMXBean bean : ManagementFactory.getGarbageCollectorMXBeans()) {
+                    long time = bean.getCollectionTime();
+                    if (time >= 0) { gcMillis += time; gcKnown = true; }
+                }
+                double gcFraction = gcKnown && lastGcMillis >= 0 && gcMillis >= lastGcMillis
+                        ? (gcMillis - lastGcMillis) * 1.0e6 / Math.max(1, now - lastPerformanceSampleNanos) : -1;
+                lastGcMillis = gcKnown ? gcMillis : -1;
+                lastPerformanceSampleNanos = now;
+                double tps = now - latestTpsNanos <= 15_000_000_000L ? latestTps : -1;
+                double processCpu = getProcessCpuLoad();
+                double systemCpu = getEnvironmentCpuLoad();
+                double heap = getHeapUsage();
+                AdaptiveRenderController.Input input = new AdaptiveRenderController.Input(tps,
+                        processCpu, systemCpu, heap, gcFraction, work, updatesPending);
+                AdaptiveRenderController.Decision decision = usesAdaptivePerformance()
+                        ? adaptiveController.update(now, input) : adaptiveController.observe(now, input);
+                if (decision != null) {
+                    lastPerformanceDecision = decision.reason();
+                    if (usesAdaptivePerformance()) applyAdaptivePerformanceSettings(decision.settings());
+                    if (logAutomaticPerformanceChanges) {
+                        Log.info(String.format(java.util.Locale.ROOT,
+                                "Render controller %s: %s; workers=%d, update=%d ms, chunks/tick=%d, pause=%s; "
+                                + "tiles/s=%.2f, data share=%.2f, render/output CPU share=%.2f; "
+                                + "TPS=%.2f, JVM CPU=%.2f, environment CPU=%.2f, heap=%.2f, GC=%.2f",
+                                performanceMode, decision.reason(), decision.settings().workers(),
+                                decision.settings().updateIntervalMillis(), decision.settings().chunksPerTick(),
+                                decision.settings().paused(), decision.tilesPerSecond(), decision.dataShare(),
+                                decision.outputCpuShare(), tps, processCpu, systemCpu, heap, gcFraction));
+                    }
+                }
+            } catch (RuntimeException ex) {
+                Log.warning("Render controller sample failed: " + ex);
+            } finally {
+                render_pool.schedule(this, 5000, TimeUnit.MILLISECONDS);
+            }
+        }
+    }
+
+    private static double getEnvironmentCpuLoad() {
+        java.lang.management.OperatingSystemMXBean bean = ManagementFactory.getOperatingSystemMXBean();
+        return bean instanceof com.sun.management.OperatingSystemMXBean os ? os.getCpuLoad() : -1;
     }
 
     private void applyAutomaticPerformanceSettings(RendererPerformanceController.Settings settings, boolean logChange) {

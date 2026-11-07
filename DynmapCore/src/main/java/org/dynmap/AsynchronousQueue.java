@@ -62,7 +62,9 @@ public class AsynchronousQueue<T> {
     }
 
     public int size() {
-        return set.size();
+        synchronized (lock) {
+            return set.size();
+        }
     }
 
     public void setPerformanceLimits(int dequeueTime, int accelDequeueTime, int pendinglimit) {
@@ -142,7 +144,7 @@ public class AsynchronousQueue<T> {
                 	}
                     handler.handle(t);
                 }
-                if(set.size() >= accelDequeueThresh)
+                if(size() >= accelDequeueThresh)
                     sleep(accelDequeueTime);
                 else
                     sleep(dequeueTime);

@@ -11,4 +11,11 @@ dependencies {
 
     paperweightDevelopmentBundle(libs.paperDevBundle)
     compileOnly(libs.paperApi)
+    testImplementation(platform(libs.junitBom))
+    testImplementation(libs.junitJupiter)
+    testRuntimeOnly(libs.junitPlatformLauncher)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

@@ -53,9 +53,9 @@ mod.
   `Name`/`Properties` form and the current `id`/`properties` form. Tint
   handling distinguishes biome-tinted, constant-color and untinted leaves.
 - **Adaptive rendering performance:** AirMap can adjust renderer throughput at
-  runtime from server TPS, process CPU load, heap use, online player count and
-  the available processors. Conservative, normal and aggressive profiles let
-  operators choose how much capacity remains available for Minecraft.
+  runtime through measured capacity experiments in the shared Core. Fullrender
+  and updates share adaptive worker limits; tick health, CPU, heap and GC signals
+  guide tuning and safety. Profiles select how long experiments are measured.
 - **Web and storage maintenance:** Bundled web assets and SQL storage paths
   have been updated while preserving the external-server workflow.
 
@@ -140,34 +140,71 @@ savings and disk usage depend on the installation and must be measured locally.
 
 ## Automatic render performance
 
-New Paper and Fabric installations use the balanced runtime controller by
-default:
+Paper and Fabric use the same adaptive controller in the Core:
 
-``` yaml
+```yaml
 render-performance-auto: normal
+render-performance-controller: adaptive
 render-performance-auto-log-changes: false
 ```
 
-The controller samples server TPS, AirMap's process CPU load, JVM heap use and
-the online player count. It adjusts tile queue timing, concurrent update-tile
-capacity, full-render delay and chunk loading in memory. Under critical load it
-also pauses full renders and zoom-out processing until the server recovers. It
-does not rewrite `configuration.yaml`.
+The controller starts with one worker, samples every five seconds and probes
+one existing limit at a time: shared full/update parallelism, update queue rate,
+chunk allowance or an additional fullrender pause. Fullrender and updates share
+a global worker bound, with admission that yields capacity to the other class.
+`parallelrendercnt`, when positive, is an optional worker ceiling in adaptive
+mode; otherwise the available processor count is the ceiling. `maxchunkspertick`
+is the chunk allowance ceiling. These are search limits, not assumed optima.
 
-Available values are `conservative`, `normal`, `aggressive`, `true` and
-`false`. `true` is an alias for `normal`. Use `conservative` to retain more
-capacity for Minecraft, or `aggressive` to permit higher rendering throughput
-with a smaller reserve. Set the option to `false` to disable automatic tuning
-and use the manual rendering performance settings in `configuration.yaml`.
+Experiments compare completed render calls per wall-clock second and TPS over
+measurement windows. A capacity increase needs more than 3% throughput gain and
+must not reduce average TPS by more than 0.5. A reduction is retained when it
+improves TPS by more than 0.5, increases throughput, or preserves throughput
+within 3% while lowering measured JVM CPU by more than two percentage points. Failed probes
+are rolled back, with increasingly spaced retries for unproductive capacity
+probes (up to 15 minutes). Detected changes in external CPU load or the full/update mix
+make the comparison inconclusive; it is rolled back rather than learned as a
+hardware limit. Terrain complexity can still affect comparisons.
 
-Existing installations are not automatically given new configuration keys.
-When this option is absent, AirMap uses `normal`; add
-`render-performance-auto: false` when upgrading if the existing manual limits
-must remain authoritative.
+TPS below 18 invites a measured reduction, not a pause. If reducing AirMap work
+only loses throughput, the reduction is reversed; persistently low TPS alone
+does not repeatedly force lower capacity. High CPU use alone never pauses the
+adaptive renderer. The separate safety governor pauses new full/update work and
+zoom-out scheduling after three consecutive samples with heap use at least 97%
+and reported GC time at least 15% of elapsed time. It resumes at one worker after
+six samples below 88% heap and 8% GC time. Unsupported measurements remain
+unknown, not zero. Existing manual pauses and world-unload behavior remain.
 
-Automatic tuning reports its activation once at startup. Runtime adjustment
-messages are disabled by default; set `render-performance-auto-log-changes: true`
-to enable them for diagnostics.
+Metrics separate world-data acquisition wall time from the existing render/output
+call. The latter still includes image calculation, PNG/other encoding, hashing,
+locking and storage. Thread CPU time versus wall time gives a CPU/wait indication;
+it does **not** identify storage time precisely. No renderer, image encoder, hash
+or storage implementation is changed. The Paper snapshot adapter consumes the
+Core's soft copy budget (0.25–4 ms, depending on the current chunk allowance);
+individual copies cannot be preempted. Fabric retains its existing data retrieval
+mechanism and benefits from shared admission/rate control, but does not yet
+consume that per-context copy budget. This change does not establish Folia support.
+
+Profiles `conservative`, `normal` and `aggressive` select experiment windows of
+60, 30 and 15 seconds. `true` aliases `normal`. `false` disables automatic tuning
+and keeps the existing manual limits and TPS pause settings.
+
+For a staged rollout, first select `render-performance-controller: observe` and
+enable decision logging. The previous automatic controller remains in charge;
+adaptive proposals are labelled as unapplied and cannot establish their effect.
+Then select `adaptive` and compare throughput, tick health and rollback decisions
+under representative fullrender and update workloads. `legacy` selects only the
+previous controller, including its CPU/TPS-based pauses. No configuration is
+rewritten. The absence of the new controller key selects `adaptive`.
+
+Runtime decisions are logged only when `render-performance-auto-log-changes` is
+true. They include limits, measured throughput, data share, render/output CPU
+share, TPS, JVM/environment CPU, heap and GC time. CPU outside the JVM is only
+estimated from environment minus process CPU; container scope and measurement
+windows may differ. Decisions also appear in the render statistics command.
+
+Existing installations are not automatically given new configuration keys. Set
+`render-performance-auto: false` if existing manual limits must remain authoritative.
 
 AirMap also writes `configuration.default.yaml` in its data folder as a comparison
 reference for the installed Paper or Fabric build. It includes the build version
