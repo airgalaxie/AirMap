@@ -39,7 +39,7 @@ public abstract class DynmapWorld {
     public boolean sendhealth;
     public boolean showborder;
     private int extrazoomoutlevels;  /* Number of additional zoom out levels to generate */
-    private boolean cancelled;
+    private volatile boolean cancelled;
     private final String wname;
     private final int hashcode;
     private final String raw_wname;
@@ -116,9 +116,15 @@ public abstract class DynmapWorld {
             mts.startZoomOutIter(); // Start iterator
             while (mts.nextZoomOutInv(c)) {
                 if(cancelled) return;
-                for (int varIdx = 0; varIdx < var.length; varIdx++) {
-                    MapStorageTile tile = storage.getTile(this, mt, c.x, c.y, c.zoomlevel, var[varIdx]);
-                    processZoomFile(mts, tile, varIdx == 0);
+                boolean completed = false;
+                try {
+                    for (int varIdx = 0; varIdx < var.length; varIdx++) {
+                        MapStorageTile tile = storage.getTile(this, mt, c.x, c.y, c.zoomlevel, var[varIdx]);
+                        processZoomFile(mts, tile, varIdx == 0);
+                    }
+                    completed = true;
+                } finally {
+                    if (!completed) mts.setZoomOutInv(c.x, c.y, c.zoomlevel);
                 }
             }
         }
@@ -149,6 +155,7 @@ public abstract class DynmapWorld {
 
         /* create image buffer */
         kzIm = DynmapBufferedImage.allocateBufferedImage(width, height);
+        try {
         zIm = kzIm.buf_img;
         for(int i = 0; i < 4; i++) {
             boolean doblit = true;
@@ -156,7 +163,9 @@ public abstract class DynmapWorld {
             int ty1 = ty + step * (stepseq[i] >> 1);
             MapStorageTile tile1 = storage.getTile(this, tile.map, tx1, ty1, tile.zoom, tile.var);
             if (tile1 == null) continue;
-            tile1.getReadLock();
+            if (!tile1.getReadLock()) {
+                throw new java.util.concurrent.CancellationException("Interrupted acquiring zoom input " + tile1.getURI());
+            }
             if (firstVariant) { // We're handling this one - but only clear on first variant (so that we don't miss updates later)
                 mts.clearZoomOutInv(tile1.x, tile1.y, tile1.zoom);
             }
@@ -234,26 +243,32 @@ public abstract class DynmapWorld {
                 zIm.setRGB(((i>>1) != 0)?0:width/2, (i & 1) * height/2, width/2, height/2, argb, 0, width);
             }
         }
-        ztile.getWriteLock();
+        if (!ztile.getWriteLock()) {
+            throw new java.util.concurrent.CancellationException("Interrupted acquiring zoom output " + ztile.getURI());
+        }
         try {
             MapManager mm = MapManager.mapman;
             if(mm == null)
-                return;
+                throw new java.util.concurrent.CancellationException("Map renderer stopped");
             long crc = MapStorage.calculateImageHashCode(kzIm.argb_buf, 0, kzIm.argb_buf.length); /* Get hash of tile */
             if(blank) {
                 if (ztile.exists()) {
-                    ztile.delete();
+                    if (!ztile.delete()) throw new IllegalStateException("Cannot delete zoom tile " + ztile.getURI());
                     MapManager.mapman.pushUpdate(this, new Client.Tile(ztile.getURI()));
                     enqueueZoomOutUpdate(ztile);
                 }
             }
             else /* if (!ztile.matchesHashCode(crc)) */ {
-                ztile.write(crc, zIm, (mostRecentTimestamp == 0)? System.currentTimeMillis() : mostRecentTimestamp);
+                if (!ztile.write(crc, zIm, (mostRecentTimestamp == 0)? System.currentTimeMillis() : mostRecentTimestamp)) {
+                    throw new IllegalStateException("Cannot write zoom tile " + ztile.getURI());
+                }
                 MapManager.mapman.pushUpdate(this, new Client.Tile(ztile.getURI()));
                 enqueueZoomOutUpdate(ztile);
             }
         } finally {
             ztile.releaseWriteLock();
+        }
+        } finally {
             DynmapBufferedImage.freeBufferedImage(kzIm);
         }
     }

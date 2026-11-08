@@ -1,99 +1,87 @@
 package org.dynmap.fabric;
 
-import net.minecraft.nbt.*;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.chunk.ChunkSource;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.storage.SerializableChunkData;
-
 import org.dynmap.DynmapChunk;
-import org.dynmap.Log;
 import org.dynmap.common.chunk.GenericChunk;
+import org.dynmap.common.chunk.GenericChunkCache;
 import org.dynmap.common.chunk.GenericMapChunkCache;
 
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-/**
- * Container for managing chunks - dependent upon using chunk snapshots, since rendering is off server thread
- */
+/** Detached chunk data for render workers; live chunk copies run on the server thread. */
 public class FabricMapChunkCache extends GenericMapChunkCache {
-    private Level w;
-    private ServerChunkCache cps;
+    private final FabricChunkProvider<SerializableChunkData> provider;
+    private FabricWorld world;
+    private ServerLevel level;
+    private ServerChunkCache chunks;
 
-    /**
-     * Construct empty cache
-     */
     public FabricMapChunkCache(DynmapPlugin plugin) {
-    	super(plugin.sscache);
+        this(plugin.sscache, plugin.getFabricServer().chunkProvider());
     }
 
-    public void setChunks(FabricWorld dw, List<DynmapChunk> chunks) {
-        this.w = dw.getLevel();
-        if (dw.isLoaded()) {
-            /* Check if world's provider is ServerChunkCache */
-            ChunkSource cp = this.w.getChunkSource();
-
-            if (cp instanceof ServerChunkCache) {
-                cps = (ServerChunkCache) cp;
-            } else {
-                Log.severe("Error: world " + dw.getName() + " has unsupported chunk provider");
-            }
-        } 
-        super.setChunks(dw, chunks);
+    FabricMapChunkCache(GenericChunkCache cache, FabricChunkProvider<SerializableChunkData> provider) {
+        super(cache);
+        this.provider = provider;
     }
 
-    // Load generic chunk from existing and already loaded chunk
+    public void setChunks(FabricWorld world, List<DynmapChunk> required) {
+        this.world = world;
+        Level current = world.getLevel();
+        if (!(current instanceof ServerLevel serverLevel)) {
+            throw new CancellationException("Fabric world is no longer loaded");
+        }
+        level = serverLevel;
+        chunks = level.getChunkSource();
+        super.setChunks(world, required);
+    }
+
+    protected boolean isCurrentWorld() {
+        return world.getLevel() == level && level.getChunkSource() == chunks;
+    }
+
+    void requireCurrentWorld() {
+        FabricChunkProvider.requireCurrentWorld(this::isCurrentWorld);
+    }
+
     @Override
     protected Supplier<GenericChunk> getLoadedChunkAsync(DynmapChunk chunk) {
-        return () -> getLoadedChunk(chunk);
+        return provider.request(this::isCurrentWorld, () -> copyLoadedChunk(chunk),
+                snapshot -> snapshot == null ? null : parseChunkFromNBT(new NBT.NBTCompound(snapshot.write())));
     }
 
-    protected GenericChunk getLoadedChunk(DynmapChunk chunk) {
-        if ((cps != null) && cps.hasChunk(chunk.x, chunk.z)) {
-            try {
-                LevelChunk levelChunk = cps.getChunkNow(chunk.x, chunk.z);
-                if (levelChunk != null) {
-                    CompoundTag nbt = SerializableChunkData.copyOf((ServerLevel) w, levelChunk).write();
-                    return parseChunkFromNBT(new NBT.NBTCompound(nbt));
-                }
-            } catch (RuntimeException e) {
-                Log.severe(String.format("Error snapshotting loaded chunk: %d,%d", chunk.x, chunk.z), e);
-            }
-        }
-        return null;
+    protected SerializableChunkData copyLoadedChunk(DynmapChunk chunk) {
+        // Resolve on the owning thread and reject an obsolete dimension instance.
+        FabricChunkProvider.requireCurrentWorld(() -> level.getServer().getLevel(level.dimension()) == level);
+        if (!chunks.hasChunk(chunk.x, chunk.z)) return null;
+        LevelChunk loaded = chunks.getChunkNow(chunk.x, chunk.z);
+        return loaded == null ? null : SerializableChunkData.copyOf(level, loaded);
     }
 
-    private CompoundTag readChunk(int x, int z) {
-        try {
-            ChunkPos coord = new ChunkPos(x, z);
-            // Async chunk reading is synchronized here. Perhaps we can do async and improve performance?
-            return cps.chunkMap.read(coord).join().orElse(null);
-        } catch (Exception exc) {
-            Log.severe(String.format("Error reading chunk: %d,%d", x, z), exc);
-            return null;
-        }
+    protected CompletableFuture<Optional<CompoundTag>> readStoredChunk(DynmapChunk chunk) {
+        return chunks.chunkMap.read(new ChunkPos(chunk.x, chunk.z));
     }
 
-    // Load generic chunk from unloaded chunk
     @Override
     protected Supplier<GenericChunk> loadChunkAsync(DynmapChunk chunk) {
-        return () -> loadChunk(chunk);
-    }
-
-    protected GenericChunk loadChunk(DynmapChunk chunk) {
-        CompoundTag nbt = readChunk(chunk.x, chunk.z);
-        if (nbt == null) {
-            return null;
-        }
-        try {
-            return parseChunkFromNBT(new NBT.NBTCompound(nbt));
-        } catch (RuntimeException e) {
-            Log.severe(String.format("Error parsing stored chunk: %d,%d", chunk.x, chunk.z), e);
-            return null;
-        }
+        // Start independent reads before consuming results; never load or generate a live chunk.
+        CompletableFuture<Optional<CompoundTag>> result = provider.read(this::isCurrentWorld,
+                () -> readStoredChunk(chunk));
+        return () -> {
+            CompoundTag nbt = provider.await(result).orElse(null);
+            requireCurrentWorld();
+            GenericChunk parsed = nbt == null ? null : parseChunkFromNBT(new NBT.NBTCompound(nbt));
+            requireCurrentWorld();
+            return parsed;
+        };
     }
 }

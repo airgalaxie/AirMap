@@ -1,6 +1,8 @@
 package org.dynmap;
 
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -66,6 +68,17 @@ final class TileRenderCoordinator {
 
     private final Object lock = new Object();
     private final Map<MapTile, State> states = new HashMap<MapTile, State>();
+
+    /** Includes queued, admitted and running updates until publication succeeds. */
+    List<MapTile> pendingUpdates() {
+        synchronized (lock) {
+            List<MapTile> pending = new ArrayList<>();
+            states.forEach((tile, state) -> {
+                if (state.updateScheduled) pending.add(tile);
+            });
+            return pending;
+        }
+    }
 
     /** Register one newly consumed invalidation.  True means a queue item is needed. */
     boolean requestUpdate(MapTile tile) {

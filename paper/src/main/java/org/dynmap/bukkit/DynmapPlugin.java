@@ -797,6 +797,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
 
     @Override
     public void onDisable() {
+        if (core != null && core.getMapManager() != null) core.getMapManager().beginShutdown();
         // Release render workers before core shutdown waits for their executor.
         org.dynmap.bukkit.helper.MapChunkCache.stopChunkSnapshots();
         /* Core is being disabled - notify API disable */

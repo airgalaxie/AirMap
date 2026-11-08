@@ -124,6 +124,15 @@ public class MapManager {
     private HashMap<UUID, SendQueueRec> entersetsendqueue = new HashMap<UUID, SendQueueRec>();
 
     private boolean did_start = false;
+    private volatile boolean stopping;
+
+    public void beginShutdown() {
+        stopping = true;
+    }
+
+    private boolean expectedShutdownAbort(Throwable failure) {
+        return stopping && (failure instanceof CancellationException || failure instanceof InterruptedException);
+    }
     
     private int zoomout_period = DEFAULT_ZOOMOUT_PERIOD;	/* Zoom-out tile processing period, in seconds */
     /* Which fullrenders are active */
@@ -290,7 +299,7 @@ public class MapManager {
                         try {
                             r.run();
                         } catch (Exception x) {
-                        	if (!(x instanceof InterruptedException)) {	// Avoid shutdown noise
+                            if (!expectedShutdownAbort(x)) {
                         		Log.severe("Exception during render job: " + r);
                         		x.printStackTrace();                        
                         	}
@@ -308,7 +317,7 @@ public class MapManager {
                         try {
                             command.run();
                         } catch (Exception x) {
-                        	if (!(x instanceof InterruptedException)) {	// Avoid shutdown noise
+                            if (!expectedShutdownAbort(x)) {
                         		Log.severe("Exception during render job: " + command);
                         		x.printStackTrace();                    
                         	}
@@ -333,6 +342,7 @@ public class MapManager {
         TileFlags found = null;
         TileFlags rendered = null;
         LinkedList<MapTile> renderQueue = null;
+        final Set<MapTile> inFlight = new HashSet<>();
         MapTile tile0 = null;
         int rendercnt = 0;
         int skipcnt = 0;
@@ -497,7 +507,12 @@ public class MapManager {
             v.put("found", found.save());
             v.put("rendered", rendered.save());
             LinkedList<ConfigurationNode> queue = new LinkedList<ConfigurationNode>();
-            for(MapTile tq : renderQueue) {
+            Set<MapTile> pendingTiles = new java.util.LinkedHashSet<>();
+            synchronized (lock) {
+                pendingTiles.addAll(renderQueue);
+                pendingTiles.addAll(inFlight);
+            }
+            for(MapTile tq : pendingTiles) {
                 ConfigurationNode n = tq.saveTile();
                 if(n != null)
                     queue.add(n);
@@ -549,6 +564,7 @@ public class MapManager {
         }
         
         public void run() {
+            if (stopping) return; // Pending work is retained for the final shutdown snapshot.
             if (!usesAdaptivePerformance() || cancelled) {
                 if (cancelled) renderAdmission.cancel(this);
                 runAdmitted(Math.max(1, parallelrendercnt), null);
@@ -743,14 +759,21 @@ public class MapManager {
                 }
                 if(batchSize > 1) { /* Doing parallel renders? */
                     tileset = new ArrayList<MapTile>();
+                    synchronized (lock) {
                     for(int i = 0; i < batchSize; i++) {
                         tile = renderQueue.pollFirst();
-                        if(tile != null)
+                        if(tile != null) {
                             tileset.add(tile);
+                            inFlight.add(tile);
+                        }
+                    }
                     }
                 }
                 else {
-                    tile = renderQueue.pollFirst();
+                    synchronized (lock) {
+                        tile = renderQueue.pollFirst();
+                        if (tile != null) inFlight.add(tile);
+                    }
                 }
             }
             else {    /* Else, single tile render */
@@ -793,9 +816,6 @@ public class MapManager {
                 /* Now, do our render (first one) */
                 tile = tileset.get(0);
                 notdone = processTile(tile, tstart, cnt);
-                if ((!notdone) && (tile0 == null)) {    // Not completed? Push back on queue
-                    renderQueue.push(tile);
-                }
                 /* Now, join with others */
                 for(int i = 0; i < rslt.size(); i++) {
                     boolean rsltflag = false;
@@ -810,18 +830,11 @@ public class MapManager {
                         rsltflag = false;
                     }
                     notdone = notdone && rsltflag;
-                    if ((!rsltflag) && (tile0 == null)) {    // Not completed? Push back on queue
-                        tile = tileset.get(i+1);
-                        renderQueue.push(tile);
-                    }
                 }
                 timeaccum = save_timeaccum + System.currentTimeMillis() - tstart;
             }
             else {
                 notdone = processTile(tile, tstart, 1);
-                if ((!notdone) && (tile0 == null)) {    // Not completed? Push back on queue
-                    renderQueue.push(tile);
-                }
             }
             
             if(notdone) {
@@ -843,12 +856,34 @@ public class MapManager {
                 }
             }
             else {
-                //cleanup();
-                shutdownRender();
+                if (tile0 == null) {
+                    scheduleDelayedJob(this, 1000);
+                } else {
+                    cleanup();
+                }
             }
         }
 
         private boolean processTile(MapTile tile, long tstart, int parallelcnt) {
+            boolean finished = false;
+            try {
+                finished = processTileWork(tile, tstart, parallelcnt);
+                return finished;
+            } catch (RuntimeException failure) {
+                if (!expectedShutdownAbort(failure)) {
+                    Log.severe("Exception rendering tile " + tile + " in " + world.getName(), failure);
+                }
+                if (tile0 != null) tileQueue.push(tile);
+                return false;
+            } finally {
+                synchronized (lock) {
+                    if (tile0 == null && !finished) renderQueue.push(tile);
+                    inFlight.remove(tile);
+                }
+            }
+        }
+
+        private boolean processTileWork(MapTile tile, long tstart, int parallelcnt) {
             if (tile0 != null) {
                 TileRenderCoordinator.UpdateResult coordinated = tileRenderCoordinator.executeUpdate(tile,
                         () -> renderTile(tile, null, false));
@@ -867,6 +902,7 @@ public class MapManager {
                 result = tileRenderCoordinator.executeFull(tile, mapname,
                         () -> renderTile(tile, mapname, false));
             }
+            if (!result.completed && !world.isLoaded()) return false;
             applyFullRenderResult(tile, result, skipTile, tstart);
             return result.continueRender;
         }
@@ -953,6 +989,17 @@ public class MapManager {
         private void applyFullRenderResult(MapTile tile, TileRenderCoordinator.WorkResult result,
                 boolean skipTile, long tstart) {
             if (!result.hasData) return;
+            // A full render must also repair stale zoom tiles when the base hash is unchanged.
+            if (rendertype.equals(RENDERTYPE_FULLRENDER) && !skipTile && result.completed) {
+                for (MapType output : map.getMapsSharingRender(world)) {
+                    if (output.isReadOnly()) continue;
+                    if (mapname != null && !mapname.equals(output.getName())) continue;
+                    for (MapType.ImageVariant variant : output.getVariants()) {
+                        world.getMapStorage().getTile(world, output, tile.tileOrdinalX(),
+                                tile.tileOrdinalY(), 0, variant).enqueueZoomOutUpdate();
+                    }
+                }
+            }
             if (skipTile) skipcnt++;
             if (result.renderCalled) {
                 total_render_ns.addAndGet(result.renderNanos);
@@ -1077,17 +1124,17 @@ public class MapManager {
     
     private class DoZoomOutProcessing implements Runnable {
         public void run() {
-            if (!tpspausezoomout) {
-                Debug.debug("DoZoomOutProcessing started");
-                ArrayList<DynmapWorld> wl = new ArrayList<DynmapWorld>(worlds);
-                for(DynmapWorld w : wl) {
-                    w.freshenZoomOutFiles();
+            try {
+                if (!tpspausezoomout) {
+                    Debug.debug("DoZoomOutProcessing started");
+                    ArrayList<DynmapWorld> wl = new ArrayList<DynmapWorld>(worlds);
+                    for(DynmapWorld w : wl) {
+                        w.freshenZoomOutFiles();
+                    }
+                    Debug.debug("DoZoomOutProcessing finished");
                 }
-                Debug.debug("DoZoomOutProcessing finished");
-                scheduleDelayedJob(this, zoomout_period*1000);
-            }
-            else {
-                scheduleDelayedJob(this, 5*1000);
+            } finally {
+                if (!stopping) scheduleDelayedJob(this, tpspausezoomout ? 5000 : zoomout_period*1000);
             }
         }
     }
@@ -1706,7 +1753,11 @@ public class MapManager {
     }
 
     private void savePending(DynmapWorld w, boolean keepQueue) {
-        List<MapTile> mt = tileQueue.popAll();
+        Set<MapTile> queuedTiles = new java.util.LinkedHashSet<>(tileQueue.popAll());
+        Set<MapTile> mt = new java.util.LinkedHashSet<>(queuedTiles);
+        for (MapTile pending : tileRenderCoordinator.pendingUpdates()) {
+            if (pending.getDynmapWorld() == w) mt.add(pending);
+        }
         File f = new File(core.getDataFolder(), w.getStorageId() + ".pending");
         ConfigurationNode saved = new ConfigurationNode();
         ArrayList<ConfigurationNode> savedtiles = new ArrayList<ConfigurationNode>();
@@ -1719,10 +1770,10 @@ public class MapManager {
             if(tilenode != null) {
                 savedtiles.add(tilenode);
             }
-            if (keepQueue) {
+            if (keepQueue && queuedTiles.contains(tile)) {
                 tileQueue.push(tile);
             }
-            else {
+            else if (!keepQueue) {
                 tileRenderCoordinator.cancelUpdate(tile);
             }
         }
@@ -1801,7 +1852,7 @@ public class MapManager {
 //    }
 
     public static boolean scheduleDelayedJob(Runnable job, long delay_in_msec) {
-        if((mapman != null) && (mapman.render_pool != null)) {
+        if((mapman != null) && !mapman.stopping && (mapman.render_pool != null)) {
             if(delay_in_msec > 0)
                 mapman.render_pool.schedule(job, delay_in_msec, TimeUnit.MILLISECONDS);
             else
@@ -1835,18 +1886,16 @@ public class MapManager {
     }
 
     public void stopRendering() {
+        beginShutdown();
         // Stop the tile queue
         tileQueue.stop();
         /* Tell all worlds to cancel any zoom out processing */
         for(DynmapWorld w: worlds)
             w.cancelZoomOutFreshen();
-        /* Unload all worlds, and save any pending */
+        /* Stop world reads before waiting; publication may still be finishing. */
         for(DynmapWorld w : worlds) {
             if(w.isLoaded()) {
                 w.setWorldUnloaded();
-                if(saverestorepending) {
-                    savePending(w, false);
-                }
             }
         }
         // Shutdown render pool
@@ -1861,6 +1910,10 @@ public class MapManager {
         } catch (InterruptedException ix) {
         }
         
+        // Include completed publications, late zoom invalidations and admitted updates.
+        if (saverestorepending) {
+            for (DynmapWorld w : worlds) savePending(w, false);
+        }
         mapman = null;
         hdmapman = null;
         did_start = false;

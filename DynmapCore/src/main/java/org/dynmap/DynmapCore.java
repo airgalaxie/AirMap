@@ -924,6 +924,7 @@ public class DynmapCore implements DynmapCommonAPI {
     }
 
     public void disableCore() {
+        if (mapManager != null) mapManager.beginShutdown();
         stopWebServer();
 
         if (componentManager != null) {

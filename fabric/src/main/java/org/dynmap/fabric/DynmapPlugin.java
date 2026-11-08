@@ -236,7 +236,6 @@ public class DynmapPlugin {
         }
         // Set the server so we don't NPE during setup
         this.server = server;
-        this.fserver = new FabricServer(this, server);
         this.onEnable();
     }
 
@@ -398,6 +397,8 @@ public class DynmapPlugin {
 
     public void onEnable() {
         configurationInitialized = false;
+        // Reload also needs fresh queues; futures from the previous session stay cancelled.
+        this.fserver = new FabricServer(this, server);
         /* Get MC version */
         String mcver = SharedConstants.getCurrentVersion().id();
 
@@ -533,6 +534,9 @@ public class DynmapPlugin {
     }
 
     public void onDisable() {
+        if (core != null && core.getMapManager() != null) core.getMapManager().beginShutdown();
+        // Release worker futures before callbacks, world saving or core executor joins.
+        if (fserver != null) fserver.clearTaskQueue();
         DynmapCommonAPIListener.apiTerminated();
 
         //if (metrics != null) {
@@ -542,11 +546,6 @@ public class DynmapPlugin {
         /* Save worlds */
         if (core != null && core.getMapManager() != null) {
             saveLevels();
-        }
-
-        /* Purge tick queue */
-        if (fserver != null) {
-            fserver.clearTaskQueue();
         }
 
         /* Disable core */
@@ -694,7 +693,6 @@ public class DynmapPlugin {
 
         public void handleBlockEvent(Level world, BlockPos pos) {
             if (!core_enabled) return;
-            if (!onblockchange) return;
             if (!(world instanceof ServerLevel)) return;
 
             BlockUpdateRec r = new BlockUpdateRec();
@@ -702,6 +700,8 @@ public class DynmapPlugin {
             FabricWorld fw = getLevel(world, false);
             if (fw == null) return;
             r.wid = fw.getName();
+            invalidateSnapshot(r.wid, pos.getX(), pos.getY(), pos.getZ());
+            if (!onblockchange) return;
             r.x = pos.getX();
             r.y = pos.getY();
             r.z = pos.getZ();
@@ -710,6 +710,7 @@ public class DynmapPlugin {
     }
 
     private LevelTracker worldTracker = null;
+    private boolean blockEventsRegistered;
     private boolean onblockchange = false;
     private boolean onchunkpopulate = false;
     private boolean onchunkgenerate = false;
@@ -728,9 +729,16 @@ public class DynmapPlugin {
         if (onchunkpopulate || onchunkgenerate) {
             CustomServerChunkEvents.CHUNK_GENERATE.register((world, chunk) -> worldTracker.handleChunkGenerate(world, chunk));
         }
-        if (onblockchange) {
+        // Explicit full renders need fresh cache data even when update rendering is disabled.
+        if (!blockEventsRegistered) {
             BlockEvents.BLOCK_EVENT.register((world, pos) -> worldTracker.handleBlockEvent(world, pos));
+            blockEventsRegistered = true;
         }
+    }
+
+    void invalidateSnapshot(String world, int x, int y, int z) {
+        GenericChunkCache cache = sscache;
+        if (cache != null) cache.invalidateSnapshot(world, x, y, z);
     }
 
     FabricWorld getLevelByName(String name) {

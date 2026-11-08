@@ -11,6 +11,7 @@ import net.minecraft.server.players.IpBanList;
 import net.minecraft.server.players.NameAndId;
 import net.minecraft.server.players.UserBanList;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.level.chunk.storage.SerializableChunkData;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
@@ -44,18 +45,18 @@ import java.util.stream.Collectors;
  */
 public class FabricServer extends DynmapServerInterface {
     /* Server thread scheduler */
-    private final Object schedlock = new Object();
+    private final FabricTaskQueue tasks = new FabricTaskQueue();
+    private final FabricChunkProvider<SerializableChunkData> chunkProvider;
     private final DynmapPlugin plugin;
     private final MinecraftServer server;
     private final Registry<Biome> biomeRegistry;
     private long cur_tick;
-    private long next_id;
     private long cur_tick_starttime;
-    private PriorityQueue<TaskRecord> runqueue = new PriorityQueue<TaskRecord>();
 
     public FabricServer(DynmapPlugin plugin, MinecraftServer server) {
         this.plugin = plugin;
         this.server = server;
+        this.chunkProvider = new FabricChunkProvider<>(server::isSameThread, System::nanoTime);
         this.biomeRegistry = server.registryAccess().lookupOrThrow(Registries.BIOME);
     }
 
@@ -108,11 +109,7 @@ public class FabricServer extends DynmapServerInterface {
 
     @Override
     public void scheduleServerTask(Runnable run, long delay) {
-        /* Add task record to queue */
-        synchronized (schedlock) {
-            TaskRecord tr = new TaskRecord(cur_tick + delay, next_id++, new FutureTask<Object>(run, null));
-            runqueue.add(tr);
-        }
+        tasks.submit(Executors.callable(run, null), delay);
     }
 
     @Override
@@ -170,19 +167,16 @@ public class FabricServer extends DynmapServerInterface {
     }
 
     public <T> Future<T> callSyncMethod(Callable<T> task, long delay) {
-        FutureTask<T> ft = new FutureTask<T>(task);
-
-        /* Add task record to queue */
-        synchronized (schedlock) {
-            TaskRecord tr = new TaskRecord(cur_tick + delay, next_id++, ft);
-            runqueue.add(tr);
-        }
-
-        return ft;
+        return tasks.submit(task, delay);
     }
 
     void clearTaskQueue() {
-        this.runqueue.clear();
+        tasks.close();
+        chunkProvider.close();
+    }
+
+    FabricChunkProvider<SerializableChunkData> chunkProvider() {
+        return chunkProvider;
     }
 
     @Override
@@ -362,10 +356,12 @@ public class FabricServer extends DynmapServerInterface {
     @Override
     public MapChunkCache createMapChunkCache(DynmapWorld w, List<DynmapChunk> chunks,
                                              boolean blockdata, boolean highesty, boolean biome, boolean rawbiome) {
+        chunkProvider.requireWorker();
         FabricMapChunkCache c = (FabricMapChunkCache) w.getChunkCache(chunks);
         if (c == null) {
             return null;
         }
+        c.requireCurrentWorld();
         if (w.visibility_limits != null) {
             for (VisibilityLimit limit : w.visibility_limits) {
                 c.setVisibleRange(limit);
@@ -388,40 +384,17 @@ public class FabricServer extends DynmapServerInterface {
 
         if (chunks.size() == 0)     /* No chunks to get? */ {
             c.loadChunksAsync();
+            c.requireCurrentWorld();
             return c;
         }
 
-        //Now handle any chunks in server thread that are already loaded (on server thread)
-        final FabricMapChunkCache cc = c;
-        Future<Boolean> f = this.callSyncMethod(new Callable<Boolean>() {
-            public Boolean call() throws Exception {
-                // Update busy state on world
-                //FabricWorld fw = (FabricWorld) cc.getLevel();
-                //TODO
-                //setBusy(fw.getLevel());
-                cc.getLoadedChunksAsync();
-                return true;
-            }
-        }, 0);
-        try {
-            f.get();
-        } catch (CancellationException cx) {
-            return null;
-        } catch (InterruptedException cx) {
-            return null;
-        } catch (ExecutionException xx) {
-            Log.severe("Exception while loading chunks", xx.getCause());
-            return null;
-        } catch (Exception ix) {
-            Log.severe(ix);
-            return null;
-        }
+        c.getLoadedChunksAsync();
         if (!w.isLoaded()) {
             return null;
         }
         // Now, do rest of chunk reading from calling thread
         c.readChunksAsync();
-
+        c.requireCurrentWorld();
         return c;
     }
 
@@ -446,9 +419,6 @@ public class FabricServer extends DynmapServerInterface {
             plugin.core.serverTick(plugin.tps);
         }
 
-        boolean done = false;
-        TaskRecord tr = null;
-
         while (!plugin.blockupdatequeue.isEmpty()) {
             DynmapPlugin.BlockUpdateRec r = plugin.blockupdatequeue.remove();
             BlockState bs = r.w.getBlockState(new BlockPos(r.x, r.y, r.z));
@@ -461,32 +431,18 @@ public class FabricServer extends DynmapServerInterface {
             }
         }
 
-        long now;
-
-        synchronized (schedlock) {
-            cur_tick++;
-            now = System.nanoTime();
-            tr = runqueue.peek();
-            /* Nothing due to run */
-            if ((tr == null) || (tr.getTickToRun() > cur_tick) || ((now - cur_tick_starttime) > plugin.perTickLimit)) {
-                done = true;
-            } else {
-                tr = runqueue.poll();
-            }
+        // Refresh both copy limits from the shared controller on every tick.
+        long remainingTickBudget = plugin.perTickLimit - (System.nanoTime() - cur_tick_starttime);
+        if (plugin.mapManager != null && remainingTickBudget > 0) {
+            chunkProvider.processTick(Math.max(1, plugin.mapManager.getMaxChunkLoadsPerTick()),
+                    Math.min(remainingTickBudget, plugin.mapManager.getRenderDataBudgetNanos()));
         }
-        while (!done) {
-            tr.run();
-
-            synchronized (schedlock) {
-                tr = runqueue.peek();
-                now = System.nanoTime();
-                /* Nothing due to run */
-                if ((tr == null) || (tr.getTickToRun() > cur_tick) || ((now - cur_tick_starttime) > plugin.perTickLimit)) {
-                    done = true;
-                } else {
-                    tr = runqueue.poll();
-                }
-            }
+        cur_tick++;
+        tasks.nextTick();
+        while (System.nanoTime() - cur_tick_starttime <= plugin.perTickLimit) {
+            TaskRecord task = tasks.poll();
+            if (task == null) break;
+            tasks.run(task);
         }
         while (!plugin.msgqueue.isEmpty()) {
             DynmapPlugin.ChatMessage cm = plugin.msgqueue.poll();

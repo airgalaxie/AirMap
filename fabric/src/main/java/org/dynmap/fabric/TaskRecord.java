@@ -17,6 +17,11 @@ class TaskRecord implements Comparable<TaskRecord> {
         this.future.run();
     }
 
+    void cancel() {
+        // Release consumers without interrupting Minecraft's owning thread.
+        this.future.cancel(false);
+    }
+
     long getTickToRun() {
         return this.ticktorun;
     }

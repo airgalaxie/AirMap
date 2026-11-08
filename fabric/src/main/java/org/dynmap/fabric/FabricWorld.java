@@ -23,7 +23,7 @@ public class FabricWorld extends DynmapWorld {
     public static final String SAVED_WORLDS_FILE = "fabricworlds.yml";
 
     private final DynmapPlugin plugin;
-    private Level world;
+    private volatile Level world;
     private final boolean skylight;
     private final boolean isnether;
     private final boolean istheend;

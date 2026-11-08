@@ -1278,7 +1278,8 @@ public class IsoHDPerspective implements HDPerspective {
             bgnight[i] = shaderstate[i].getMap().getBackgroundARGBNight();
         }
         /* Create perspective state object */
-        OurPerspectiveState ps = new OurPerspectiveState(mapiter, isnether, scaled);        
+        try {
+        OurPerspectiveState ps = new OurPerspectiveState(mapiter, isnether, scaled);
         
         ps.top = new Vector3D();
         ps.bottom = new Vector3D();
@@ -1322,6 +1323,9 @@ public class IsoHDPerspective implements HDPerspective {
         map_to_world.transform(zbase);
 
         for(int x = 0; x < tilePixelSize; x++) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new java.util.concurrent.CancellationException("Interrupted rendering tile " + tile);
+            }
             ps.px = x;
             final double px_center = xbase + (x + 0.5) * invSizescale;
             /* Column-constant portion: zbase + xstep * px_center */
@@ -1346,7 +1350,8 @@ public class IsoHDPerspective implements HDPerspective {
                 try {
                     ps.raytrace(cache, shaderstate, shaderdone);
                 } catch (Exception ex) {
-                    Log.severe("Error while raytracing tile: perspective=" + this.name + ", coord=" + mapiter.getX() + "," + mapiter.getY() + "," + mapiter.getZ() + ", blockid=" + mapiter.getBlockType() + ", lighting=" + mapiter.getBlockSkyLight() + ":" + mapiter.getBlockEmittedLight() + ", biome=" + mapiter.getBiome().toString(), ex);
+                    throw new IllegalStateException("Error while raytracing tile: perspective=" + this.name
+                            + ", coord=" + mapiter.getX() + "," + mapiter.getY() + "," + mapiter.getZ(), ex);
                 }
                 final int rowOffset = (tilePixelSize - y - 1) * tilePixelSize + x;
                 for(int i = 0; i < numshaders; i++) {
@@ -1380,15 +1385,19 @@ public class IsoHDPerspective implements HDPerspective {
 
             MapStorageTile mtile = storage.getTile(world, shaderstate[i].getMap(), tile.tx, tile.ty, 0, MapType.ImageVariant.STANDARD);
 
-            mtile.getWriteLock();
+            if (!mtile.getWriteLock()) {
+                throw new java.util.concurrent.CancellationException("Interrupted acquiring tile " + mtile.getURI());
+            }
             try {
                 if(mtile.matchesHashCode(crc) == false) {
                     /* Wrap buffer as buffered image */
                     if(rendered[i]) {   
-                        mtile.write(crc, im[i].buf_img, startTimestamp);
+                        if (!mtile.write(crc, im[i].buf_img, startTimestamp)) {
+                            throw new IllegalStateException("Cannot write tile " + mtile.getURI());
+                        }
                     }
                     else {
-                        mtile.delete();
+                        if (mtile.exists() && !mtile.delete()) throw new IllegalStateException("Cannot delete tile " + mtile.getURI());
                     }
                     MapManager.mapman.pushUpdate(tile.getDynmapWorld(), new Client.Tile(mtile.getURI()));
                     tile_update = true;
@@ -1396,12 +1405,11 @@ public class IsoHDPerspective implements HDPerspective {
                 }
                 else {
                     if(!rendered[i]) {   
-                        mtile.delete();
+                        if (mtile.exists() && !mtile.delete()) throw new IllegalStateException("Cannot delete tile " + mtile.getURI());
                     }
                 }
             } finally {
                 mtile.releaseWriteLock();
-                DynmapBufferedImage.freeBufferedImage(im[i]);
             }
             MapManager.mapman.updateStatistics(tile, prefix, true, tile_update, !rendered[i]);
             /* Handle day image, if needed */
@@ -1410,16 +1418,20 @@ public class IsoHDPerspective implements HDPerspective {
 
                 mtile = storage.getTile(world, shaderstate[i].getMap(), tile.tx, tile.ty, 0, MapType.ImageVariant.DAY);
 
-                mtile.getWriteLock();
+                if (!mtile.getWriteLock()) {
+                    throw new java.util.concurrent.CancellationException("Interrupted acquiring tile " + mtile.getURI());
+                }
                 tile_update = false;
                 try {
                     if(mtile.matchesHashCode(crc) == false) {
                         /* Wrap buffer as buffered image */
                         if(rendered[i]) {
-                            mtile.write(crc, dayim[i].buf_img, startTimestamp);
+                            if (!mtile.write(crc, dayim[i].buf_img, startTimestamp)) {
+                                throw new IllegalStateException("Cannot write tile " + mtile.getURI());
+                            }
                         }
                         else {
-                            mtile.delete();
+                            if (mtile.exists() && !mtile.delete()) throw new IllegalStateException("Cannot delete tile " + mtile.getURI());
                         }
                         MapManager.mapman.pushUpdate(tile.getDynmapWorld(), new Client.Tile(mtile.getURI()));
                         tile_update = true;
@@ -1427,17 +1439,22 @@ public class IsoHDPerspective implements HDPerspective {
                     }
                     else {
                         if(!rendered[i]) {   
-                            mtile.delete();
+                            if (mtile.exists() && !mtile.delete()) throw new IllegalStateException("Cannot delete tile " + mtile.getURI());
                         }
                     }
                 } finally {
                     mtile.releaseWriteLock();
-                    DynmapBufferedImage.freeBufferedImage(dayim[i]);
                 }
                 MapManager.mapman.updateStatistics(tile, prefix+"_day", true, tile_update, !rendered[i]);
             }
         }
         return renderone;
+        } finally {
+            for (int i = 0; i < numshaders; i++) {
+                DynmapBufferedImage.freeBufferedImage(im[i]);
+                if (dayim[i] != null) DynmapBufferedImage.freeBufferedImage(dayim[i]);
+            }
+        }
     }
 
     @Override

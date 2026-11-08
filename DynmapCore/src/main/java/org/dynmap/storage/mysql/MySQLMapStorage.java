@@ -808,7 +808,8 @@ public class MySQLMapStorage extends MapStorage {
                         try {
                             cpool.wait();
                         } catch (InterruptedException e) {
-                            throw new SQLException("Interruped");
+                            Thread.currentThread().interrupt();
+                            throw new java.util.concurrent.CancellationException("Interrupted waiting for a map storage connection");
                         }
                     }
                 }

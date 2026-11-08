@@ -246,6 +246,19 @@ public class MapTypeState {
     // Start zoom out iteration (stash and reset accumulator)
     public void startZoomOutIter() {
         synchronized(invTileLock) {
+            // An interrupted pass may still own active invalidations. Retain them
+            // together with updates that arrived while that pass was running.
+            for (int i = 0; i < zoomOutInv.size(); i++) {
+                TileFlags active = zoomOutInv.get(i);
+                if (active != null) {
+                    TileFlags pending = zoomOutInvAccum.get(i);
+                    if (pending == null) {
+                        pending = new TileFlags();
+                        zoomOutInvAccum.set(i, pending);
+                    }
+                    pending.union(active);
+                }
+            }
             ArrayList<TileFlags> tmplist = zoomOutInv;
             zoomOutInv = zoomOutInvAccum;
             for (int i = 0; i < tmplist.size(); i++) {
