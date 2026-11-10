@@ -62,18 +62,27 @@ public class MapManager {
     private volatile long timeslice_int = 0; /* In milliseconds */
     private volatile int max_chunk_loads_per_tick = DEFAULT_CHUNKS_PER_TICK;
     private int parallelrendercnt = 0;
+    // Serializes admission, admin changes, TPS transitions and controller decisions.
+    private final Object performanceLock = new Object();
+    private Integer workerOverride;
+    private volatile boolean tpsOverride;
+    private long nextProtectedUpdateNanos;
+    private int configuredUpdateInterval, configuredAcceleratedInterval, configuredUpdateTiles;
+    private int configuredChunks;
+    private long configuredFullDelay;
+    private RendererPerformanceController.Settings lastAutomaticSettings;
     private int progressinterval = 100;
     private int tileupdatedelay = 30;
     private int savependingperiod = 15 * 60; // every 15 minutes, by default
     private int defaulttilescale = 0;
     private boolean saverestorepending = true;
-    private boolean pauseupdaterenders = false;
+    private volatile boolean pauseupdaterenders = false;
     private boolean hideores = false;
     private boolean useBrightnessTable = false;
     private boolean usenormalpriority = false;
     private HashMap<String, String> blockalias = new HashMap<String, String>();
     
-    private boolean pausefullrenders = false;
+    private volatile boolean pausefullrenders = false;
 
     // TPS based render pauses
     private double tpslimit_updaterenders = 18.0;
@@ -127,7 +136,7 @@ public class MapManager {
     private volatile boolean stopping;
 
     public void beginShutdown() {
-        stopping = true;
+        synchronized (performanceLock) { stopping = true; }
     }
 
     private boolean expectedShutdownAbort(Throwable failure) {
@@ -275,8 +284,10 @@ public class MapManager {
     private class DynmapScheduledThreadPoolExecutor extends ScheduledThreadPoolExecutor {
         DynmapScheduledThreadPoolExecutor() {
             // Every admitted batch has enough executor slots; admission never blocks a pool thread.
-            super(POOL_SIZE + (usesAdaptivePerformance() ? adaptiveController.maximumWorkers() : parallelrendercnt));
+            super(POOL_SIZE + workerCeiling());
             this.setThreadFactory(new OurThreadFactory());
+            setKeepAliveTime(30, TimeUnit.SECONDS);
+            allowCoreThreadTimeOut(true);
             /* Set shutdown policy to stop everything */
             setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
             setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
@@ -565,22 +576,39 @@ public class MapManager {
         
         public void run() {
             if (stopping) return; // Pending work is retained for the final shutdown snapshot.
-            if (!usesAdaptivePerformance() || cancelled) {
-                if (cancelled) renderAdmission.cancel(this);
+            if (cancelled) {
+                renderAdmission.cancel(this);
                 runAdmitted(Math.max(1, parallelrendercnt), null);
-                return;
-            }
-            AdaptiveRenderController.Settings limits = adaptiveSettings;
-            if (limits.paused()) {
-                scheduleDelayedJob(this, 1000);
                 return;
             }
             boolean full = tile0 == null;
             int requested = 1;
             if (full) {
-                synchronized (lock) { requested = Math.max(1, Math.min(limits.workers(), renderQueue.size())); }
+                synchronized (lock) { requested = Math.max(1, renderQueue.size()); }
             }
-            int granted = renderAdmission.acquire(this, full, requested, limits.workers());
+            int granted;
+            synchronized (performanceLock) {
+                if (stopping) return;
+                resizeRenderPool(workerCeiling());
+                boolean protectedTps = tpsProtectionEnabled()
+                        && adaptiveController.tpsStage() != AdaptiveRenderController.TpsStage.NORMAL;
+                int capacity = usesAdaptivePerformance() ? adaptiveSettings.workers() : workerCeiling();
+                if (full && !usesAdaptivePerformance() && workerOverride == null) {
+                    requested = Math.min(requested, Math.max(1, parallelrendercnt));
+                }
+                if (protectedTps) capacity = 1;
+                long now = System.nanoTime();
+                if ((usesAdaptivePerformance() && adaptiveSettings.paused())
+                        || (full && (pausefullrenders || tpspausefullrenders))
+                        || (!full && (pauseupdaterenders || tpspauseupdaterenders))
+                        || (!full && protectedTps && now < nextProtectedUpdateNanos)) {
+                    renderAdmission.cancel(this);
+                    scheduleDelayedJob(this, 1000);
+                    return;
+                }
+                granted = renderAdmission.acquire(this, full, requested, capacity, protectedTps);
+                if (granted > 0 && !full && protectedTps) nextProtectedUpdateNanos = now + 1_000_000_000L;
+            }
             if (granted == 0) {
                 scheduleDelayedJob(this, 50);
                 return;
@@ -840,7 +868,9 @@ public class MapManager {
             if(notdone) {
                 if(tile0 == null) {    /* fullrender */
                     long tend = System.currentTimeMillis();
-                    if (usesAdaptivePerformance()) {
+                    if (tpsProtectionEnabled() && adaptiveController.tpsStage() != AdaptiveRenderController.TpsStage.NORMAL) {
+                        scheduleDelayedJob(this, 1000);
+                    } else if (usesAdaptivePerformance()) {
                         // Adaptive pacing is an additional pause, including for expensive tiles.
                         scheduleDelayedJob(this, adaptiveSettings.fullDelayMillis());
                     }
@@ -1401,6 +1431,11 @@ public class MapManager {
         timeslice_int = (long)(configuration.getDouble("timesliceinterval", 0.0) * 1000);
         max_chunk_loads_per_tick = configuration.getInteger("maxchunkspertick", DEFAULT_CHUNKS_PER_TICK);
         if(max_chunk_loads_per_tick < 5) max_chunk_loads_per_tick = 5;
+        configuredChunks = max_chunk_loads_per_tick;
+        configuredFullDelay = timeslice_int;
+        configuredUpdateInterval = (int)(configuration.getDouble("renderinterval", 0.5) * 1000);
+        configuredAcceleratedInterval = (int)(configuration.getDouble("renderaccelerateinterval", 0.2) * 1000);
+        configuredUpdateTiles = configuration.getInteger("tiles-rendered-at-once", (Runtime.getRuntime().availableProcessors()+1)/2);
         if (automaticRenderPerformance) {
             if (usesAdaptivePerformance()) applyAdaptivePerformanceSettings(adaptiveSettings);
             else applyAutomaticPerformanceSettings(performanceController.initialSettings(), false);
@@ -1853,11 +1888,16 @@ public class MapManager {
 
     public static boolean scheduleDelayedJob(Runnable job, long delay_in_msec) {
         if((mapman != null) && !mapman.stopping && (mapman.render_pool != null)) {
-            if(delay_in_msec > 0)
-                mapman.render_pool.schedule(job, delay_in_msec, TimeUnit.MILLISECONDS);
-            else
-                mapman.render_pool.execute(job);
-            return true;
+            try {
+                if(delay_in_msec > 0)
+                    mapman.render_pool.schedule(job, delay_in_msec, TimeUnit.MILLISECONDS);
+                else
+                    mapman.render_pool.execute(job);
+                return true;
+            } catch (RejectedExecutionException ex) {
+                if (mapman.stopping || mapman.render_pool.isShutdown()) return false;
+                throw ex;
+            }
         }
         else
             return false;
@@ -2244,31 +2284,159 @@ public class MapManager {
     }
     
     public void updateTPS(double tps) {
-        latestTps = tps;
-        latestTpsNanos = System.nanoTime();
-        if (usesAdaptivePerformance()) return;
-        if (automaticRenderPerformance) {
-            long now = System.nanoTime();
-            if (!performanceController.shouldSample(now)) {
-                return;
+        synchronized (performanceLock) {
+            if (stopping || !Double.isFinite(tps) || tps < 0) return;
+            latestTps = tps;
+            latestTpsNanos = System.nanoTime();
+            boolean changed = adaptiveController.updateTpsStage(tps);
+            if (automaticRenderPerformance && !usesAdaptivePerformance()
+                    && performanceController.shouldSample(latestTpsNanos)) {
+                RendererPerformanceController.Settings settings = performanceController.update(latestTpsNanos, tps,
+                        getProcessCpuLoad(), getHeapUsage(), core.getServer().getCurrentPlayers());
+                if (settings != null) {
+                    applyAutomaticPerformanceSettings(settings, logAutomaticPerformanceChanges);
+                    return;
+                }
             }
-            RendererPerformanceController.Settings settings = performanceController.update(now, tps,
-                    getProcessCpuLoad(), getHeapUsage(), core.getServer().getCurrentPlayers());
-            if (settings != null) {
-                applyAutomaticPerformanceSettings(settings, logAutomaticPerformanceChanges);
+            if (changed) refreshPerformanceSettings();
+            else if (!usesAdaptivePerformance()) {
+                if (!automaticRenderPerformance && !tpsOverride) {
+                    tpspauseupdaterenders = tps < tpslimit_updaterenders;
+                    tpspausefullrenders = tps < tpslimit_fullrenders;
+                    tpspausezoomout = tps < tpslimit_zoomout;
+                }
+                applyTpsOverride();
             }
-            return;
         }
-        // Pause if needed for update renders
-        tpspauseupdaterenders = (tps < tpslimit_updaterenders);
-        // Pause if needed for fullrenders
-        tpspausefullrenders = (tps < tpslimit_fullrenders);
-        // Pause if needed for zoom out
-        tpspausezoomout = (tps < tpslimit_zoomout);
     }
 
     private boolean usesAdaptivePerformance() {
         return automaticRenderPerformance && performanceMode == AdaptiveRenderController.Mode.ADAPTIVE;
+    }
+
+    private int workerCeiling() {
+        return adaptiveController.maximumWorkers();
+    }
+
+    private boolean tpsProtectionEnabled() { return usesAdaptivePerformance() || tpsOverride; }
+
+    private void resizeRenderPool(int workers) {
+        if (render_pool == null || render_pool.isShutdown()) return;
+        int size = POOL_SIZE + workers;
+        int previousSize = render_pool.getCorePoolSize();
+        if (size == previousSize) return;
+        // A parent can be joining children. Do not retire their executor capacity before they drain.
+        if (size < previousSize && renderAdmission.active() > workers) return;
+        try { render_pool.setCorePoolSize(size); }
+        catch (RuntimeException ex) {
+            render_pool.setCorePoolSize(previousSize);
+            throw ex;
+        }
+    }
+
+    private void applyTpsOverride() {
+        if (!tpsOverride) return;
+        AdaptiveRenderController.TpsStage stage = adaptiveController.tpsStage();
+        tpspauseupdaterenders = false;
+        if (!automaticRenderPerformance) {
+            tpspausefullrenders = stage == AdaptiveRenderController.TpsStage.CRITICAL;
+            tpspausezoomout = tpspausefullrenders;
+        } else if (stage == AdaptiveRenderController.TpsStage.CRITICAL) {
+            tpspausefullrenders = tpspausezoomout = true;
+        }
+        // Legacy/observe retain stronger full/zoom safety pauses; explicit pauses
+        // and the adaptive heap/GC governor are handled separately.
+        if (stage == AdaptiveRenderController.TpsStage.NORMAL) return;
+        tileQueue.setPerformanceLimits(1000, 1000, 1);
+        max_chunk_loads_per_tick = Math.min(5, max_chunk_loads_per_tick);
+        timeslice_int = Math.max(1000, timeslice_int);
+    }
+
+    private void refreshPerformanceSettings() {
+        if (usesAdaptivePerformance()) {
+            applyAdaptivePerformanceSettings(adaptiveController.protectedSettings(adaptiveController.initialSettings()));
+        } else if (automaticRenderPerformance) {
+            applyAutomaticPerformanceSettings(lastAutomaticSettings, false);
+        } else {
+            tileQueue.setPerformanceLimits(configuredUpdateInterval, configuredAcceleratedInterval, configuredUpdateTiles);
+            max_chunk_loads_per_tick = configuredChunks;
+            timeslice_int = configuredFullDelay;
+            if (!tpsOverride && latestTps >= 0) {
+                tpspauseupdaterenders = latestTps < tpslimit_updaterenders;
+                tpspausefullrenders = latestTps < tpslimit_fullrenders;
+                tpspausezoomout = latestTps < tpslimit_zoomout;
+            }
+            applyTpsOverride();
+        }
+    }
+
+    /** Shared Core command implementation; no adapter owns controller state. */
+    public void performanceCommand(DynmapCommandSender sender, String[] args) {
+        String response;
+        synchronized (performanceLock) {
+            try {
+                if (args.length == 2 && args[1].equals("status")) {
+                    response = String.format(java.util.Locale.ROOT,
+                            "AirMap performance: TPS=%s, stage=%s, controller=%s, active workers=%d, worker ceiling=%d, "
+                            + "worker budget=%d, TPS slow=%.2f critical=%.2f, heap/GC pause=%s, full paused=%s, updates paused=%s, overrides: tps=%s parallelrendercnt=%s",
+                            latestTpsNanos == 0 || System.nanoTime() - latestTpsNanos > 15_000_000_000L ? "unknown/stale"
+                                    : String.format(java.util.Locale.ROOT, "%.2f", latestTps),
+                            tpsProtectionEnabled() ? adaptiveController.tpsStage() : "CONFIG",
+                            automaticRenderPerformance ? performanceMode : "OFF", renderAdmission.active(), workerCeiling(),
+                            tpsProtectionEnabled() && adaptiveController.tpsStage() != AdaptiveRenderController.TpsStage.NORMAL
+                                    ? 1 : usesAdaptivePerformance() ? adaptiveSettings.workers() : workerCeiling(),
+                            adaptiveController.slowTps(), adaptiveController.criticalTps(),
+                            usesAdaptivePerformance() && adaptiveSettings.paused(),
+                            pausefullrenders || tpspausefullrenders, pauseupdaterenders || tpspauseupdaterenders, tpsOverride,
+                            workerOverride == null ? "none" : workerOverride);
+                } else if (stopping || render_pool == null || render_pool.isShutdown()) {
+                    response = "AirMap renderer is not running; performance changes unavailable.";
+                } else if (args.length == 4 && args[1].equals("tps")) {
+                    double slow = Double.parseDouble(args[2]), critical = Double.parseDouble(args[3]);
+                    if (!Double.isFinite(slow) || !Double.isFinite(critical)
+                            || critical <= 0 || critical >= slow || slow > 19.5) {
+                        throw new IllegalArgumentException("Require 0 < critical < slow <= 19.5 TPS.");
+                    }
+                    adaptiveController.setTpsLimits(slow, critical);
+                    adaptiveController.updateTpsStage(latestTps);
+                    tpsOverride = true;
+                    refreshPerformanceSettings();
+                    response = "Temporary TPS limits applied: slow=" + slow + ", critical=" + critical;
+                } else if (args.length == 3 && args[1].equals("parallelrendercnt")) {
+                    int workers = Integer.parseInt(args[2]);
+                    if (workers < 1 || workers > Runtime.getRuntime().availableProcessors()) {
+                        throw new IllegalArgumentException("Worker ceiling must be between 1 and "
+                                + Runtime.getRuntime().availableProcessors() + ".");
+                    }
+                    resizeRenderPool(workers); // Prepare capacity before publishing a higher admission limit.
+                    adaptiveController.setMaximumWorkers(workers);
+                    workerOverride = workers;
+                    refreshPerformanceSettings();
+                    response = "Temporary shared worker ceiling=" + workers + ". Existing work drains normally.";
+                } else if (args.length == 2 && args[1].equals("reset")) {
+                    int workers = Math.max(1, parallelrendercnt > 0
+                            ? Math.min(Runtime.getRuntime().availableProcessors(), parallelrendercnt)
+                            : Runtime.getRuntime().availableProcessors());
+                    resizeRenderPool(workers);
+                    adaptiveController.setMaximumWorkers(workers);
+                    adaptiveController.setTpsLimits(18, 12);
+                    adaptiveController.updateTpsStage(latestTps);
+                    workerOverride = null;
+                    tpsOverride = false;
+                    refreshPerformanceSettings();
+                    response = "Runtime overrides removed; original configuration behavior restored.";
+                } else {
+                    response = "Usage: /airmap performance status | tps <slow> <critical> | parallelrendercnt <count> | reset";
+                }
+            } catch (NumberFormatException ex) {
+                response = "Invalid number; performance settings unchanged.";
+            } catch (IllegalArgumentException ex) {
+                response = ex.getMessage();
+            } catch (SecurityException ex) {
+                response = "Executor capacity change denied; previous performance settings retained.";
+            }
+        }
+        sender.sendMessage(response);
     }
 
     private void applyAdaptivePerformanceSettings(AdaptiveRenderController.Settings settings) {
@@ -2277,56 +2445,63 @@ public class MapManager {
                 settings.updateIntervalMillis() / 2, settings.workers());
         max_chunk_loads_per_tick = settings.chunksPerTick();
         tpspauseupdaterenders = settings.paused();
-        tpspausefullrenders = settings.paused();
-        tpspausezoomout = settings.paused();
+        tpspausefullrenders = settings.paused() || adaptiveController.tpsStage() == AdaptiveRenderController.TpsStage.CRITICAL;
+        tpspausezoomout = tpspausefullrenders;
     }
 
     private class SampleRenderPerformance implements Runnable {
         @Override
         public void run() {
             try {
-                long now = System.nanoTime();
                 boolean fullPending;
                 synchronized (lock) { fullPending = !active_renders.isEmpty(); }
-                boolean updatesPending = tileQueue.size() > 0;
-                RenderPerformanceMetrics.Window work = performanceMetrics.sample(now, renderAdmission.active(),
-                        fullPending || updatesPending);
-                long gcMillis = 0;
-                boolean gcKnown = false;
-                for (java.lang.management.GarbageCollectorMXBean bean : ManagementFactory.getGarbageCollectorMXBeans()) {
-                    long time = bean.getCollectionTime();
-                    if (time >= 0) { gcMillis += time; gcKnown = true; }
-                }
-                double gcFraction = gcKnown && lastGcMillis >= 0 && gcMillis >= lastGcMillis
-                        ? (gcMillis - lastGcMillis) * 1.0e6 / Math.max(1, now - lastPerformanceSampleNanos) : -1;
-                lastGcMillis = gcKnown ? gcMillis : -1;
-                lastPerformanceSampleNanos = now;
-                double tps = now - latestTpsNanos <= 15_000_000_000L ? latestTps : -1;
-                double processCpu = getProcessCpuLoad();
-                double systemCpu = getEnvironmentCpuLoad();
-                double heap = getHeapUsage();
-                AdaptiveRenderController.Input input = new AdaptiveRenderController.Input(tps,
-                        processCpu, systemCpu, heap, gcFraction, work, updatesPending);
-                AdaptiveRenderController.Decision decision = usesAdaptivePerformance()
-                        ? adaptiveController.update(now, input) : adaptiveController.observe(now, input);
-                if (decision != null) {
-                    lastPerformanceDecision = decision.reason();
-                    if (usesAdaptivePerformance()) applyAdaptivePerformanceSettings(decision.settings());
-                    if (logAutomaticPerformanceChanges) {
-                        Log.info(String.format(java.util.Locale.ROOT,
-                                "Render controller %s: %s; workers=%d, update=%d ms, chunks/tick=%d, pause=%s; "
-                                + "tiles/s=%.2f, data share=%.2f, render/output CPU share=%.2f; "
-                                + "TPS=%.2f, JVM CPU=%.2f, environment CPU=%.2f, heap=%.2f, GC=%.2f",
-                                performanceMode, decision.reason(), decision.settings().workers(),
-                                decision.settings().updateIntervalMillis(), decision.settings().chunksPerTick(),
-                                decision.settings().paused(), decision.tilesPerSecond(), decision.dataShare(),
-                                decision.outputCpuShare(), tps, processCpu, systemCpu, heap, gcFraction));
+                synchronized (performanceLock) {
+                    if (stopping) return;
+                    long now = System.nanoTime();
+                    boolean updatesPending = tileQueue.size() > 0;
+                    RenderPerformanceMetrics.Window work = performanceMetrics.sample(now, renderAdmission.active(),
+                            fullPending || updatesPending);
+                    long gcMillis = 0;
+                    boolean gcKnown = false;
+                    for (java.lang.management.GarbageCollectorMXBean bean : ManagementFactory.getGarbageCollectorMXBeans()) {
+                        long time = bean.getCollectionTime();
+                        if (time >= 0) { gcMillis += time; gcKnown = true; }
+                    }
+                    double gcFraction = gcKnown && lastGcMillis >= 0 && gcMillis >= lastGcMillis
+                            ? (gcMillis - lastGcMillis) * 1.0e6 / Math.max(1, now - lastPerformanceSampleNanos) : -1;
+                    lastGcMillis = gcKnown ? gcMillis : -1;
+                    lastPerformanceSampleNanos = now;
+                    double tps = now - latestTpsNanos <= 15_000_000_000L ? latestTps : -1;
+                    double processCpu = getProcessCpuLoad();
+                    double systemCpu = getEnvironmentCpuLoad();
+                    double heap = getHeapUsage();
+                    AdaptiveRenderController.Input input = new AdaptiveRenderController.Input(tps,
+                            processCpu, systemCpu, heap, gcFraction, work, updatesPending);
+                    AdaptiveRenderController.Decision decision = usesAdaptivePerformance()
+                            ? adaptiveController.update(now, input) : adaptiveController.observe(now, input);
+                    if (decision != null) {
+                        lastPerformanceDecision = decision.reason();
+                        if (usesAdaptivePerformance()) {
+                            AdaptiveRenderController.Settings limits = adaptiveController.protectedSettings(decision.settings());
+                            if (!limits.equals(adaptiveSettings)) applyAdaptivePerformanceSettings(limits);
+                        }
+                        if (logAutomaticPerformanceChanges) {
+                            AdaptiveRenderController.Settings logged = usesAdaptivePerformance() ? adaptiveSettings : decision.settings();
+                            Log.info(String.format(java.util.Locale.ROOT,
+                                    "Render controller %s: %s; workers=%d, update=%d ms, chunks/tick=%d, pause=%s; "
+                                    + "tiles/s=%.2f, data share=%.2f, render/output CPU share=%.2f; "
+                                    + "TPS=%.2f, JVM CPU=%.2f, environment CPU=%.2f, heap=%.2f, GC=%.2f",
+                                    performanceMode, decision.reason(), logged.workers(),
+                                    logged.updateIntervalMillis(), logged.chunksPerTick(),
+                                    logged.paused(), decision.tilesPerSecond(), decision.dataShare(),
+                                    decision.outputCpuShare(), tps, processCpu, systemCpu, heap, gcFraction));
+                        }
                     }
                 }
             } catch (RuntimeException ex) {
                 Log.warning("Render controller sample failed: " + ex);
             } finally {
-                render_pool.schedule(this, 5000, TimeUnit.MILLISECONDS);
+                if (!stopping) scheduleDelayedJob(this, 5000);
             }
         }
     }
@@ -2337,6 +2512,7 @@ public class MapManager {
     }
 
     private void applyAutomaticPerformanceSettings(RendererPerformanceController.Settings settings, boolean logChange) {
+        lastAutomaticSettings = settings;
         tileQueue.setPerformanceLimits(settings.renderIntervalMillis,
                 settings.acceleratedIntervalMillis, settings.updateTiles);
         timeslice_int = settings.fullRenderIntervalMillis;
@@ -2344,6 +2520,7 @@ public class MapManager {
         tpspauseupdaterenders = false;
         tpspausefullrenders = settings.pauseFullRender;
         tpspausezoomout = settings.pauseZoomOut;
+        applyTpsOverride();
         if (logChange) {
             Log.info("Automatic render performance level: " + settings.level.toString().toLowerCase()
                     + " (update tiles=" + settings.updateTiles

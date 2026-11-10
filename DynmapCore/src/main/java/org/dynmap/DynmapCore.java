@@ -1051,6 +1051,7 @@ public class DynmapCore implements DynmapCommonAPI {
     }
 
     private static final Set<String> commands = new HashSet<String>(Arrays.asList(new String[] {
+        "performance",
         "render",
         "hide",
         "show",
@@ -1098,6 +1099,7 @@ public class DynmapCore implements DynmapCommonAPI {
     };
     
     private static final CommandInfo[] commandinfo = {
+        new CommandInfo("dynmap", "performance", "status | tps <slow> <critical> | parallelrendercnt <count> | reset", "AirMap runtime performance administration."),
         new CommandInfo("dynmap", "", "Control execution of AirMap."),
         new CommandInfo("dynmap", "hide", "Hides the current player from the map."),
         new CommandInfo("dynmap", "hide", "<player>", "Hides <player> on the map."),
@@ -1440,7 +1442,10 @@ public class DynmapCore implements DynmapCommonAPI {
                 return true;
             }
             
-            if (c.equals("render") && checkPlayerPermission(sender,"render")) {
+            if (c.equals("performance")) {
+                if (checkPlayerPermission(sender, "performance")) mapManager.performanceCommand(sender, args);
+                return true;
+            } else if (c.equals("render") && checkPlayerPermission(sender,"render")) {
                 if (player != null) {
                     DynmapLocation loc = player.getLocation();
                     if (loc != null) {
@@ -1774,7 +1779,13 @@ public class DynmapCore implements DynmapCommonAPI {
             player = (DynmapPlayer) sender;
         }
 
-        if (subcommand.equals("radiusrender") && checkPlayerPermission(sender, "radiusrender")) {
+        if (subcommand.equals("performance") && checkPlayerPermission(sender, "performance")) {
+            if (args.length == 2) {
+                String prefix = args[1];
+                return Arrays.asList("status", "tps", "parallelrendercnt", "reset").stream()
+                        .filter(value -> value.startsWith(prefix)).collect(Collectors.toList());
+            }
+        } else if (subcommand.equals("radiusrender") && checkPlayerPermission(sender, "radiusrender")) {
             if(args.length == 2) { // /dynmap radiusrender *<world>* <x> <z> <radius> <map>
                 return getWorldSuggestions(args[1]);
             } if(args.length == 3 && player != null) { // /dynmap radiusrender <radius> *<mapname>*

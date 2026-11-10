@@ -158,6 +158,10 @@ paper {
             description = "Allows /dynmap pause"
             default = BukkitPluginDescription.Permission.Default.OP
         }
+        register("dynmap.performance") {
+            description = "Allows AirMap runtime TPS and shared worker administration"
+            default = BukkitPluginDescription.Permission.Default.OP
+        }
         register("dynmap.quiet") {
             description = "Allows /dynmap quiet"
             default = BukkitPluginDescription.Permission.Default.TRUE

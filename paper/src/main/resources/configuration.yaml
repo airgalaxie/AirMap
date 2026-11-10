@@ -416,9 +416,13 @@ skin-url: "http://skins.minecraft.net/MinecraftSkins/%player%.png"
 ### RENDERING / PERFORMANCE
 ### ---------------------------------------------------------------------------
 ### Common Core controller for fullrender and update rendering.
-### It probes existing worker/rate/data limits and measures the resulting throughput.
-### CPU use and TPS alone never pause the adaptive renderer. Sustained severe heap
-### AND GC pressure pauses new work; recovery restarts with one worker.
+### It learns a sustainable worker/rate/data budget, confirms gains across measured
+### windows, then holds it until load/workload changes persist. Normal optimization
+### adds no fullrender pauses; recovery returns gradually to proven capacity.
+### CPU use alone never pauses the adaptive renderer. Below 18 TPS work is strongly
+### throttled; below 12 TPS fullrender waits while bounded updates continue. Runtime
+### admin overrides: /airmap performance (see README). Sustained severe heap AND GC
+### pressure pauses all new work; recovery restarts with one worker.
 ### Profiles control the measurement window: conservative=60s, normal=30s, aggressive=15s.
 ### true is an alias for normal; false keeps manual limits and legacy TPS pauses.
 render-performance-auto: normal

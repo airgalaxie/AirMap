@@ -22,6 +22,7 @@ defaultuser:
   #- marker.sign
 
 #playername1:
+#  - performance # AirMap-only runtime TPS/worker administration (not a default user permission)
 #  - fullrender
 #  - cancelrender
 #  - radiusrender

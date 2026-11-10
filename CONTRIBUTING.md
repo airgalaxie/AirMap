@@ -37,7 +37,7 @@ Special/block-entity models (chest, shulker box, copper-golem statue, bell, ...)
 
 ## Dynmap compatibility documentation
 
-`/airmap ...` and `/dynmap ...` use the same command implementation, so the existing [upstream Dynmap® documentation](https://github.com/webbukkit/dynmap/wiki) currently applies to both names. Treat that material as Dynmap® compatibility documentation and link to it rather than copying its contents into AirMap documentation.
+`/airmap ...` and `/dynmap ...` use the same command implementation, so the existing [upstream Dynmap® documentation](https://github.com/webbukkit/dynmap/wiki) applies to their shared upstream commands under both names. AirMap-only extensions such as `performance` are documented in the [README](README.md#airmap-only-runtime-performance-administration), not in the upstream documentation. Treat upstream material as Dynmap® compatibility documentation and link to it rather than copying its contents into AirMap documentation.
 
 ## Licensing
 The project remains licensed under the **Apache License 2.0**. By contributing, you agree that your code falls under this license.

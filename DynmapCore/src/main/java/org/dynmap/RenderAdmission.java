@@ -15,19 +15,29 @@ final class RenderAdmission {
         return acquire(Boolean.valueOf(full), full, requested, capacity);
     }
 
-    synchronized int acquire(Object job, boolean full, int requested, int capacity) {
+    int acquire(Object job, boolean full, int requested, int capacity) {
+        return acquire(job, full, requested, capacity, false);
+    }
+
+    synchronized int acquire(Object job, boolean full, int requested, int capacity, boolean preferUpdates) {
         capacity = Math.max(1, capacity);
         long now = clock.getAsLong();
-        // Cancelled/unloaded jobs must not leave a permanent reservation behind.
-        waiting.values().removeIf(request -> now - request.lastAttemptNanos >= 1_000_000_000L);
+        // An expired caller rejoins at the end rather than retaining its old position.
+        Waiting old = waiting.get(job);
+        if (old != null && now - old.lastAttemptNanos >= 1_000_000_000L) waiting.remove(job);
         waiting.put(job, new Waiting(full, now));
         int available = capacity - active;
         Object next = null;
-        for (var entry : waiting.entrySet()) {
-            if (next == null) next = entry.getKey();
-            if (entry.getValue().full == preferFull) {
+        boolean preferred = false;
+        boolean wantFull = !preferUpdates && preferFull;
+        // Purge stale jobs and select the first preferred waiter in one pass.
+        for (var iterator = waiting.entrySet().iterator(); iterator.hasNext();) {
+            var entry = iterator.next();
+            Waiting request = entry.getValue();
+            if (now - request.lastAttemptNanos >= 1_000_000_000L) iterator.remove();
+            else if (!preferred && (next == null || request.full == wantFull)) {
                 next = entry.getKey();
-                break;
+                preferred = request.full == wantFull;
             }
         }
         if (!job.equals(next)) return 0;

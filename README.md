@@ -147,6 +147,80 @@ The log reports hits, rebuilds and saved file size. Cache validation still reads
 source data, and decoded/scaled texture pixels are not persisted, so startup
 savings and disk usage depend on the installation and must be measured locally.
 
+## AirMap-only runtime performance administration
+
+These commands are **AirMap extensions**, not commands provided by original
+Dynmap. Paper and Fabric route `/airmap` and the compatibility alias `/dynmap`
+to the same implementation in `DynmapCore`/`MapManager`.
+
+| Command | Meaning and example |
+|:--|:--|
+| `/airmap performance status` | Show latest TPS (or unknown/stale after 15 seconds), protection stage, controller mode, admitted workers, shared ceiling, current worker budget, TPS thresholds, pauses and runtime overrides. |
+| `/airmap performance tps <slow> <critical>` | Temporarily change TPS protection, e.g. `/airmap performance tps 18 12`. Requires finite numbers with `0 < critical < slow <= 19.5`. |
+| `/airmap performance parallelrendercnt <count>` | Temporarily change the shared full/update worker ceiling, e.g. `/airmap performance parallelrendercnt 4`. Accepts integers from 1 through the processor count available to the JVM. |
+| `/airmap performance reset` | Remove **all** runtime overrides and restore the startup configuration behavior, including the configured worker ceiling and original TPS policy. |
+
+All four commands require `dynmap.performance` (operators by default); the
+server console is supported and omits the leading `/`. Fabric's optional
+`permissions.yml` uses the unprefixed name `performance`, like its other
+permissions. Invalid values and changes during shutdown are rejected without
+replacing valid settings. Status remains available during shutdown. No command
+writes configuration files. Overrides last until reset or renderer/server
+restart. Reset uses the configuration loaded at startup; it does not reread an
+edited file or discard fullrender progress or learned capacity unnecessarily.
+
+In adaptive mode the initial TPS limits are **slow=18, critical=12**; no new
+configuration keys or migration are required. They are protection thresholds,
+not TPS targets:
+
+| Protection stage | New render work |
+|:--|:--|
+| `NORMAL` | Normal adaptive capacity experiments within the worker and chunk ceilings. |
+| `SLOW` | At most one shared worker, at most five chunk loads per tick, updates admitted at most once per second, and at least one second between fullrender batches. Waiting updates take priority over waiting fullrender work. |
+| `CRITICAL` | Fullrender/radius/bulk updaterender waits; eligible update-queue tiles continue with the same one-worker, five-chunk, once-per-second budget. Zoom-out processing waits as well. |
+
+Entering a lower stage requires TPS **below** its threshold. Recovery requires
+TPS at least **0.5 above** that threshold (12.5 / 18.5 with the defaults).
+Missing/non-finite TPS measurements do not trigger recovery. Existing adapter
+TPS sampling determines reaction time; already admitted tiles finish normally.
+“Urgent updates” here means eligible tiles from the existing update queue rather
+than bulk renders: no new urgency classification or queue is introduced.
+Existing tile update delays and deduplication remain in effect. The one-second
+admission limit also applies to previously dequeued tiles retrying for capacity;
+it is an admission rate limit, not a guaranteed tile completion time.
+
+`parallelrendercnt` is an upper bound, not a request to keep that many workers
+busy. In adaptive mode an increase allows subsequent measured experiments; it
+does not immediately force higher concurrency. Fullrender and updates share the
+bound across worlds. A reduction stops further admissions until existing work
+fits the new budget. Executor capacity is increased before publishing a higher
+limit and reduced only after old reservations drain, so parents can still join
+their children. Idle executor threads may expire after 30 seconds; no additional
+periodic task or separate performance controller is created.
+
+The configured profile and controller mode are preserved. In `legacy`/`observe`
+and with `render-performance-auto: false`, the worker command also applies a
+shared ceiling; the TPS command enables the new TPS protection explicitly.
+Without a TPS override those modes retain their original TPS policy (`CONFIG`
+in status). Reset restores that policy. In legacy/observe mode the existing
+controller may impose stronger fullrender/zoom-out safety pauses; these are
+shown separately in status. In manual mode the TPS override replaces the old
+TPS render pauses until reset. Existing explicit `/dynmap pause` requests,
+world unload/shutdown handling and the adaptive heap/GC safety governor remain
+authoritative. Heap/GC safety can pause **all** adaptive rendering, including
+critical updates; commands cannot disable it. Individual expensive tiles or
+world-data copies cannot be preempted, so the budgets do not guarantee a fixed
+upper bound on their execution time. Flat and Surface rendering are unchanged.
+
+Adapter scope: **Paper and Fabric** are the adapters included by this checkout;
+both use the shared command and permission path. There is no Velocity adapter
+or administrative forwarding implementation in this repository: run the
+commands on the rendering backend's console/server, not on a proxy. This feature
+does not add Folia support; the existing Paper adapter is not declared
+Folia-compatible. No Folia/Velocity runtime compatibility is claimed. A Core
+whose renderer failed initialization reports commands unavailable instead of
+accessing a missing manager.
+
 ## Automatic render performance
 
 Paper and Fabric use the same adaptive controller in the Core:
@@ -157,28 +231,60 @@ render-performance-controller: adaptive
 render-performance-auto-log-changes: false
 ```
 
-The controller starts with one worker, samples every five seconds and probes
-one existing limit at a time: shared full/update parallelism, update queue rate,
-chunk allowance or an additional fullrender pause. Fullrender and updates share
-a global worker bound, with admission that yields capacity to the other class.
-`parallelrendercnt`, when positive, is an optional worker ceiling in adaptive
-mode; otherwise the available processor count is the ceiling. `maxchunkspertick`
-is the chunk allowance ceiling. These are search limits, not assumed optima.
+The controller starts with one worker and a modest data budget, sampling every
+five seconds. It adjusts the existing shared full/update parallelism, update
+queue rate and chunk allowance. Normal throughput optimization **never adds a
+fullrender pause**. Fullrender and updates retain their shared admission bound.
+`parallelrendercnt`, when positive, is the optional worker ceiling; otherwise
+the available processor count is the ceiling. `maxchunkspertick` is the chunk
+allowance ceiling. These are limits, not throughput or utilization targets.
 
-Experiments compare completed render calls per wall-clock second and TPS over
-measurement windows. A capacity increase needs more than 3% throughput gain and
-must not reduce average TPS by more than 0.5. A reduction is retained when it
-improves TPS by more than 0.5, increases throughput, or preserves throughput
-within 3% while lowering measured JVM CPU by more than two percentage points. Failed probes
-are rolled back, with increasingly spaced retries for unproductive capacity
-probes (up to 15 minutes). Detected changes in external CPU load or the full/update mix
-make the comparison inconclusive; it is rolled back rather than learned as a
-hardware limit. Terrain complexity can still affect comparisons.
+During discovery, worker/data capacity grows in bounded proportional steps;
+the measured data wait and update mix determine which existing control to try.
+A coarse step that harms throughput or TPS is rolled back, and the remaining
+interval is refined instead of repeatedly trying the same excessive load.
+An increase needs useful throughput gains in **two consecutive comparable
+measurement windows**, without average TPS falling by more than 0.5 from its
+baseline. The gain must exceed both 3% and twice the observed relative standard
+error of sample throughput above tile-completion counting noise. Regular sparse
+completions are therefore not mistaken for changing load. In-flight tiles that
+outlast a window retain elapsed measurement time and pending trials. Very noisy
+windows do not establish a stable point.
+Confirmed discovery steps can follow immediately, without an extra idle or
+settling window. There is no fixed tiles/s, worker count or TPS optimization
+target. Search time depends on the profile, workload and available capacity;
+there is no guarantee of a global optimum or a fixed convergence time.
 
-TPS below 18 invites a measured reduction, not a pause. If reducing AirMap work
-only loses throughput, the reduction is reversed; persistently low TPS alone
-does not repeatedly force lower capacity. High CPU use alone never pauses the
-adaptive renderer. The separate safety governor pauses new full/update work and
+Once further changes stop helping, the controller **holds the proven point**.
+It does not periodically retry rejected capacity just because time has elapsed.
+A renewed search requires a sustained change in throughput, world-data share,
+full/update mix or estimated external CPU load, or an administrative limit
+change. Context changes must persist across two consistently changed windows;
+an isolated player join or opposite throughput fluctuations do not restart the
+search. External-load/mix changes during a trial make it inconclusive: the last
+settings are restored and new trials wait three measurement windows. Rendering
+continues throughout this wait. Busy CPU alone holds acceleration; it never
+pauses rendering. Missing measurements do not count as healthy zeroes.
+
+Sustained TPS deterioration relative to the proven point, or elevated heap/GC
+pressure, first invites a small reduction of the relevant existing budget.
+The controller waits at least two windows and tolerates transient foreign load.
+Such a reduction must demonstrate sustained TPS/throughput or CPU-efficiency
+benefits; an ineffective reduction is not repeated at the same TPS situation.
+No normal probe-down introduces fullrender delays. Following a useful reduction,
+its lower working point is retained while the extra load persists. Returning to
+the remembered point requires sustained relief. Recovery from TPS/heap/GC
+protection also retains that destination but starts with a small budget and
+restores capacity in measured steps, rather than jumping straight to the former
+load. Known recovery steps may preserve throughput with essentially unchanged
+CPU instead of needing a new gain on an irrelevant budget axis. The admin
+ceilings and all safety pauses remain binding during discovery and recovery.
+
+TPS protection bounds adaptive experiments: below 18 TPS rendering is strongly
+throttled; below 12 TPS fullrender waits while bounded updates continue. Above
+the protection limits the controller discovers, holds or gradually recovers its
+measured sustainable working point.
+High CPU use alone never pauses the adaptive renderer. The separate safety governor pauses new full/update work and
 zoom-out scheduling after three consecutive samples with heap use at least 97%
 and reported GC time at least 15% of elapsed time. It resumes at one worker after
 six samples below 88% heap and 8% GC time. Unsupported measurements remain

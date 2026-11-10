@@ -8,6 +8,32 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RenderAdmissionTest {
+    @Test void expiredRetryRejoinsBehindFreshWaiters() {
+        var clock = new java.util.concurrent.atomic.AtomicLong();
+        var admission = new RenderAdmission(clock::get);
+        Object running = new Object(), expired = new Object(), fresh = new Object();
+        assertEquals(1, admission.acquire(running, true, 1, 1));
+        assertEquals(0, admission.acquire(expired, true, 1, 1));
+        clock.set(500_000_000L);
+        assertEquals(0, admission.acquire(fresh, true, 1, 1));
+        admission.release(true, 1);
+        clock.set(1_100_000_000L);
+        assertEquals(0, admission.acquire(expired, true, 1, 1));
+        assertEquals(1, admission.acquire(fresh, true, 1, 1));
+        admission.release(true, 1);
+        assertEquals(1, admission.acquire(expired, true, 1, 1));
+        admission.release(true, 1);
+    }
+    @Test void protectedUpdatesTakePriorityOverWaitingFullRenders() {
+        var admission = new RenderAdmission();
+        Object full = new Object(), update = new Object();
+        assertEquals(1, admission.acquire(full, true, 1, 1, true));
+        assertEquals(0, admission.acquire(update, false, 1, 1, true));
+        admission.release(true, 1);
+        assertEquals(0, admission.acquire(full, true, 1, 1, true));
+        assertEquals(1, admission.acquire(update, false, 1, 1, true));
+        admission.release(false, 1);
+    }
     @Test void otherWorldsGetTheirTurnBeforeAFastWorldReenters() {
         var admission = new RenderAdmission();
         Object first = new Object(), second = new Object();

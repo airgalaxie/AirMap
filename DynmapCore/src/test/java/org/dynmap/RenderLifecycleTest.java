@@ -28,6 +28,183 @@ import java.nio.file.Path;
 class RenderLifecycleTest {
     @TempDir Path directory;
 
+    private static DynmapCommandSender sender(List<String> messages, boolean player, boolean permitted) {
+        return (DynmapCommandSender) Proxy.newProxyInstance(RenderLifecycleTest.class.getClassLoader(),
+                new Class<?>[]{player ? DynmapPlayer.class : DynmapCommandSender.class}, (p, m, a) -> {
+                    if (m.getName().equals("sendMessage")) { messages.add((String)a[0]); return null; }
+                    if (m.getName().equals("hasPrivilege")) return permitted;
+                    if (m.getReturnType() == boolean.class) return false;
+                    return null;
+                });
+    }
+
+    private static void performance(Fixture f, DynmapCommandSender sender, String... args) {
+        String[] command = new String[args.length + 1];
+        command[0] = "performance";
+        System.arraycopy(args, 0, command, 1, args.length);
+        assertTrue(f.core.processCommand(sender, "dynmap", "airmap", command));
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"adaptive", "observe", "legacy", "off"})
+    void runtimeCommandsRestoreNondefaultConfigAcrossControllerModes(String mode) throws Exception {
+        Fixture f = new Fixture(!mode.equals("off"), mode, 1);
+        var pool = f.pool();
+        try {
+            var console = sender(new ArrayList<>(), false, false);
+            performance(f, console, "tps", "16", "10");
+            performance(f, console, "parallelrendercnt", Integer.toString(Math.min(2, Runtime.getRuntime().availableProcessors())));
+            f.manager.updateTPS(9);
+            assertTrue(f.manager.getTPSFullRenderPause());
+            assertFalse(f.manager.getTPSUpdateRenderPause());
+            performance(f, console, "reset");
+            var c = (AdaptiveRenderController)field(f.manager, "adaptiveController");
+            assertEquals(1, c.maximumWorkers());
+            assertNull(field(f.manager, "workerOverride"));
+            assertFalse((boolean)field(f.manager, "tpsOverride"));
+            if (mode.equals("off")) assertTrue(f.manager.getTPSUpdateRenderPause(), "manual config TPS pauses restored");
+            performance(f, console, "tps", "15", "8");
+            Fixture restarted = new Fixture(!mode.equals("off"), mode, 1);
+            assertFalse((boolean)field(restarted.manager, "tpsOverride"));
+            assertNull(field(restarted.manager, "workerOverride"));
+            assertEquals(18, ((AdaptiveRenderController)field(restarted.manager, "adaptiveController")).slowTps());
+        } finally { f.manager.beginShutdown(); pool.shutdownNow(); }
+    }
+
+    @Test void performanceCommandsValidatePermissionsResetAndShutdown() throws Exception {
+        Fixture f = new Fixture(true);
+        var pool = f.pool();
+        var messages = new ArrayList<String>();
+        var console = sender(messages, false, false);
+        try {
+            performance(f, sender(messages, true, false), "tps", "16", "10");
+            assertFalse((boolean)field(f.manager, "tpsOverride"));
+            performance(f, sender(messages, true, true), "tps", "16", "10");
+            var controller = (AdaptiveRenderController)field(f.manager, "adaptiveController");
+            assertEquals(16, controller.slowTps());
+            for (String[] invalid : List.of(new String[]{"tps", "NaN", "10"}, new String[]{"tps", "16", "16"},
+                    new String[]{"tps", "20", "10"}, new String[]{"tps", "16", "0"},
+                    new String[]{"parallelrendercnt", "0"}, new String[]{"parallelrendercnt", "-1"},
+                    new String[]{"parallelrendercnt", "2147483647"}, new String[]{"parallelrendercnt", "abc"})) {
+                performance(f, console, invalid);
+                assertEquals(16, controller.slowTps());
+                assertNull(field(f.manager, "workerOverride"));
+            }
+            performance(f, console, "parallelrendercnt", "1");
+            performance(f, console, "status");
+            assertTrue(messages.getLast().contains("worker ceiling=1"));
+            assertTrue(messages.getLast().contains("tps=true parallelrendercnt=1"));
+            assertEquals(List.of("status"), f.core.getTabCompletions(console, "dynmap", new String[]{"performance", "st"}));
+            performance(f, console, "reset");
+            assertNull(field(f.manager, "workerOverride"));
+            assertFalse((boolean)field(f.manager, "tpsOverride"));
+            assertEquals(18, controller.slowTps());
+            assertEquals(12, controller.criticalTps());
+            assertSame(controller, field(f.manager, "adaptiveController"));
+            assertEquals(0, f.core.configuration.getObject("parallelrendercnt"));
+            f.manager.beginShutdown();
+            performance(f, console, "tps", "15", "9");
+            assertTrue(messages.getLast().contains("not running"));
+            assertEquals(18, controller.slowTps());
+        } finally { f.manager.beginShutdown(); pool.shutdownNow(); }
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void criticalTpsKeepsFullProgressAndOnlyAdmitsOneBoundedUpdate(boolean adaptive) throws Exception {
+        Fixture f = new Fixture(adaptive);
+        var pool = f.pool();
+        try {
+            performance(f, sender(new ArrayList<>(), false, false), "tps", "18", "12");
+            f.manager.updateTPS(11);
+            Runnable full = f.full(new Tile(f.world, "0"));
+            var rendered = new java.util.concurrent.atomic.AtomicInteger();
+            f.world.render = rendered::incrementAndGet;
+            full.run();
+            assertEquals(0, rendered.get());
+            assertEquals(1, ((List<?>)field(full, "renderQueue")).size());
+            assertTrue(f.manager.getTPSFullRenderPause());
+            assertFalse(f.manager.getTPSUpdateRenderPause());
+            assertEquals(5, f.manager.getMaxChunkLoadsPerTick());
+            f.update(new Tile(f.world, "1")).run();
+            assertEquals(1, rendered.get());
+            f.update(new Tile(f.world, "2")).run();
+            assertEquals(1, rendered.get(), "even already dequeued updates must obey the rate budget");
+            f.manager.updateTPS(12.4);
+            assertTrue(f.manager.getTPSFullRenderPause());
+            f.manager.updateTPS(12.5);
+            assertFalse(f.manager.getTPSFullRenderPause());
+            assertEquals(5, f.manager.getMaxChunkLoadsPerTick());
+            f.manager.updateTPS(18.5);
+            assertTrue(f.manager.getMaxChunkLoadsPerTick() > 5);
+        } finally { f.manager.beginShutdown(); pool.shutdownNow(); }
+    }
+
+    @Test void runtimeCeilingCanChangeDuringFullRenderWithoutLosingOrDuplicatingTiles() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(Runtime.getRuntime().availableProcessors() >= 2);
+        Fixture f = new Fixture();
+        var pool = f.pool();
+        var console = sender(new ArrayList<>(), false, false);
+        CountDownLatch entered = new CountDownLatch(2), release = new CountDownLatch(1), completed = new CountDownLatch(5);
+        var counts = new java.util.concurrent.ConcurrentHashMap<Integer, Integer>();
+        try {
+            performance(f, console, "parallelrendercnt", "2");
+            Runnable full = f.full(new Tile(f.world, "0"));
+            @SuppressWarnings("unchecked") List<MapTile> queue = (List<MapTile>)field(full, "renderQueue");
+            for (int i = 1; i < 4; i++) queue.add(new Tile(f.world, Integer.toString(i)));
+            f.world.renderTile = id -> {
+                if (id < 2) { entered.countDown(); await(release); }
+                counts.merge(id, 1, Integer::sum);
+                completed.countDown();
+            };
+            pool.execute(full);
+            await(entered);
+            int higher = Math.min(4, Runtime.getRuntime().availableProcessors());
+            performance(f, console, "parallelrendercnt", Integer.toString(higher));
+            assertEquals(3 + higher, pool.getCorePoolSize());
+            performance(f, console, "parallelrendercnt", "1");
+            var admission = (RenderAdmission)field(f.manager, "renderAdmission");
+            assertEquals(2, admission.active(), "running tiles retain their reservations");
+            assertEquals(0, admission.acquire(new Object(), false, 1, 1));
+            f.update(new Tile(f.world, "4")).run();
+            assertFalse(counts.containsKey(4), "updates must share the reduced ceiling with running full tiles");
+            assertTrue(pool.getCorePoolSize() >= 5, "joining children retain executor capacity until drain");
+            release.countDown();
+            await(completed);
+            assertEquals(Map.of(0, 1, 1, 1, 2, 1, 3, 1, 4, 1), counts);
+        } finally { release.countDown(); f.manager.beginShutdown(); pool.shutdownNow(); }
+    }
+
+    @Test void concurrentAdminChangesControllerSamplesAndShutdownKeepConsistentState() throws Exception {
+        Fixture f = new Fixture(true);
+        var pool = f.pool();
+        Constructor<?> constructor = Class.forName("org.dynmap.MapManager$SampleRenderPerformance")
+                .getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        Runnable sampler = (Runnable)constructor.newInstance(f.manager);
+        try (var workers = Executors.newFixedThreadPool(3)) {
+            var admin = workers.submit(() -> {
+                var console = sender(new ArrayList<>(), false, false);
+                for (int i = 0; i < 100; i++) {
+                    performance(f, console, "tps", "16", "10");
+                    performance(f, console, "parallelrendercnt", "1");
+                    performance(f, console, "reset");
+                }
+            });
+            var samples = workers.submit(() -> {
+                for (int i = 0; i < 100; i++) { f.manager.updateTPS(i % 2 == 0 ? 20 : 11); sampler.run(); }
+            });
+            admin.get(10, TimeUnit.SECONDS);
+            samples.get(10, TimeUnit.SECONDS);
+            var shutdown = workers.submit(f.manager::beginShutdown);
+            var change = workers.submit(() -> performance(f, sender(new ArrayList<>(), false, false), "parallelrendercnt", "1"));
+            shutdown.get(5, TimeUnit.SECONDS); change.get(5, TimeUnit.SECONDS);
+            Integer before = (Integer)field(f.manager, "workerOverride");
+            performance(f, sender(new ArrayList<>(), false, false), "reset");
+            assertEquals(before, field(f.manager, "workerOverride"));
+            var c = (AdaptiveRenderController)field(f.manager, "adaptiveController");
+            assertTrue(((AdaptiveRenderController.Settings)field(f.manager, "adaptiveSettings")).workers() <= c.maximumWorkers());
+        } finally { f.manager.beginShutdown(); pool.shutdownNow(); }
+    }
+
     static Object field(Object target, String name) throws Exception {
         Class<?> type = target instanceof Class<?> c ? c : target.getClass();
         Field f = findField(type, name);
@@ -212,10 +389,13 @@ class RenderLifecycleTest {
         final Storage storage = new Storage();
         final MapManager manager;
         Fixture() throws Exception { this(false); }
-        Fixture(boolean adaptive) throws Exception {
+        Fixture(boolean adaptive) throws Exception { this(adaptive, "adaptive", 0); }
+        Fixture(boolean adaptive, String mode, int configuredWorkers) throws Exception {
             core.setDataFolder(directory.toFile()); core.setServer(server);
             ConfigurationNode config = new ConfigurationNode();
             config.put("render-performance-auto", adaptive ? "normal" : "false"); config.put("save-pending-period", 0);
+            config.put("render-performance-controller", mode.equals("off") ? "adaptive" : mode);
+            config.put("parallelrendercnt", configuredWorkers);
             core.configuration = config;
             manager = new MapManager(core, config);
             core.mapManager = manager;
