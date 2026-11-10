@@ -99,6 +99,15 @@ implementations remain in the core.
     require source, mapping or API adaptations and must be verified on both
     platforms.
 
+## Model rotation compatibility
+
+Patch X rotation follows the right-hand rule about +X: a positive 90-degree
+rotation maps +Y to +Z. The Minecraft model loader negates block-state and
+static-layer X angles at the patch boundary to preserve their model orientation.
+Custom patch models that compensated for the previous reversed X convention
+should be checked for orientation changes. Existing render resource caches are
+invalidated by the Core code change and rebuilt automatically.
+
 ## Render resource cache
 
 AirMap stores prepared Minecraft model geometry, weighted variants and texture

@@ -40,21 +40,21 @@ class PatchDefinitionRotationConventionTest {
         assertVec(0, -1, 0, rot(1, 0, 0, 0, 0, -90));
     }
 
-    /* ---- Minecraft model X rotation: y'=y cos + z sin, z'=z cos - y sin ---- */
+    /* ---- Minecraft model X rotation: right-hand about +X: y'=y cos - z sin, z'=y sin + z cos ---- */
 
     @Test
-    void xPositive90RotatesPlusYToMinusZ() {
-        assertVec(0, 0, -1, rot(0, 1, 0, 90, 0, 0));
+    void xPositive90RotatesPlusYToPlusZ() {
+        assertVec(0, 0, 1, rot(0, 1, 0, 90, 0, 0));
     }
 
     @Test
-    void xPositive90RotatesPlusZToPlusY() {
-        assertVec(0, 1, 0, rot(0, 0, 1, 90, 0, 0));
+    void xPositive90RotatesPlusZToMinusY() {
+        assertVec(0, -1, 0, rot(0, 0, 1, 90, 0, 0));
     }
 
     @Test
-    void xNegative90RotatesPlusYToPlusZ() {
-        assertVec(0, 0, 1, rot(0, 1, 0, -90, 0, 0));
+    void xNegative90RotatesPlusYToMinusZ() {
+        assertVec(0, 0, -1, rot(0, 1, 0, -90, 0, 0));
     }
 
     /* ---- Y rotation (unchanged control; right-hand about +Y): x'=x cos - z sin, z'=x sin + z cos ---- */

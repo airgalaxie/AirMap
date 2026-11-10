@@ -245,7 +245,7 @@ final class MinecraftModelLoader {
                     if (patch == null) continue;
                     if (element.has("rotation")) patch = rotateElement(patch, element.getAsJsonObject("rotation"));
                     if (patch != null && (applied.x != 0 || applied.y != 0 || applied.z != 0))
-                        patch = patches.getPatch(patch, applied.x, applied.y, applied.z, textureIndex);
+                        patch = patches.getPatch(patch, -applied.x, applied.y, applied.z, textureIndex);
                     if (patch != null) {
                         result.add(patch);
                         // Coverage is additive: a transparent overlay cannot remove an already
@@ -297,7 +297,7 @@ final class MinecraftModelLoader {
             if (patch == null) continue;
             int[] rotation = layerRotation(orientation, values.get("facing"), applied);
             if (rotation[0] != 0 || rotation[1] != 0 || rotation[2] != 0) {
-                patch = patches.getPatch(patch, rotation[0], rotation[1], rotation[2],
+                patch = patches.getPatch(patch, -rotation[0], rotation[1], rotation[2],
                         new org.dynmap.utils.Vector3D(0.5, 0.5, 0.5), textures.size());
             }
             if (patch != null) {
