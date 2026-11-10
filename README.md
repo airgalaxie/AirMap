@@ -341,6 +341,12 @@ documentation, not AirMap support documentation.
 
 ### Build requirements
 
+The Fabric build selects the Loom snapshot channel for the development
+Minecraft target in the version catalog. This is a changing dependency: an
+offline build validates the cached plugin, while a fresh online build may resolve
+a different snapshot. Record the resolved Loom version when reporting build
+problems; changing the Minecraft target requires revalidating both adapters.
+
 Run the checked-in wrapper with a JDK matching `javaBuild` in the
 version catalog:
 
