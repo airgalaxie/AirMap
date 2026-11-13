@@ -23,7 +23,7 @@ tasks {
         archiveClassifier = ""
     }
 
-    artifacts {
-        archives(shadowJar)
+    assemble {
+        dependsOn(shadowJar)
     }
 }

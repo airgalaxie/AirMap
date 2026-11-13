@@ -11,13 +11,17 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.suggestions.SuggestionProviders;
+import net.minecraft.commands.suggestions.SuggestionContext;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import org.dynmap.fabric.DynmapPlugin;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
-import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
-import static com.mojang.brigadier.arguments.StringArgumentType.getString;
+import static net.minecraft.commands.arguments.StringArgument.greedyString;
+import static net.minecraft.commands.arguments.StringArgument.getString;
 
 public class DynmapCommandExecutor implements Command<CommandSourceStack> {
     private final String cmd;
@@ -43,7 +47,7 @@ public class DynmapCommandExecutor implements Command<CommandSourceStack> {
                 .build();
 
         final ArgumentCommandNode<CommandSourceStack, String> args = RequiredArgumentBuilder.<CommandSourceStack, String>argument("args", greedyString())
-                .suggests(this::suggest)
+                .suggests(SuggestionProviders.serverOnly(this::suggest))
                 .executes(this)
                 .build();
 
@@ -61,7 +65,7 @@ public class DynmapCommandExecutor implements Command<CommandSourceStack> {
         return 1;
     }
 
-    private CompletableFuture<Suggestions> suggest(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+    private CompletableFuture<Suggestions> suggest(MinecraftServer server, CommandContext<? extends SuggestionContext> context, SuggestionsBuilder builder) {
         String rawArgs;
         try {
             rawArgs = getString(context, "args");
@@ -72,7 +76,12 @@ public class DynmapCommandExecutor implements Command<CommandSourceStack> {
         String[] args = rawArgs.isEmpty() ? new String[0] : rawArgs.split("\\s+", -1);
         int lastSeparator = Math.max(rawArgs.lastIndexOf(' '), rawArgs.lastIndexOf('\t'));
         SuggestionsBuilder currentArgBuilder = builder.createOffset(builder.getStart() + lastSeparator + 1);
-        for (String suggestion : plugin.getTabCompletions(context.getSource(), cmd, args)) {
+        // Suggestion contexts are separate from execution sources in Minecraft 26.4.
+        // Only player contexts can request these server-side completions.
+        if (!(context.getSource().entity() instanceof ServerPlayer player)) {
+            return currentArgBuilder.buildFuture();
+        }
+        for (String suggestion : plugin.getTabCompletions(player.createCommandSourceStack(), cmd, args)) {
             currentArgBuilder.suggest(suggestion);
         }
 

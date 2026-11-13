@@ -1,6 +1,7 @@
 package org.dynmap.fabric.permissions;
 
-import me.lucko.fabric.api.permissions.v0.Permissions;
+import net.fabricmc.fabric.api.permission.v1.PermissionContextOwner;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import org.dynmap.Log;
 import org.dynmap.fabric.DynmapPlugin;
@@ -10,8 +11,10 @@ import java.util.stream.Collectors;
 
 public class FabricPermissions implements PermissionProvider {
 
-    private String permissionKey(String perm) {
-        return "dynmap." + perm;
+    private final PermissionProvider fallback;
+
+    public FabricPermissions(PermissionProvider fallback) {
+        this.fallback = fallback;
     }
 
     @Override
@@ -23,7 +26,7 @@ public class FabricPermissions implements PermissionProvider {
 
     @Override
     public boolean hasOfflinePermission(String player, String perm) {
-        return DynmapPlugin.plugin.isOp(player.toLowerCase());
+        return fallback.hasOfflinePermission(player, perm);
     }
 
     @Override
@@ -31,7 +34,9 @@ public class FabricPermissions implements PermissionProvider {
         if (player == null) return false;
         String name = player.getName().getString().toLowerCase();
         if (DynmapPlugin.plugin.isOp(name)) return true;
-        return Permissions.check(player, permissionKey(permission));
+        return ((PermissionContextOwner) player)
+                .checkPermission(Identifier.fromNamespaceAndPath("dynmap", permission))
+                .orElseGet(() -> fallback.has(player, permission));
     }
 
     @Override

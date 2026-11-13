@@ -6,7 +6,6 @@
   "mixins": [
     "BiomeEffectsAccessor",
     "ChunkStatusTasksMixin",
-    "CommandsMixin",
     "MinecraftServerMixin",
     "PlayerManagerMixin",
     "ProtoChunkMixin",

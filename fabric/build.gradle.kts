@@ -29,7 +29,7 @@ dependencies {
     include(project(":DynmapCoreAPI"))
 
     compileOnly(libs.jsr305)
-    compileOnly(libs.fabricPermissionsApi)
+    implementation(libs.fabricApi)
     compileOnly(libs.luckpermsApi)
     testImplementation(platform(libs.junitBom))
     testImplementation(libs.junitJupiter)
@@ -41,17 +41,19 @@ loom {
 }
 
 tasks.processResources {
-    inputs.property("version", project.version)
-    inputs.property("minecraftRuntime", libs.versions.minecraftRuntime.get())
-    inputs.property("mariaDbDriverVersion", libs.versions.mariadbJavaClient.get())
+    val modProperties = mapOf(
+        "version" to project.version.toString(),
+        "minecraftRuntime" to libs.versions.minecraftRuntime.get(),
+        "fabricApiVersion" to libs.versions.fabricApi.get()
+    )
+    val mariaDbDriverVersion = libs.versions.mariadbJavaClient.get()
+    inputs.properties(modProperties)
+    inputs.property("mariaDbDriverVersion", mariaDbDriverVersion)
     filesMatching("fabric.mod.json") {
-        expand(
-            "version" to project.version,
-            "minecraftRuntime" to libs.versions.minecraftRuntime.get()
-        )
+        expand(modProperties)
     }
     filesMatching("configuration.yaml") {
-        expand("mariadbdriverversion" to libs.versions.mariadbJavaClient.get())
+        expand("mariadbdriverversion" to mariaDbDriverVersion)
     }
 }
 

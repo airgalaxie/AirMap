@@ -30,15 +30,18 @@ dependencies {
 
 tasks {
     processResources {
-        inputs.property("mariaDbDriverVersion", libs.versions.mariadbJavaClient.get())
+        val pluginProperties = mapOf(
+            "buildnumber" to buildMetadata,
+            "version" to project.version.toString()
+        )
+        val mariaDbDriverVersion = libs.versions.mariadbJavaClient.get()
+        inputs.properties(pluginProperties)
+        inputs.property("mariaDbDriverVersion", mariaDbDriverVersion)
         filesMatching("paper-plugin.yml") {
-            expand(
-                "buildnumber" to buildMetadata,
-                "version" to project.version
-            )
+            expand(pluginProperties)
         }
         filesMatching("configuration.yaml") {
-            expand("mariadbdriverversion" to libs.versions.mariadbJavaClient.get())
+            expand("mariadbdriverversion" to mariaDbDriverVersion)
         }
     }
 
@@ -57,8 +60,8 @@ tasks {
         archiveFileName = "AirMap-${project.version}+$buildMetadata-paper.jar"
     }
 
-    artifacts {
-        archives(shadowJar)
+    assemble {
+        dependsOn(shadowJar)
     }
 }
 

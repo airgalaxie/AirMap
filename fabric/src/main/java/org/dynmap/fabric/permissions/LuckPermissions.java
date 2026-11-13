@@ -5,13 +5,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.cacheddata.CachedPermissionData;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.util.Tristate;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.MinecraftServer;
 import org.dynmap.Log;
 import org.dynmap.fabric.DynmapPlugin;
@@ -81,10 +81,12 @@ public class LuckPermissions implements PermissionProvider {
 
     @Override
     public boolean has(Player player, String permission) {
-        if (player == null) return false;
+        if (!(player instanceof ServerPlayer serverPlayer)) return false;
         String name = player.getName().getString().toLowerCase();
         if (DynmapPlugin.plugin.isOp(name)) return true;
-        return Permissions.check(player, permissionKey(permission));
+        return getApi().map(api -> api.getPlayerAdapter(ServerPlayer.class)
+                .getPermissionData(serverPlayer).checkPermission(permissionKey(permission)).asBoolean())
+                .orElse(false);
     }
 
     @Override

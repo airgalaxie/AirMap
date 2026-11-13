@@ -5,7 +5,7 @@ plugins {
 
 description = "DynmapCore"
 
-val jdbcDrivers by configurations.creating {
+val jdbcDrivers = configurations.create("jdbcDrivers") {
     isCanBeConsumed = false
     isCanBeResolved = true
     isTransitive = false
@@ -31,12 +31,16 @@ tasks.test {
 
 tasks {
     processResources {
-        inputs.property("airMapVersion", project.parent!!.ext.get("airMapVersion").toString())
-        inputs.property("buildNumber", project.parent!!.ext.get("buildNumber").toString())
-        inputs.property("dynmapCompatibilityVersion", project.version.toString())
-        inputs.property("minecraftVersion", libs.versions.minecraft.get())
-        inputs.property("mariaDbDriverVersion", libs.versions.mariadbJavaClient.get())
-        inputs.property("revision", project.parent!!.ext.get("revision").toString())
+        val resourceProperties = mapOf(
+            "buildnumber" to rootProject.ext.get("buildNumber").toString(),
+            "airmapversion" to rootProject.ext.get("airMapVersion").toString(),
+            "minecraftversion" to libs.versions.minecraft.get(),
+            "minecraftcompatible" to libs.versions.minecraftRuntime.get(),
+            "mariadbdriverversion" to libs.versions.mariadbJavaClient.get(),
+            "revision" to rootProject.ext.get("revision").toString(),
+            "version" to project.version.toString()
+        )
+        inputs.properties(resourceProperties)
 
         from(jdbcDrivers) {
             into("extracted/drivers")
@@ -54,15 +58,7 @@ tasks {
             "extracted/web/index.html"
                 )) {
             // replace version and mcversion
-            expand(
-                    "buildnumber" to project.parent!!.ext.get("buildNumber").toString(),
-                    "airmapversion" to project.parent!!.ext.get("airMapVersion").toString(),
-                    "minecraftversion" to libs.versions.minecraft.get(),
-                    "minecraftcompatible" to libs.versions.minecraftRuntime.get(),
-                    "mariadbdriverversion" to libs.versions.mariadbJavaClient.get(),
-                    "revision" to project.parent!!.ext.get("revision").toString(),
-                    "version" to project.version
-            )
+            expand(resourceProperties)
         }
     }
 
@@ -89,7 +85,7 @@ tasks {
         archiveClassifier = ""
     }
 
-    artifacts {
-        archives(shadowJar)
+    assemble {
+        dependsOn(shadowJar)
     }
 }

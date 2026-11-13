@@ -14,7 +14,7 @@ import java.util.Set;
 
 public class FilePermissions implements PermissionProvider {
     private HashMap<String, Set<String>> perms;
-    private Set<String> defperms;
+    private Set<String> defperms = Set.of();
 
     public static FilePermissions create() {
         File f = new File(DynmapMod.DATA_DIRECTORY, "permissions.yml");

@@ -412,15 +412,13 @@ public class DynmapPlugin {
             Log.info("Using luckperms for access control");
             permissions = new LuckPermissions();
         }
-        else if (FabricLoader.getInstance().isModLoaded("fabric-permissions-api-v0")) {
-            Log.info("Using fabric-permissions-api for access control");
-            permissions = new FabricPermissions();
-        } else {
-            /* Initialize permissions handler */
-            permissions = FilePermissions.create();
-            if (permissions == null) {
-                permissions = new OpPermissions(new String[]{"webchat", "marker.icons", "marker.list", "webregister", "stats", "hide.self", "show.self"});
+        else {
+            PermissionProvider fallback = FilePermissions.create();
+            if (fallback == null) {
+                fallback = new OpPermissions(new String[]{"webchat", "marker.icons", "marker.list", "webregister", "stats", "hide.self", "show.self"});
             }
+            permissions = new FabricPermissions(fallback);
+            Log.info("Using Fabric API permissions with file/OP fallback");
         }
         /* Get and initialize data folder */
         File dataDirectory = DynmapMod.DATA_DIRECTORY;

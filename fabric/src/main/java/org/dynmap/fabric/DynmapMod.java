@@ -1,6 +1,7 @@
 package org.dynmap.fabric;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import org.dynmap.DynmapCore;
@@ -43,5 +44,7 @@ public class DynmapMod implements ModInitializer {
 
         Log.setLogger(new FabricLogger());
         plugin = new DynmapPlugin();
+        CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) ->
+                MinecraftAdapterHooks.registerCommands(dispatcher));
     }
 }

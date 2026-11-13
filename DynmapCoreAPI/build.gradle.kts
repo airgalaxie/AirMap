@@ -10,7 +10,4 @@ tasks {
         destinationDirectory = file("../target")
     }
 
-    artifacts {
-        archives(jar)
-    }
 }
