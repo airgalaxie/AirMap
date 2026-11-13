@@ -21,8 +21,8 @@ fabricApi = "0.166.2+26.4"
 fabricLoom = "1.19-SNAPSHOT"
 jsr305 = "3.0.2"
 snakeYaml = "2.7" # upgrade From 1.23
-owaspHtmlSanitizer = "20260313.1"
-gson = "2.14.0"
+owaspHtmlSanitizer = "20261110.1"
+gson = "2.15.0"
 luckperms = "5.5"
 vault = "1.7.1"
 groupManager = "2.10.1"
@@ -35,8 +35,6 @@ jsr305 = { group = "com.google.code.findbugs", name = "jsr305", version.ref = "j
 fabricApi = { group = "net.fabricmc.fabric-api", name = "fabric-api", version.ref = "fabricApi" }
 snakeYaml = { group = "org.yaml", name = "snakeyaml", version.ref="snakeYaml" }
 owaspHtmlSanitizer = { group = "com.googlecode.owasp-java-html-sanitizer", name = "owasp-java-html-sanitizer", version.ref="owaspHtmlSanitizer" }
-owaspJava8Shim = { group = "com.googlecode.owasp-java-html-sanitizer", name = "java8-shim", version.ref="owaspHtmlSanitizer" }
-owaspJava10Shim = { group = "com.googlecode.owasp-java-html-sanitizer", name = "java10-shim", version.ref="owaspHtmlSanitizer" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref="gson" }
 luckpermsApi = { group = "net.luckperms", name = "api", version.ref="luckperms" }
 paperApi = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }

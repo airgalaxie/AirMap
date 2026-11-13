@@ -15,8 +15,6 @@ dependencies {
     implementation(project(":DynmapCoreAPI"))
     implementation(libs.snakeYaml)
     implementation(libs.owaspHtmlSanitizer)
-    implementation(libs.owaspJava8Shim)
-    implementation(libs.owaspJava10Shim)
     implementation(libs.gson)
     add(jdbcDrivers.name, libs.mariadbJavaClient)
     testImplementation(platform(libs.junitBom))
@@ -70,8 +68,6 @@ tasks {
         dependencies {
             include(dependency(libs.snakeYaml))
             include(dependency(libs.owaspHtmlSanitizer))
-            include(dependency(libs.owaspJava8Shim))
-            include(dependency(libs.owaspJava10Shim))
             include(dependency(":DynmapCoreAPI"))
         }
         exclude("META-INF/maven/**")
