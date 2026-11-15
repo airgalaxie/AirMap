@@ -33,6 +33,8 @@ dependencies {
     compileOnly(libs.luckpermsApi)
     testImplementation(platform(libs.junitBom))
     testImplementation(libs.junitJupiter)
+    testImplementation(libs.mockitoCore)
+    testImplementation(libs.luckpermsApi)
     testRuntimeOnly(libs.junitPlatformLauncher)
 }
 

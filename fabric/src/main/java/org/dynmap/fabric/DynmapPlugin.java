@@ -298,7 +298,7 @@ public class DynmapPlugin {
         if (ph != null) {
             rslt = ph.hasOfflinePermissions(player, perms);
         }
-        Set<String> rslt2 = hasOfflinePermissions(player, perms);
+        Set<String> rslt2 = permissions.hasOfflinePermissions(player, perms);
         if ((rslt != null) && (rslt2 != null)) {
             Set<String> newrslt = new HashSet<String>(rslt);
             newrslt.addAll(rslt2);
@@ -410,7 +410,7 @@ public class DynmapPlugin {
         /* Initialize permissions handler */
         if (FabricLoader.getInstance().isModLoaded("luckperms")) {
             Log.info("Using luckperms for access control");
-            permissions = new LuckPermissions();
+            permissions = new LuckPermissions(server::isSameThread);
         }
         else {
             PermissionProvider fallback = FilePermissions.create();

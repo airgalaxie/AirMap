@@ -2,19 +2,18 @@ package org.dynmap.bukkit.permissions;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
+import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.user.User;
-import net.luckperms.api.model.user.UserManager;
 import net.luckperms.api.cacheddata.CachedPermissionData;
 import net.luckperms.api.cacheddata.CachedDataManager;
-import net.luckperms.api.query.QueryOptions;
 
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.command.CommandSender;
 import org.dynmap.Log;
@@ -22,6 +21,8 @@ import org.dynmap.Log;
 public class LuckPerms5Permissions implements PermissionProvider {
     String name;
     LuckPerms luckPerms;
+    private final BooleanSupplier serverThread;
+    private final ConcurrentHashMap<String, CompletableFuture<User>> loads = new ConcurrentHashMap<>();
 
     public static LuckPerms5Permissions create(Server server, String name) {
         try {
@@ -39,8 +40,13 @@ public class LuckPerms5Permissions implements PermissionProvider {
     }
 
     public LuckPerms5Permissions(String name, LuckPerms luckPerms) {
+        this(name, luckPerms, Bukkit::isPrimaryThread);
+    }
+
+    LuckPerms5Permissions(String name, LuckPerms luckPerms, BooleanSupplier serverThread) {
         this.name = name;
         this.luckPerms = luckPerms;
+        this.serverThread = serverThread;
     }
 
     @Override
@@ -70,21 +76,25 @@ public class LuckPerms5Permissions implements PermissionProvider {
     }
 
     private CachedPermissionData getUser(String username) {
-        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(username);
-        UUID uuid;
-
-        if (offlinePlayer != null && offlinePlayer.getUniqueId() != null)
-            uuid = offlinePlayer.getUniqueId();
-        else
-            uuid = joinFuture(luckPerms.getUserManager().lookupUniqueId(username));
-
-        if (uuid == null)
-            return null;
-
-        User user = luckPerms.getUserManager().getUser(uuid);
+        var manager = luckPerms.getUserManager();
+        User user = manager.getUser(username);
         if (user == null) {
-            joinFuture(luckPerms.getUserManager().loadUser(uuid));
-            user = luckPerms.getUserManager().getUser(uuid);
+            String key = username.toLowerCase(Locale.ROOT);
+            CompletableFuture<User> load = loads.computeIfAbsent(key, ignored ->
+                    manager.lookupUniqueId(username).thenCompose(uuid -> uuid == null
+                            ? CompletableFuture.completedFuture(null) : manager.loadUser(uuid)));
+            load.whenComplete((value, failure) -> loads.remove(key, load));
+            // An uncached result denies this check while loading asynchronously.
+            if (serverThread.getAsBoolean() && !load.isDone()) return null;
+            try {
+                user = load.get();
+            } catch (InterruptedException failure) {
+                Thread.currentThread().interrupt();
+                return null;
+            } catch (ExecutionException | java.util.concurrent.CancellationException failure) {
+                Log.warning("Unable to load LuckPerms permissions for " + username);
+                return null;
+            }
         }
 
         if (user == null)
@@ -98,11 +108,4 @@ public class LuckPerms5Permissions implements PermissionProvider {
             .orElse(null);
     }
 
-    private static <T> T joinFuture(Future<T> future) {
-        try {
-            return future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-    }
 }

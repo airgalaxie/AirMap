@@ -26,6 +26,17 @@ dependencies {
     compileOnly(libs.luckpermsApi)
     compileOnly(libs.vaultApi) { exclude("org.bukkit", "bukkit") }
     compileOnly(libs.groupManager)
+    testImplementation(platform(libs.junitBom))
+    testImplementation(libs.junitJupiter)
+    testImplementation(libs.mockitoCore)
+    testImplementation(libs.paperApi)
+    testImplementation(libs.luckpermsApi)
+    testImplementation(libs.groupManager)
+    testRuntimeOnly(libs.junitPlatformLauncher)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks {
