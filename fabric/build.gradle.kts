@@ -70,4 +70,10 @@ tasks.jar {
 
 tasks.test {
     useJUnitPlatform()
+
+    val testWorkDirectory = layout.buildDirectory.dir("test-work")
+    workingDir(testWorkDirectory)
+    doFirst {
+        testWorkDirectory.get().asFile.mkdirs()
+    }
 }

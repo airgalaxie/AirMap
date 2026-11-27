@@ -3,6 +3,7 @@
 .codex/
 .gradle/
 **/.gradle/
+/buildSrc/.kotlin/
 build/
 **/build/
 target/
