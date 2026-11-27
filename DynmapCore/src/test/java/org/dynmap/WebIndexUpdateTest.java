@@ -29,7 +29,7 @@ class WebIndexUpdateTest {
     void missingIndexIsLeftForTheExistingInstallationMechanism() throws IOException {
         Path index = webDirectory.resolve("index.html");
 
-        assertFalse(DynmapCore.updateWebIndexVersion(index.toFile(), "2.1.0-new"));
+        assertFalse(DynmapCore.updateWebIndexVersion(index.toFile(), "2.1.0-new", "4.1.0"));
         assertFalse(Files.exists(index));
         assertFalse(Files.exists(webDirectory.resolve("index.html.old")));
     }
@@ -44,18 +44,25 @@ class WebIndexUpdateTest {
     @Test
     void updatesOnlyAssetVersionsAndPreservesCustomContentAndFormatting() throws IOException {
         Path index = webDirectory.resolve("index.html");
+        String migrateComment = "\t<!-- not in use ? test it <script type=\"text/javascript\" "
+                + "src=\"js/jquery-migrate-4.0.2.js?_=old-build\"></script>-->\n";
         String original = "<!doctype html>\n"
                 + "<!-- custom comment -->\n"
+                + migrateComment
                 + "<link href=\"custom.css?_=old-build\">\n"
                 + "<!-- <script src='disabled.js?_=older&debug=true'></script> -->\n"
+                + "<script defer src='./js/jquery-4.0.0.js?_=old-build'></script>\n"
+                + "<script src='https://example.invalid/js/jquery-4.0.0.js'></script>\n"
                 + "<style>body { color: rebeccapurple; }</style>\n"
                 + "<script>window.customSetting = true;</script>\n";
         Files.writeString(index, original, StandardCharsets.UTF_8);
         Object fileKey = Files.readAttributes(index, BasicFileAttributes.class).fileKey();
 
-        assertTrue(DynmapCore.updateWebIndexVersion(index.toFile(), "2.1.0-new"));
+        assertTrue(DynmapCore.updateWebIndexVersion(index.toFile(), "2.1.0-new", "4.1.0"));
 
         String expected = original
+                .replace(migrateComment, "")
+                .replace("./js/jquery-4.0.0.js", "./js/jquery-4.1.0.js")
                 .replace("?_=old-build", "?_=2.1.0-new")
                 .replace("?_=older", "?_=2.1.0-new");
         assertEquals(expected, Files.readString(index, StandardCharsets.UTF_8));
@@ -70,10 +77,10 @@ class WebIndexUpdateTest {
         Path index = webDirectory.resolve("index.html");
         String first = "<script src=\"app.js?_=one\"></script>\n";
         Files.writeString(index, first, StandardCharsets.UTF_8);
-        DynmapCore.updateWebIndexVersion(index.toFile(), "two");
+        DynmapCore.updateWebIndexVersion(index.toFile(), "two", "4.1.0");
         String second = Files.readString(index, StandardCharsets.UTF_8);
 
-        DynmapCore.updateWebIndexVersion(index.toFile(), "three");
+        DynmapCore.updateWebIndexVersion(index.toFile(), "three", "4.1.0");
 
         assertEquals("<script src=\"app.js?_=three\"></script>\n",
                 Files.readString(index, StandardCharsets.UTF_8));
@@ -99,7 +106,7 @@ class WebIndexUpdateTest {
         Files.setPosixFilePermissions(index, permissions);
         PosixFileAttributes before = Files.readAttributes(index, PosixFileAttributes.class);
 
-        DynmapCore.updateWebIndexVersion(index.toFile(), "new");
+        DynmapCore.updateWebIndexVersion(index.toFile(), "new", "4.1.0");
 
         PosixFileAttributes after = Files.readAttributes(index, PosixFileAttributes.class);
         assertEquals(before.owner(), after.owner());
@@ -119,7 +126,7 @@ class WebIndexUpdateTest {
         Object fileKey = Files.readAttributes(index, BasicFileAttributes.class).fileKey();
         try {
             assertThrows(IOException.class,
-                    () -> DynmapCore.updateWebIndexVersion(index.toFile(), "new"));
+                    () -> DynmapCore.updateWebIndexVersion(index.toFile(), "new", "4.1.0"));
             assertEquals(original, Files.readString(index, StandardCharsets.UTF_8));
             if (fileKey != null) {
                 assertEquals(fileKey, Files.readAttributes(index, BasicFileAttributes.class).fileKey());

@@ -13,7 +13,9 @@ import java.io.Writer;
 import java.lang.reflect.Constructor;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.DirectoryIteratorException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
@@ -111,6 +113,15 @@ public class DynmapCore implements DynmapCommonAPI {
     private static final String LEGACY_MAIN_CONFIGURATION_FILE = MAIN_CONFIGURATION_NAME + ".txt";
     private static final String MAIN_WEB_INDEX_FILE = "index.html";
     private static final String MAIN_WEB_INDEX_PATH = "web/" + MAIN_WEB_INDEX_FILE;
+    private static final Pattern VERSIONED_JQUERY_FILE = Pattern.compile("jquery-[0-9]+(?:\\.[0-9]+)+\\.js");
+    private static final String LEGACY_JQUERY_MIGRATE_FILE = "jquery-migrate-4.0.2.js";
+    private static final Pattern LEGACY_JQUERY_MIGRATE_COMMENT = Pattern.compile(
+            "(?m)^[\\t ]*<!-- not in use \\? test it <script type=\"text/javascript\" src=\"js/"
+                    + Pattern.quote(LEGACY_JQUERY_MIGRATE_FILE)
+                    + "(?:\\?[^\\\"\\r\\n]*)?\"></script>\\s*-->[\\t ]*(?:\\R|$)");
+    private static final Pattern LOCAL_JQUERY_SCRIPT = Pattern.compile(
+            "(<script\\b[^<>]*?\\s+src\\s*=\\s*[\"'](?:\\./)?js/)jquery-[0-9]+(?:\\.[0-9]+)+\\.js(?=[?#\"'])",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern WEB_ASSET_VERSION_PATTERN = Pattern.compile("(?<=\\?_=)[^&#\\\"'\\s<>]*");
 
     /**
@@ -128,6 +139,7 @@ public class DynmapCore implements DynmapCommonAPI {
     private String dynmapCompatibilityVersion = "unknown";
     private String airMapVersion = "unknown";
     private String airMapBuild = "local";
+    private String jqueryVersion = "";
     private String airMapRevision = "unknown";
     private String mariaDbDriverVersion = "unknown";
     private String platform = null;
@@ -2459,6 +2471,7 @@ public class DynmapCore implements DynmapCommonAPI {
             dynmapCompatibilityVersion = (String)val.getOrDefault("dynmap-compatibility-version", "unknown");
             airMapVersion = (String)val.getOrDefault("airmap-version", "unknown");
             airMapBuild = (String)val.getOrDefault("airmap-build", "local");
+            jqueryVersion = (String)val.getOrDefault("jquery-version", "");
             airMapRevision = (String)val.getOrDefault("airmap-revision", "unknown");
             mariaDbDriverVersion = (String)val.getOrDefault("mariadb-driver-version", "unknown");
         }
@@ -2647,9 +2660,28 @@ public class DynmapCore implements DynmapCommonAPI {
         boolean isVersionUpdate = isVersionUpdate(prevver, prevwebver, curver);
         File bundledMariaDbDriver = new File(df,
                 "drivers/mariadb-java-client-" + mariaDbDriverVersion + ".jar");
+        File webIndex = new File(wpath, MAIN_WEB_INDEX_FILE);
+        boolean existingWebIndex = webIndex.canRead();
+        Path jqueryDirectory = wpath.toPath().resolve("js");
+        String activeJquery = "jquery-" + jqueryVersion + ".js";
+        boolean checkJquery = updatewebpathfiles && !jqueryVersion.isEmpty();
+        boolean updateIndex = isVersionUpdate;
+        if (!isVersionUpdate && updatewebpathfiles && existingWebIndex && !jqueryVersion.isEmpty()) {
+            try {
+                String existing = Files.readString(webIndex.toPath(), StandardCharsets.UTF_8);
+                updateIndex = !existing.equals(updateBundledJqueryScripts(existing, jqueryVersion));
+            } catch (IOException iox) {
+                Log.warning("Could not check jQuery in " + webIndex.getPath() + ": " + iox.getMessage());
+                return;
+            }
+        }
         /* If matched, we're good */
         if (prevver.equals(curver) && prevwebver.equals(curver) && (!curver.endsWith(("-Dev")))
-                && bundledMariaDbDriver.isFile()) {
+                && bundledMariaDbDriver.isFile() && !updateIndex
+                && (!checkJquery || Files.isRegularFile(jqueryDirectory.resolve(activeJquery)))) {
+            if (checkJquery && existingWebIndex) {
+                removeObsoleteJqueryFiles(jqueryDirectory, activeJquery, webIndex.toPath());
+            }
             return;
         }
         // If doing update and web path update is disabled, send warning
@@ -2708,15 +2740,6 @@ public class DynmapCore implements DynmapCommonAPI {
                 	}
             		f = new File(wpath, n.substring("web/".length()));
                     if (MAIN_WEB_INDEX_PATH.equals(n) && f.canRead()) {
-                        if (isVersionUpdate) {
-                            try {
-                                updateWebIndexVersion(f, airMapVersion + "-" + airMapBuild);
-                            } catch (IOException iox) {
-                                extractionSuccessful = false;
-                                Log.severe("Unable to update web asset versions in place in " + f.getPath()
-                                        + "; no replacement file was installed. Check write permissions and restore from index.html.old if necessary.", iox);
-                            }
-                        }
                         continue;
                     }
                 }
@@ -2772,11 +2795,24 @@ public class DynmapCore implements DynmapCommonAPI {
             }
         }
 
+        if (extractionSuccessful && updatewebpathfiles && updateIndex && existingWebIndex) {
+            try {
+                updateWebIndexVersion(webIndex, airMapVersion + "-" + airMapBuild, jqueryVersion);
+            } catch (IOException iox) {
+                extractionSuccessful = false;
+                Log.severe("Unable to update web asset versions in " + webIndex.getPath(), iox);
+            }
+        }
+
         if (!extractionSuccessful) {
             Log.severe("Extracted file update was incomplete; version markers were not updated");
             return;
         }
         
+        if (checkJquery && webIndex.canRead()) {
+            removeObsoleteJqueryFiles(jqueryDirectory, activeJquery, webIndex.toPath());
+        }
+
         /* Finally, write new version cookie to both data folder and web folder*/
         Writer out = null;
         try {
@@ -2822,13 +2858,42 @@ public class DynmapCore implements DynmapCommonAPI {
         }
     }
 
-    static boolean updateWebIndexVersion(File indexFile, String buildIdentifier) throws IOException {
+    private static void removeObsoleteJqueryFiles(Path directory, String activeFile, Path index) {
+        if (!Files.isRegularFile(directory.resolve(activeFile))) return;
+        try (var files = Files.newDirectoryStream(directory, "jquery-*.js")) {
+            String html = Files.readString(index, StandardCharsets.UTF_8);
+            for (Path file : files) {
+                String name = file.getFileName().toString();
+                if ((VERSIONED_JQUERY_FILE.matcher(name).matches() || LEGACY_JQUERY_MIGRATE_FILE.equals(name))
+                        && !name.equals(activeFile)
+                        && !html.contains(name) && Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+                    try {
+                        Files.deleteIfExists(file);
+                    } catch (IOException iox) {
+                        Log.warning("Unable to remove obsolete jQuery file " + file + ": " + iox.getMessage());
+                    }
+                }
+            }
+        } catch (IOException | DirectoryIteratorException ex) {
+            Log.warning("Unable to check for obsolete jQuery files in " + directory + ": " + ex.getMessage());
+        }
+    }
+
+    private static String updateBundledJqueryScripts(String html, String jqueryVersion) {
+        if (jqueryVersion.isEmpty()) return html;
+        String updated = LEGACY_JQUERY_MIGRATE_COMMENT.matcher(html).replaceAll("");
+        return LOCAL_JQUERY_SCRIPT.matcher(updated)
+                .replaceAll("$1" + Matcher.quoteReplacement("jquery-" + jqueryVersion + ".js"));
+    }
+
+    static boolean updateWebIndexVersion(File indexFile, String buildIdentifier, String jqueryVersion) throws IOException {
         if (!indexFile.isFile()) return false;
 
         Path index = indexFile.toPath();
         String existing = Files.readString(index, StandardCharsets.UTF_8);
-        String updated = WEB_ASSET_VERSION_PATTERN.matcher(existing)
+        String updated = WEB_ASSET_VERSION_PATTERN.matcher(updateBundledJqueryScripts(existing, jqueryVersion))
                 .replaceAll(Matcher.quoteReplacement(buildIdentifier));
+        if (existing.equals(updated)) return false;
         Path backupFile = index.resolveSibling(MAIN_WEB_INDEX_FILE + ".old");
         Files.copy(index, backupFile, StandardCopyOption.REPLACE_EXISTING);
         Files.writeString(index, updated, StandardCharsets.UTF_8,

@@ -29,12 +29,26 @@ tasks.test {
 
 tasks {
     processResources {
+        val jqueryVersion = libs.versions.jquery.get()
+        val jqueryAsset = layout.projectDirectory.file(
+            "src/main/resources/extracted/web/js/jquery-$jqueryVersion.js"
+        )
+        doFirst {
+            val asset = jqueryAsset.asFile
+            check(asset.isFile && asset.useLines { lines ->
+                lines.take(5).any { it.trim() == "* jQuery JavaScript Library v$jqueryVersion" }
+            }) {
+                "Expected the full jQuery $jqueryVersion distribution at ${asset.path}"
+            }
+        }
+
         val resourceProperties = mapOf(
             "buildnumber" to rootProject.ext.get("buildNumber").toString(),
             "airmapversion" to rootProject.ext.get("airMapVersion").toString(),
             "minecraftversion" to libs.versions.minecraft.get(),
             "minecraftcompatible" to libs.versions.minecraftRuntime.get(),
             "mariadbdriverversion" to libs.versions.mariadbJavaClient.get(),
+            "jqueryversion" to jqueryVersion,
             "revision" to rootProject.ext.get("revision").toString(),
             "version" to project.version.toString()
         )

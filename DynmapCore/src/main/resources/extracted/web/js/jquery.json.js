@@ -46,7 +46,7 @@ jQuery.postJSON = function(obj, url, success, error) {
         url: url,
         data: $.stringifyJSON(obj),
         success: function(data, status, request) {
-            if (success) success(data ? $.parseJSON(data) : null, request);
+            if (success) success(data ? JSON.parse(data) : null, request);
         },
         error: function(request, status, errorThrown) {
             if (error) error(request.status, request.statusText, request);
@@ -79,7 +79,7 @@ jQuery.getJSON = function(url, success, error) {
             request.setRequestHeader('Accept', 'application/json');
         },
         success: function(data, status, request) {
-            if (success) success(data ? $.parseJSON(data) : null, request);
+            if (success) success(data ? JSON.parse(data) : null, request);
         },
         error: function(request, status, errorThrown) {
             if (error) error(request.status, request.statusText, request);

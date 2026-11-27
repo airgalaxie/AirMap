@@ -4,4 +4,5 @@ airmap-version: "${airmapversion}"
 airmap-build: "${buildnumber}"
 airmap-revision: "${revision}"
 mariadb-driver-version: "${mariadbdriverversion}"
+jquery-version: "${jqueryversion}"
 authors: [mikeprimm]
